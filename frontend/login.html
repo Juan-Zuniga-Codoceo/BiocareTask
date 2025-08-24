@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BiocareTask - Iniciar Sesión</title>
+  <link rel="stylesheet" href="css/login.css" />
+  <link rel="icon" href="assets/favicon.png" type="image/png">
+</head>
+<body>
+  <div id="login-app">
+    <div class="login-container">
+      <!-- Logo y encabezado -->
+      <div class="brand">
+        <div class="logo">
+          <img src="assets/logo.png" alt="Biocare Logo" />
+        </div>
+        <h1>BiocareTask</h1>
+        <p>Organiza tus tareas diarias de forma simple y segura</p>
+      </div>
+
+      <!-- Formulario de login -->
+      <form @submit.prevent="login" class="login-form">
+        <h2>Iniciar Sesión</h2>
+        <p>Accede a tu cuenta para gestionar tus tareas</p>
+
+        <!-- Mensaje de error -->
+        <div class="error" v-if="error">
+          {{ error }}
+        </div>
+
+        <!-- Campo de correo -->
+        <div class="input-group">
+          <label>Correo corporativo</label>
+          <input 
+            type="email" 
+            v-model="email" 
+            placeholder="tu@biocare.cl" 
+            required 
+            autofocus
+          />
+        </div>
+
+        <!-- Campo de contraseña -->
+        <div class="input-group">
+          <label>Contraseña</label>
+          <input 
+            type="password" 
+            v-model="password" 
+            placeholder="••••••••" 
+            required 
+          />
+        </div>
+
+        <!-- Botón de acceso -->
+        <button type="submit" :disabled="loading" class="btn-primary">
+          {{ loading ? 'Cargando...' : 'Iniciar Sesión' }}
+        </button>
+
+        <!-- Enlace a registro -->
+        <div class="links">
+          <a href="/registro">¿No tienes cuenta? Regístrate</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Vue.js desde CDN (DEBE IR ANTES) -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script src="js/auth.js"></script>
+</body>
+</html>

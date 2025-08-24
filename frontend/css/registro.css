@@ -1,0 +1,207 @@
+:root {
+  --biocare-verde: #006837;
+  --biocare-verde-claro: #00A651;
+  --biocare-azul: #00BFFF;
+  --biocare-rojo: #E30613;
+  --blanco: #FFFFFF;
+  --gris-claro: #F5F5F5;
+  --gris-oscuro: #333333;
+  --sombra: 0 4px 12px rgba(0,0,0,0.1);
+  --borde: 1px solid #ddd;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: var(--gris-claro);
+  color: var(--gris-oscuro);
+  line-height: 1.6;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+.register-container {
+  display: flex;
+  max-width: 900px;
+  width: 100%;
+  background: white;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: var(--sombra);
+  height: 500px;
+}
+
+/* Lado izquierdo: Branding */
+.brand {
+  flex: 1;
+  background: var(--biocare-verde);
+  color: white;
+  padding: 40px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+
+.brand .logo {
+  width: 80px;
+  height: 80px;
+  margin-bottom: 20px;
+}
+
+.brand .logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.brand h1 {
+  font-size: 28px;
+  margin: 10px 0;
+  font-weight: 600;
+}
+
+.brand p {
+  font-size: 16px;
+  opacity: 0.9;
+  margin-top: 10px;
+}
+
+/* Lado derecho: Formulario */
+.register-form {
+  flex: 1;
+  padding: 40px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.register-form h2 {
+  font-size: 24px;
+  margin-bottom: 8px;
+  color: var(--gris-oscuro);
+}
+
+.register-form p {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 20px;
+}
+
+/* Mensaje de error */
+.error {
+  background: var(--biocare-rojo);
+  color: white;
+  padding: 10px 15px;
+  border-radius: 6px;
+  font-size: 14px;
+  margin-bottom: 15px;
+  text-align: center;
+}
+
+/* Mensaje de éxito */
+.success {
+  background: var(--biocare-verde-claro);
+  color: white;
+  padding: 10px 15px;
+  border-radius: 6px;
+  font-size: 14px;
+  margin-bottom: 15px;
+  text-align: center;
+}
+
+/* Grupo de inputs */
+.input-group {
+  margin-bottom: 18px;
+}
+
+.input-group label {
+  display: block;
+  font-size: 14px;
+  color: var(--gris-oscuro);
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+
+.input-group input,
+.input-group select {
+  width: 100%;
+  padding: 12px 15px;
+  border: var(--borde);
+  border-radius: 8px;
+  font-size: 16px;
+  transition: border 0.2s;
+  font-family: inherit;
+}
+
+.input-group input:focus,
+.input-group select:focus {
+  outline: none;
+  border-color: var(--biocare-verde-claro);
+  box-shadow: 0 0 0 2px rgba(0, 166, 81, 0.2);
+}
+
+/* Botón principal */
+.btn-primary {
+  background: var(--biocare-verde-claro);
+  color: white;
+  border: none;
+  padding: 14px 20px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 10px;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--biocare-verde);
+  transform: translateY(-1px);
+}
+
+.btn-primary:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Enlaces */
+.links {
+  text-align: center;
+  margin-top: 20px;
+}
+
+.links a {
+  color: var(--biocare-verde-claro);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.links a:hover {
+  text-decoration: underline;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .register-container {
+    flex-direction: column;
+    height: auto;
+  }
+  .brand {
+    padding: 30px;
+  }
+  .register-form {
+    padding: 30px;
+  }
+}

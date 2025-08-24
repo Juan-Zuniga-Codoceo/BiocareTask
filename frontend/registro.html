@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BiocareTask - Registro</title>
+  <link rel="stylesheet" href="css/registro.css" />
+  <link rel="icon" href="assets/favicon.png" type="image/png">
+</head>
+<body>
+  <div id="register-app">
+    <div class="register-container">
+      <!-- Lado izquierdo: Branding -->
+      <div class="brand">
+        <div class="logo">
+          <img src="assets/logo.png" alt="Biocare Logo" />
+        </div>
+        <h1>BiocareTask</h1>
+        <p>Regístrate y empieza a gestionar tus tareas desde hoy</p>
+      </div>
+
+      <!-- Lado derecho: Formulario -->
+      <form @submit.prevent="registrar" class="register-form">
+        <h2>Crear Cuenta</h2>
+        <p>Completa los campos para registrarte</p>
+
+        <!-- Mensaje de error -->
+        <div class="error" v-if="error">
+          {{ error }}
+        </div>
+
+        <!-- Mensaje de éxito -->
+        <div class="success" v-if="success">
+          {{ success }}
+        </div>
+
+        <!-- Nombre -->
+        <div class="input-group">
+          <label>Nombre completo</label>
+          <input 
+            type="text" 
+            v-model="name" 
+            placeholder="Juan Pérez" 
+            required 
+            autofocus
+          />
+        </div>
+
+        <!-- Correo -->
+        <div class="input-group">
+          <label>Correo corporativo</label>
+          <input 
+            type="email" 
+            v-model="email" 
+            placeholder="tu@biocare.cl" 
+            required 
+          />
+        </div>
+
+        <!-- Contraseña -->
+        <div class="input-group">
+          <label>Contraseña</label>
+          <input 
+            type="password" 
+            v-model="password" 
+            placeholder="••••••••" 
+            minlength="6" 
+            required 
+          />
+        </div>
+
+        <!-- Oficina -->
+        <div class="input-group">
+          <label>Oficina</label>
+          <select v-model="office" required>
+            <option value="" disabled>Selecciona tu oficina</option>
+            <option value="Valparaíso">Valparaíso</option>
+            <option value="Viña del Mar">Viña del Mar</option>
+            <option value="Quilpué">Quilpué</option>
+            <option value="Bodega">Bodega</option>
+          </select>
+        </div>
+
+        <!-- Botón de registro -->
+        <button type="submit" :disabled="loading" class="btn-primary">
+          {{ loading ? 'Creando cuenta...' : 'Crear Cuenta' }}
+        </button>
+
+        <!-- Enlace a login -->
+        <div class="links">
+          <a href="/login">¿Ya tienes cuenta? Inicia sesión</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Vue.js desde CDN (antes del script) -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script src="js/auth.js"></script>
+</body>
+</html>

@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BiocareTask - Mi Perfil</title>
+  <link rel="stylesheet" href="css/perfil.css" />
+  <link rel="icon" href="assets/favicon.png" type="image/png">
+</head>
+<body>
+  <div id="app">
+    <!-- Header -->
+    <header class="header">
+      <div class="logo">
+        <img src="assets/logo.png" alt="Biocare Logo" />
+        <h1>BiocareTask</h1>
+      </div>
+      <div class="user-menu">
+        <span>👋 {{ user.name }}</span>
+        <div class="dropdown">
+          <button class="btn-dropdown">⚙️</button>
+          <div class="dropdown-menu">
+            <a href="/perfil" class="active">Mi Perfil</a>
+            <a href="javascript:logout()">Cerrar sesión</a>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Perfil -->
+    <main class="profile-container">
+      <div class="profile-card">
+        <div class="avatar">{{ user.name.charAt(0).toUpperCase() }}</div>
+        <h2>{{ user.name }}</h2>
+        <p><strong>Correo:</strong> {{ user.email }}</p>
+        <p><strong>Oficina:</strong> {{ user.office }}</p>
+        <p><strong>Rol:</strong> <span class="badge">{{ user.role }}</span></p>
+      </div>
+
+      <!-- Estadísticas -->
+      <div class="stats">
+        <div class="stat-card">
+          <h3>{{ historial.creadas }}</h3>
+          <p>Tareas creadas</p>
+        </div>
+        <div class="stat-card">
+          <h3>{{ historial.asignadas }}</h3>
+          <p>Tareas asignadas</p>
+        </div>
+        <div class="stat-card">
+          <h3>{{ historial.completadas }}</h3>
+          <p>Completadas</p>
+        </div>
+        <div class="stat-card">
+          <h3>{{ historial.vencidas }}</h3>
+          <p>Vencidas</p>
+        </div>
+      </div>
+
+      <!-- Historial de tareas asignadas -->
+      <section class="history-section">
+        <h2>📋 Tareas Asignadas</h2>
+        <div class="task-list">
+          <div class="task-item" v-for="task in tareasAsignadas" :key="task.id">
+            <h4>{{ task.title }}</h4>
+            <p>{{ task.description }}</p>
+            <small>
+              <strong>📅</strong> {{ formatDate(task.due_date) }} | 
+              <strong>Estado:</strong> {{ task.status }}
+            </small>
+          </div>
+          <p class="empty" v-if="tareasAsignadas.length === 0">No tienes tareas asignadas</p>
+        </div>
+      </section>
+
+      <!-- Historial de tareas creadas -->
+      <section class="history-section">
+        <h2>✅ Tareas que He Creado</h2>
+        <div class="task-list">
+          <div class="task-item" v-for="task in tareasCreadas" :key="task.id">
+            <h4>{{ task.title }}</h4>
+            <p>{{ task.description }}</p>
+            <small>
+              <strong>📅</strong> {{ formatDate(task.due_date) }} | 
+              <strong>Estado:</strong> {{ task.status }}
+            </small>
+          </div>
+          <p class="empty" v-if="tareasCreadas.length === 0">No has creado tareas</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Vue.js desde CDN (ANTES de tasks.js) -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script src="js/perfil.js"></script>
+</body>
+</html>

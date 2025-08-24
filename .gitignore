@@ -1,0 +1,44 @@
+# Node.js
+node_modules/
+npm-debug.log
+yarn-error.log
+yarn-debug.log
+.pnpm-debug.log
+
+# Entornos
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Build
+dist/
+build/
+out/
+.next/
+.nuxt/
+.cache/
+
+# IDE y editores
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Sistema
+__pycache__/
+*.pyc
+
+# Logs
+logs
+*.log
+
+# Base de datos local (opcional: si quieres respaldarla, quita esta línea)
+database.sqlite
+
+# Archivos temporales
+*.tmp
+*.temp
