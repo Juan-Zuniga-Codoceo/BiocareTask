@@ -6,7 +6,7 @@
   <title>BiocareTask - Tablero</title>
   <link rel="stylesheet" href="css/tablero.css" />
   <link rel="manifest" href="manifest.json">
-  <link rel="icon" href="assets/favicon.png" type="image/png">
+  <link rel="icon" href="assets/logo.png" type="image/png">
 </head>
 <body>
   <div id="app">
@@ -66,11 +66,8 @@
               class="task-card"
               @click="verDetalles(task)"
             >
-              <div class="task-header">
-                <h3>{{ task.title }}</h3>
-                <span :class="'priority-dot priority-' + task.priority" :title="'Prioridad ' + getPriorityText(task.priority)"></span>
-              </div>
-              <p class="task-description">{{ task.description }}</p>
+              <h3>{{ task.title }}</h3>
+              <p>{{ task.description }}</p>
               <div class="task-meta">
                 <span class="due-date">📅 {{ formatDate(task.due_date) }}</span>
                 <div class="labels">
@@ -102,11 +99,8 @@
               class="task-card"
               @click="verDetalles(task)"
             >
-              <div class="task-header">
-                <h3>{{ task.title }}</h3>
-                <span :class="'priority-dot priority-' + task.priority" :title="'Prioridad ' + getPriorityText(task.priority)"></span>
-              </div>
-              <p class="task-description">{{ task.description }}</p>
+              <h3>{{ task.title }}</h3>
+              <p>{{ task.description }}</p>
               <div class="task-meta">
                 <span class="due-date">📅 {{ formatDate(task.due_date) }}</span>
                 <div class="labels">
@@ -138,11 +132,8 @@
               class="task-card completed"
               @click="verDetalles(task)"
             >
-              <div class="task-header">
-                <h3>✅ {{ task.title }}</h3>
-                <span :class="'priority-dot priority-' + task.priority" :title="'Prioridad ' + getPriorityText(task.priority)"></span>
-              </div>
-              <p class="task-description">{{ task.description }}</p>
+              <h3>✅ {{ task.title }}</h3>
+              <p>{{ task.description }}</p>
               <div class="task-meta">
                 <small>Completado el {{ formatDate(task.completed_at) }}</small>
                 <div class="labels">
@@ -233,7 +224,10 @@
               accept=".pdf,.jpg,.jpeg,.png,.gif" 
               @change="handleFileUpload"
             />
-            <p v-if="archivoAdjunto" class="file-name">{{ archivoAdjunto.name }}</p>
+            <div v-if="archivoAdjunto" class="file-preview">
+              <span class="file-name">{{ archivoAdjunto.name }}</span>
+              <button @click="removeFile" class="btn-remove-file" title="Eliminar archivo">✕</button>
+            </div>
           </div>
         </div>
 
@@ -295,20 +289,23 @@
               </div>
             </div>
             
-            <!-- Archivo adjunto -->
-            <div class="detail-section" v-if="tareaSeleccionada.file_path">
-              <h3>Archivo adjunto</h3>
-              <div class="file-attachment">
-                <div class="file-icon">📎</div>
-                <div class="file-info">
-                  <a :href="tareaSeleccionada.file_path" target="_blank" class="file-link">
-                    {{ getFileName(tareaSeleccionada.file_path) }}
-                  </a>
-                  <span class="file-size">({{ getFileSize(tareaSeleccionada.file_size) }})</span>
+            <!-- Archivos adjuntos -->
+            <div class="detail-section" v-if="tareaSeleccionada.attachments && tareaSeleccionada.attachments.length > 0">
+              <h3>Archivos adjuntos</h3>
+              <div class="attachments-list">
+                <div v-for="attachment in tareaSeleccionada.attachments" :key="attachment.id" class="attachment-item">
+                  <div class="attachment-icon">📎</div>
+                  <div class="attachment-info">
+                    <span class="attachment-link" @click="downloadFile(attachment)" title="Descargar archivo">
+                      {{ attachment.file_name }}
+                    </span>
+                    <span class="attachment-size">{{ getFileSize(attachment.file_size) }}</span>
+                    <span class="attachment-uploader">Subido por: {{ attachment.uploaded_by_name }}</span>
+                  </div>
+                  <button class="btn-download" @click="downloadFile(attachment)" title="Descargar archivo">
+                    ⬇️
+                  </button>
                 </div>
-                <a :href="tareaSeleccionada.file_path" download class="btn-download" title="Descargar archivo">
-                  ⬇️
-                </a>
               </div>
             </div>
           </div>

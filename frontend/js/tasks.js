@@ -44,81 +44,41 @@ createApp({
       window.location.href = '/login';
     };
 
-    const cargarDatos = async () => {
+    // Función para descargar archivos
+    const downloadFile = async (attachment) => {
       try {
-        // Simular datos para pruebas (eliminar cuando el backend esté listo)
-        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-          // Datos de ejemplo
-          tasks.value = [
-            {
-              id: 1,
-              title: "Entregar paquetes en Santiago",
-              description: "Llevar los documentos a la oficina central",
-              due_date: "2023-12-15T14:00:00",
-              status: "pendiente",
-              priority: "alta",
-              assigned_names: "Juan Pérez, María López",
-              created_by_name: "Admin",
-              label_names: "Entrega, Santiago, Prioritaria",
-              file_path: "/uploads/documento1.pdf",
-              file_size: 2048576
-            },
-            {
-              id: 2,
-              title: "Revisar facturas pendientes",
-              description: "Verificar las facturas del mes de noviembre",
-              due_date: "2023-12-10T10:30:00",
-              status: "en_camino",
-              priority: "media",
-              assigned_names: "Carlos Rodríguez",
-              created_by_name: "Admin",
-              label_names: "Factura",
-              file_path: "/uploads/facturas.xlsx",
-              file_size: 512000
-            },
-            {
-              id: 3,
-              title: "Entrega express Viña del Mar",
-              description: "Paquete urgente para cliente en Viña",
-              due_date: "2023-12-05T16:45:00",
-              status: "completada",
-              priority: "alta",
-              assigned_names: "Ana Silva",
-              created_by_name: "Admin",
-              label_names: "Express, Viña del Mar",
-              completed_at: "2023-12-05T15:30:00",
-              file_path: "/uploads/contrato.pdf",
-              file_size: 1048576
-            }
-          ];
-          
-          users.value = [
-            { id: 1, name: "Juan Pérez" },
-            { id: 2, name: "María López" },
-            { id: 3, name: "Carlos Rodríguez" },
-            { id: 4, name: "Ana Silva" }
-          ];
-          
-          labels.value = [
-            { id: 1, name: "Entrega" },
-            { id: 2, name: "Express" },
-            { id: 3, name: "Factura" },
-            { id: 4, name: "Santiago" },
-            { id: 5, name: "Valparaíso" },
-            { id: 6, name: "Viña del Mar" },
-            { id: 7, name: "Prioritaria" }
-          ];
-          
-          resumen.value = { 
-            vencidas: 1, 
-            proximas: 2, 
-            total_pendientes: 5 
-          };
-          
-          return;
+        // Usar la ruta API para asegurar la descarga correcta
+        const response = await fetch(`/api/download/${attachment.file_path}`);
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Error al descargar el archivo');
         }
         
-        // Código real para producción
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        
+        // Usar el nombre original del archivo para la descarga
+        link.download = attachment.file_name;
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Liberar el objeto URL después de un tiempo
+        setTimeout(() => {
+          window.URL.revokeObjectURL(url);
+        }, 100);
+      } catch (error) {
+        console.error('Error al descargar archivo:', error);
+        alert('Error al descargar el archivo: ' + error.message);
+      }
+    };
+
+    const cargarDatos = async () => {
+      try {
         const [tasksRes, usersRes, labelsRes, resumenRes] = await Promise.all([
           fetch('/api/tasks'),
           fetch('/api/users'),
@@ -126,18 +86,28 @@ createApp({
           fetch('/api/tasks/resumen')
         ]);
         
-        if (!tasksRes.ok) throw new Error('Error al cargar tareas');
-        if (!usersRes.ok) throw new Error('Error al cargar usuarios');
-        if (!labelsRes.ok) throw new Error('Error al cargar etiquetas');
-        if (!resumenRes.ok) throw new Error('Error al cargar resumen');
-        
         tasks.value = await tasksRes.json();
         users.value = await usersRes.json();
         labels.value = await labelsRes.json();
         resumen.value = await resumenRes.json();
+        
+        // Cargar archivos adjuntos para cada tarea
+        for (let task of tasks.value) {
+          try {
+            const attachmentsRes = await fetch(`/api/attachments/task/${task.id}`);
+            if (attachmentsRes.ok) {
+              task.attachments = await attachmentsRes.json();
+            } else {
+              task.attachments = [];
+            }
+          } catch (err) {
+            console.error('Error al cargar adjuntos:', err);
+            task.attachments = [];
+          }
+        }
       } catch (err) {
         console.error('Error al cargar datos:', err);
-        alert('No se pudo conectar con el servidor. Se muestran datos de ejemplo.');
+        alert('No se pudo conectar con el servidor.');
       }
     };
 
@@ -146,12 +116,39 @@ createApp({
       if (file) {
         archivoAdjunto.value = file;
         newTask.value.file_path = file.name;
-        newTask.value.file_size = file.size;
+      }
+    };
+
+    const removeFile = () => {
+      archivoAdjunto.value = null;
+      newTask.value.file_path = '';
+      document.getElementById('fileInput').value = '';
+    };
+
+    // Función para subir archivo después de crear la tarea
+    const subirArchivo = async (taskId) => {
+      try {
+        const formData = new FormData();
+        formData.append('file', archivoAdjunto.value);
+        formData.append('task_id', taskId);
+        formData.append('file_name', archivoAdjunto.value.name);
+        formData.append('uploaded_by', user.value.id);
+
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData
+        });
+
+        if (!res.ok) {
+          console.error('Error al subir archivo:', await res.text());
+        }
+      } catch (err) {
+        console.error('Error al subir archivo:', err);
       }
     };
 
     const crearTarea = async () => {
-      // Validaciones
+      // Validaciones básicas en frontend
       if (!newTask.value.title.trim()) {
         alert('El título es obligatorio');
         return;
@@ -165,81 +162,56 @@ createApp({
       creandoTarea.value = true;
       
       try {
-        // Simular creación para pruebas (eliminar cuando el backend esté listo)
-        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-          // Simular retardo de red
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          
-          const assignedUsers = users.value
-            .filter(u => newTask.value.assigned_to.includes(u.id))
-            .map(u => u.name);
-            
-          const taskLabels = labels.value
-            .filter(l => newTask.value.label_ids.includes(l.id))
-            .map(l => l.name);
-          
-          const nuevaTarea = {
-            id: Date.now(),
-            title: newTask.value.title,
-            description: newTask.value.description,
-            due_date: newTask.value.due_date,
-            status: "pendiente",
-            priority: newTask.value.priority,
-            assigned_names: assignedUsers.join(', '),
-            created_by_name: user.value.name,
-            label_names: taskLabels.join(', '),
-            file_path: newTask.value.file_path || '',
-            file_size: newTask.value.file_size || 0
-          };
-          
-          tasks.value.unshift(nuevaTarea);
-          
-          showModal.value = false;
-          resetForm();
-          creandoTarea.value = false;
-          
-          alert('Tarea creada exitosamente (modo simulación)');
-          return;
+        // Formatear la fecha correctamente
+        let formattedDueDate = newTask.value.due_date;
+        if (formattedDueDate && !formattedDueDate.includes('T')) {
+          formattedDueDate += 'T00:00:00';
         }
-        
-        // Código real para producción
-        const formData = new FormData();
-        formData.append('title', newTask.value.title);
-        formData.append('description', newTask.value.description);
-        formData.append('due_date', newTask.value.due_date);
-        formData.append('priority', newTask.value.priority);
-        formData.append('created_by', user.value.id);
-        
-        // Añadir usuarios asignados
-        newTask.value.assigned_to.forEach(userId => {
-          formData.append('assigned_to[]', userId);
-        });
-        
-        // Añadir etiquetas
-        newTask.value.label_ids.forEach(labelId => {
-          formData.append('label_ids[]', labelId);
-        });
-        
-        // Añadir archivo si existe
-        if (archivoAdjunto.value) {
-          formData.append('file', archivoAdjunto.value);
-        }
+
+        const taskData = {
+          title: newTask.value.title.trim(),
+          description: newTask.value.description,
+          due_date: formattedDueDate,
+          priority: newTask.value.priority,
+          assigned_to: Array.isArray(newTask.value.assigned_to) ? 
+                      newTask.value.assigned_to.filter(id => id) : [],
+          label_ids: Array.isArray(newTask.value.label_ids) ? 
+                     newTask.value.label_ids.filter(id => id) : [],
+          created_by: user.value.id
+        };
 
         const res = await fetch('/api/tasks', {
           method: 'POST',
-          body: formData
+          headers: { 
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(taskData)
         });
 
+        const responseData = await res.json();
+
         if (res.ok) {
+          // Si hay archivo adjunto, subirlo después de crear la tarea
+          if (archivoAdjunto.value) {
+            await subirArchivo(responseData.id);
+          }
+          
           showModal.value = false;
           resetForm();
           cargarDatos();
           alert('Tarea creada exitosamente');
         } else {
-          const error = await res.text();
-          alert('Error: ' + (error || 'No se pudo crear la tarea'));
+          if (responseData.errors) {
+            const errorMessages = responseData.errors.map(error => 
+              `${error.path}: ${error.msg}`
+            ).join('\n');
+            alert('Errores de validación:\n' + errorMessages);
+          } else {
+            alert('Error: ' + (responseData.error || 'No se pudo crear la tarea'));
+          }
         }
       } catch (err) {
+        console.error('Error al crear tarea:', err);
         alert('Error de conexión: ' + err.message);
       } finally {
         creandoTarea.value = false;
@@ -268,20 +240,6 @@ createApp({
       }
       
       try {
-        // Simular creación para pruebas (eliminar cuando el backend esté listo)
-        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-          const nuevaLabel = {
-            id: Date.now(),
-            name: nuevaEtiqueta.value.trim()
-          };
-          
-          labels.value.push(nuevaLabel);
-          nuevaEtiqueta.value = '';
-          alert('Etiqueta creada exitosamente (modo simulación)');
-          return;
-        }
-        
-        // Código real para producción
         const res = await fetch('/api/labels', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -305,14 +263,6 @@ createApp({
 
     const moverACamino = async (id) => {
       try {
-        // Simular actualización para pruebas
-        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-          const task = tasks.value.find(t => t.id === id);
-          if (task) task.status = 'en_camino';
-          return;
-        }
-        
-        // Código real para producción
         const res = await fetch(`/api/tasks/${id}/status`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -331,17 +281,6 @@ createApp({
 
     const completar = async (id) => {
       try {
-        // Simular actualización para pruebas
-        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-          const task = tasks.value.find(t => t.id === id);
-          if (task) {
-            task.status = 'completada';
-            task.completed_at = new Date().toISOString();
-          }
-          return;
-        }
-        
-        // Código real para producción
         const res = await fetch(`/api/tasks/${id}/status`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -358,7 +297,19 @@ createApp({
       }
     };
 
-    const verDetalles = (task) => {
+    const verDetalles = async (task) => {
+      // Cargar archivos adjuntos para esta tarea
+      try {
+        const attachmentsRes = await fetch(`/api/attachments/task/${task.id}`);
+        if (attachmentsRes.ok) {
+          task.attachments = await attachmentsRes.json();
+        } else {
+          task.attachments = [];
+        }
+      } catch (err) {
+        console.error('Error al cargar adjuntos:', err);
+        task.attachments = [];
+      }
       tareaSeleccionada.value = task;
     };
 
@@ -440,11 +391,6 @@ createApp({
       return priority === 'alta' ? 'Alta' : priority === 'media' ? 'Media' : 'Baja';
     };
 
-    const getFileName = (path) => {
-      if (!path) return '';
-      return path.split('/').pop();
-    };
-
     const getFileSize = (bytes) => {
       if (!bytes) return '0 B';
       const sizes = ['B', 'KB', 'MB', 'GB'];
@@ -479,12 +425,13 @@ createApp({
       completar,
       verDetalles,
       handleFileUpload,
+      removeFile,
       getLabelsArray,
       formatDate,
       getColor,
       getPriorityText,
-      getFileName,
-      getFileSize
+      getFileSize,
+      downloadFile
     };
   }
 }).mount('#app');

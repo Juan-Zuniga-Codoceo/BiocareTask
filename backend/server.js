@@ -5,8 +5,10 @@ const bcrypt = require('bcrypt');
 const path = require('path');
 const { body, validationResult } = require('express-validator');
 const app = express();
-const PORT = 3000;
 
+// Definir PORT y HOST al inicio
+const PORT = process.env.PORT || 3000;
+const HOST = process.env.HOST || '0.0.0.0';
 
 // === RUTAS AMIGABLES ===
 app.get('/', (req, res) => {
@@ -31,7 +33,7 @@ app.get('/perfil', (req, res) => {
 
 // === SERVIR ARCHIVOS ESTÁTICOS ===
 app.use(express.static(path.join(__dirname, '..', 'frontend')));
-
+app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads'))); 
 // === MIDDLEWARE ===
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, '..', 'frontend')));
@@ -173,9 +175,9 @@ app.get('/api/tasks', (req, res) => {
 
 // 🆕 CREAR TAREA
 app.post('/api/tasks', [
-  body('title').notEmpty().trim().escape(),
-  body('due_date').isISO8601(),
-  body('priority').optional().isIn(['alta', 'media', 'baja'])
+  body('title').notEmpty().withMessage('El título es requerido').trim().escape(),
+  body('due_date').notEmpty().withMessage('La fecha de entrega es requerida'),
+  body('priority').optional().isIn(['alta', 'media', 'baja']).withMessage('Prioridad inválida')
 ], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -183,13 +185,19 @@ app.post('/api/tasks', [
   }
 
   const { title, description, due_date, priority, assigned_to, label_ids } = req.body;
-  const created_by = req.body.created_by || 1; // Temporal
+  const created_by = req.body.created_by || 1;
+
+  // Convertir due_date a formato ISO si es necesario
+  let formattedDueDate = due_date;
+  if (due_date && !due_date.includes('T')) {
+    formattedDueDate = due_date + 'T00:00:00'; // Agregar hora si solo viene fecha
+  }
 
   db.serialize(() => {
     db.run(
       `INSERT INTO tasks (title, description, due_date, priority, created_by) 
        VALUES (?, ?, ?, ?, ?)`,
-      [title, description, due_date, priority || 'media', created_by],
+      [title, description, formattedDueDate, priority || 'media', created_by],
       function (err) {
         if (err) {
           console.error('Error al crear tarea:', err);
@@ -199,16 +207,20 @@ app.post('/api/tasks', [
         const taskId = this.lastID;
 
         // Asignar usuarios
-        if (assigned_to && Array.isArray(assigned_to) && assigned_to.length > 0) {
+        if (assigned_to && Array.isArray(assigned_to)) {
           const stmt = db.prepare("INSERT INTO task_assignments (task_id, user_id) VALUES (?, ?)");
-          assigned_to.forEach(userId => stmt.run(taskId, userId));
+          assigned_to.forEach(userId => {
+            if (userId) stmt.run(taskId, userId);
+          });
           stmt.finalize();
         }
 
         // Asignar etiquetas
-        if (label_ids && Array.isArray(label_ids) && label_ids.length > 0) {
+        if (label_ids && Array.isArray(label_ids)) {
           const stmt = db.prepare("INSERT INTO task_labels (task_id, label_id) VALUES (?, ?)");
-          label_ids.forEach(labelId => stmt.run(taskId, labelId));
+          label_ids.forEach(labelId => {
+            if (labelId) stmt.run(taskId, labelId);
+          });
           stmt.finalize();
         }
 
@@ -217,7 +229,6 @@ app.post('/api/tasks', [
     );
   });
 });
-
 // ✅ MARCAR COMO COMPLETADA (o cambiar estado)
 app.put('/api/tasks/:id/status', [
   body('status').isIn(['pendiente', 'en_camino', 'completada'])
@@ -340,6 +351,65 @@ app.get('/api/attachments/task/:taskId', (req, res) => {
   );
 });
 
+// 📤 SUBIR ARCHIVO (nueva ruta)
+const multer = require('multer');
+const fs = require('fs');
+
+// Crear directorio de uploads si no existe
+const uploadsDir = path.join(__dirname, '..', 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// Configurar multer para almacenamiento de archivos
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadsDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + '-' + file.originalname);
+  }
+});
+
+const upload = multer({ 
+  storage: storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB límite
+  }
+});
+
+app.post('/api/upload', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No se subió ningún archivo' });
+    }
+
+    const { task_id, file_name, uploaded_by } = req.body;
+
+    db.run(
+      `INSERT INTO attachments (task_id, file_path, file_name, file_type, uploaded_by)
+       VALUES (?, ?, ?, ?, ?)`,
+      [task_id, req.file.filename, file_name, req.file.mimetype, uploaded_by],
+      function (err) {
+        if (err) {
+          console.error('Error al guardar archivo en BD:', err);
+          // Eliminar el archivo subido si hay error en la BD
+          fs.unlinkSync(req.file.path);
+          return res.status(500).json({ error: 'No se pudo guardar el archivo' });
+        }
+        res.json({ 
+          id: this.lastID, 
+          success: true,
+          file_path: req.file.filename 
+        });
+      }
+    );
+  } catch (err) {
+    console.error('Error en upload:', err);
+    res.status(500).json({ error: 'Error al subir archivo' });
+  }
+});
 // 🗓️ TAREAS VENCIDAS / PRÓXIMAS
 app.get('/api/tasks/resumen', (req, res) => {
   const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
@@ -366,8 +436,9 @@ app.get('/', (req, res) => {
 });
 
 // Iniciar servidor
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 BiocareTask API lista en http://localhost:${PORT}`);
+app.listen(PORT, HOST, () => {
+  console.log(`🚀 BiocareTask API ejecutándose en http://${HOST}:${PORT}`);
   console.log(`📁 Base de datos: ${path.resolve(__dirname, 'database.sqlite')}`);
   console.log(`🌐 Accesible desde cualquier dispositivo en la red`);
+  console.log(`⚡ Entorno: ${process.env.NODE_ENV || 'development'}`);
 });
