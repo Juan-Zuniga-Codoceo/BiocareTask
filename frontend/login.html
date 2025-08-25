@@ -5,7 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>BiocareTask - Iniciar Sesión</title>
   <link rel="stylesheet" href="css/login.css" />
-  <link rel="icon" href="assets/favicon.png" type="image/png">
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/assets/logo.png" type="image/png">
 </head>
 <body>
   <div id="login-app">
@@ -66,6 +68,7 @@
   </div>
 
   <!-- Vue.js desde CDN (DEBE IR ANTES) -->
+   <script src="/js/api.js"></script>
   <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
   <script src="js/auth.js"></script>
 </body>

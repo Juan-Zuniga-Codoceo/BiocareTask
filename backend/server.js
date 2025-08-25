@@ -85,12 +85,14 @@ app.use((req, res, next) => {
 // Validar autenticación
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+  const token = authHeader && authHeader.split(' ')[1]; // Formato: Bearer TOKEN
   
+  // Si no hay token en el header, verificar si viene en query (para desarrollo)
   if (!token) {
     return res.status(401).json({ error: 'Token de acceso requerido' });
   }
   
+  // Validar que el usuario exista
   db.get("SELECT id FROM users WHERE id = ?", [token], (err, user) => {
     if (err || !user) {
       return res.status(403).json({ error: 'Token inválido o usuario no existe' });
@@ -99,7 +101,6 @@ const authenticateToken = (req, res, next) => {
     next();
   });
 };
-
 // Manejo de errores
 const errorHandler = (err, req, res, next) => {
   console.error('Error:', err.message);

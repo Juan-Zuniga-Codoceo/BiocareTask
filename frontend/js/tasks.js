@@ -1,4 +1,5 @@
-const { createApp, ref, computed } = Vue;
+// frontend/js/tasks.js
+const { createApp, ref, computed, onMounted } = Vue;
 
 createApp({
   setup() {
@@ -13,6 +14,8 @@ createApp({
     const showModal = ref(false);
     const tareaSeleccionada = ref(null);
     const creandoTarea = ref(false);
+    const loading = ref(true);
+    const error = ref('');
 
     // Nueva tarea
     const newTask = ref({
@@ -27,8 +30,6 @@ createApp({
 
     // Nueva etiqueta
     const nuevaEtiqueta = ref('');
-
-    // Archivo adjunto
     const archivoAdjunto = ref(null);
 
     // Cargar datos del usuario
@@ -41,73 +42,36 @@ createApp({
 
     const logout = () => {
       localStorage.removeItem('biocare_user');
+      localStorage.removeItem('auth_token');
       window.location.href = '/login';
-    };
-
-    // Función para descargar archivos
-    const downloadFile = async (attachment) => {
-      try {
-        // Usar la ruta API para asegurar la descarga correcta
-        const response = await fetch(`/api/download/${attachment.file_path}`);
-        
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Error al descargar el archivo');
-        }
-        
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        
-        // Usar el nombre original del archivo para la descarga
-        link.download = attachment.file_name;
-        
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        // Liberar el objeto URL después de un tiempo
-        setTimeout(() => {
-          window.URL.revokeObjectURL(url);
-        }, 100);
-      } catch (error) {
-        console.error('Error al descargar archivo:', error);
-        alert('Error al descargar el archivo: ' + error.message);
-      }
     };
 
     const cargarDatos = async () => {
       try {
-        const [tasksRes, usersRes, labelsRes, resumenRes] = await Promise.all([
-          fetch('/api/tasks'),
-          fetch('/api/users'),
-          fetch('/api/labels'),
-          fetch('/api/tasks/resumen')
+        loading.value = true;
+        error.value = '';
+        
+        const [tasksData, usersData, labelsData, resumenData] = await Promise.all([
+          API.get('/api/tasks'),
+          API.get('/api/users'),
+          API.get('/api/labels'),
+          API.get('/api/tasks/resumen')
         ]);
         
-        tasks.value = await tasksRes.json();
-        users.value = await usersRes.json();
-        labels.value = await labelsRes.json();
-        resumen.value = await resumenRes.json();
+        tasks.value = tasksData || [];
+        users.value = usersData || [];
+        labels.value = labelsData || [];
+        resumen.value = resumenData || { vencidas: 0, proximas: 0, total_pendientes: 0 };
         
-        // Cargar archivos adjuntos para cada tarea
-        for (let task of tasks.value) {
-          try {
-            const attachmentsRes = await fetch(`/api/attachments/task/${task.id}`);
-            if (attachmentsRes.ok) {
-              task.attachments = await attachmentsRes.json();
-            } else {
-              task.attachments = [];
-            }
-          } catch (err) {
-            console.error('Error al cargar adjuntos:', err);
-            task.attachments = [];
-          }
-        }
       } catch (err) {
         console.error('Error al cargar datos:', err);
-        alert('No se pudo conectar con el servidor.');
+        error.value = err.message || 'Error al cargar datos';
+        
+        if (err.message.includes('Sesión expirada')) {
+          logout();
+        }
+      } finally {
+        loading.value = false;
       }
     };
 
@@ -125,30 +89,7 @@ createApp({
       document.getElementById('fileInput').value = '';
     };
 
-    // Función para subir archivo después de crear la tarea
-    const subirArchivo = async (taskId) => {
-      try {
-        const formData = new FormData();
-        formData.append('file', archivoAdjunto.value);
-        formData.append('task_id', taskId);
-        formData.append('file_name', archivoAdjunto.value.name);
-        formData.append('uploaded_by', user.value.id);
-
-        const res = await fetch('/api/upload', {
-          method: 'POST',
-          body: formData
-        });
-
-        if (!res.ok) {
-          console.error('Error al subir archivo:', await res.text());
-        }
-      } catch (err) {
-        console.error('Error al subir archivo:', err);
-      }
-    };
-
     const crearTarea = async () => {
-      // Validaciones básicas en frontend
       if (!newTask.value.title.trim()) {
         alert('El título es obligatorio');
         return;
@@ -162,59 +103,46 @@ createApp({
       creandoTarea.value = true;
       
       try {
-        // Formatear la fecha correctamente
-        let formattedDueDate = newTask.value.due_date;
-        if (formattedDueDate && !formattedDueDate.includes('T')) {
-          formattedDueDate += 'T00:00:00';
-        }
-
         const taskData = {
           title: newTask.value.title.trim(),
-          description: newTask.value.description,
-          due_date: formattedDueDate,
-          priority: newTask.value.priority,
-          assigned_to: Array.isArray(newTask.value.assigned_to) ? 
-                      newTask.value.assigned_to.filter(id => id) : [],
-          label_ids: Array.isArray(newTask.value.label_ids) ? 
-                     newTask.value.label_ids.filter(id => id) : [],
-          created_by: user.value.id
+          description: newTask.value.description || '',
+          due_date: newTask.value.due_date,
+          priority: newTask.value.priority || 'media',
+          assigned_to: newTask.value.assigned_to || [],
+          label_ids: newTask.value.label_ids || []
         };
 
-        const res = await fetch('/api/tasks', {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(taskData)
-        });
-
-        const responseData = await res.json();
-
-        if (res.ok) {
-          // Si hay archivo adjunto, subirlo después de crear la tarea
-          if (archivoAdjunto.value) {
-            await subirArchivo(responseData.id);
-          }
-          
-          showModal.value = false;
-          resetForm();
-          cargarDatos();
-          alert('Tarea creada exitosamente');
-        } else {
-          if (responseData.errors) {
-            const errorMessages = responseData.errors.map(error => 
-              `${error.path}: ${error.msg}`
-            ).join('\n');
-            alert('Errores de validación:\n' + errorMessages);
-          } else {
-            alert('Error: ' + (responseData.error || 'No se pudo crear la tarea'));
-          }
+        const result = await API.post('/api/tasks', taskData);
+        
+        // Subir archivo si existe
+        if (archivoAdjunto.value && result.id) {
+          await subirArchivo(result.id);
         }
+        
+        showModal.value = false;
+        resetForm();
+        await cargarDatos();
+        alert('Tarea creada exitosamente');
+        
       } catch (err) {
         console.error('Error al crear tarea:', err);
-        alert('Error de conexión: ' + err.message);
+        alert('Error: ' + (err.message || 'No se pudo crear la tarea'));
       } finally {
         creandoTarea.value = false;
+      }
+    };
+    
+    const subirArchivo = async (taskId) => {
+      try {
+        const formData = new FormData();
+        formData.append('file', archivoAdjunto.value);
+        formData.append('task_id', taskId);
+        formData.append('file_name', archivoAdjunto.value.name);
+
+        await API.upload('/api/upload', formData);
+      } catch (err) {
+        console.error('Error al subir archivo:', err);
+        alert('Error al subir archivo: ' + err.message);
       }
     };
     
@@ -230,7 +158,8 @@ createApp({
       };
       nuevaEtiqueta.value = '';
       archivoAdjunto.value = null;
-      document.getElementById('fileInput').value = '';
+      const fileInput = document.getElementById('fileInput');
+      if (fileInput) fileInput.value = '';
     };
 
     const crearEtiqueta = async () => {
@@ -240,72 +169,31 @@ createApp({
       }
       
       try {
-        const res = await fetch('/api/labels', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            name: nuevaEtiqueta.value.trim(), 
-            created_by: user.value.id 
-          })
+        await API.post('/api/labels', { 
+          name: nuevaEtiqueta.value.trim()
         });
         
-        if (res.ok) {
-          nuevaEtiqueta.value = '';
-          cargarDatos();
-          alert('Etiqueta creada exitosamente');
-        } else {
-          alert('Error al crear etiqueta');
-        }
+        nuevaEtiqueta.value = '';
+        await cargarDatos();
+        alert('Etiqueta creada exitosamente');
       } catch (err) {
-        alert('Error de conexión');
+        alert('Error: ' + (err.message || 'No se pudo crear la etiqueta'));
       }
     };
 
-    const moverACamino = async (id) => {
+    const cambiarEstadoTarea = async (id, nuevoEstado) => {
       try {
-        const res = await fetch(`/api/tasks/${id}/status`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: 'en_camino' })
-        });
-        
-        if (res.ok) {
-          cargarDatos();
-        } else {
-          alert('Error al actualizar');
-        }
+        await API.put(`/api/tasks/${id}/status`, { status: nuevoEstado });
+        await cargarDatos();
       } catch (err) {
-        alert('Error de conexión');
-      }
-    };
-
-    const completar = async (id) => {
-      try {
-        const res = await fetch(`/api/tasks/${id}/status`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: 'completada' })
-        });
-        
-        if (res.ok) {
-          cargarDatos();
-        } else {
-          alert('Error al actualizar');
-        }
-      } catch (err) {
-        alert('Error de conexión');
+        alert('Error: ' + (err.message || 'No se pudo actualizar la tarea'));
       }
     };
 
     const verDetalles = async (task) => {
-      // Cargar archivos adjuntos para esta tarea
       try {
-        const attachmentsRes = await fetch(`/api/attachments/task/${task.id}`);
-        if (attachmentsRes.ok) {
-          task.attachments = await attachmentsRes.json();
-        } else {
-          task.attachments = [];
-        }
+        const attachments = await API.get(`/api/attachments/task/${task.id}`);
+        task.attachments = attachments || [];
       } catch (err) {
         console.error('Error al cargar adjuntos:', err);
         task.attachments = [];
@@ -313,26 +201,32 @@ createApp({
       tareaSeleccionada.value = task;
     };
 
-    // Obtener array de etiquetas desde string separado por comas
     const getLabelsArray = (task) => {
       if (!task.label_names) return [];
-      return task.label_names.split(', ').filter(label => label.trim() !== '');
+      return typeof task.label_names === 'string' 
+        ? task.label_names.split(', ').filter(label => label.trim() !== '')
+        : [];
     };
 
-    // Filtrar tareas
+    // Computed properties con validaciones
     const tareasFiltradas = computed(() => {
-      let filtered = tasks.value;
+      if (!Array.isArray(tasks.value)) return [];
+      
+      let filtered = [...tasks.value];
+      
       if (misTareas.value && user.value) {
         filtered = filtered.filter(t =>
-          t.assigned_names?.includes(user.value.name) ||
+          (t.assigned_names && t.assigned_names.includes(user.value.name)) ||
           t.created_by === user.value.id
         );
       }
+      
       if (filtroFecha.value) {
         filtered = filtered.filter(t =>
-          t.due_date.startsWith(filtroFecha.value)
+          t.due_date && t.due_date.startsWith(filtroFecha.value)
         );
       }
+      
       return filtered;
     });
 
@@ -350,55 +244,64 @@ createApp({
 
     const formatDate = (isoDate) => {
       if (!isoDate) return '';
-      const date = new Date(isoDate);
-      return date.toLocaleString('es-CL', {
-        dateStyle: 'short',
-        timeStyle: 'short'
-      });
+      try {
+        const date = new Date(isoDate);
+        return date.toLocaleString('es-CL', {
+          dateStyle: 'short',
+          timeStyle: 'short'
+        });
+      } catch {
+        return isoDate;
+      }
     };
 
     const getColor = (labelName) => {
       const colors = {
-        'Entrega': '#049DD9',
-        'Express': '#04B2D9',
-        'Factura': '#97BF04',
-        'Santiago': '#83A603',
-        'Valparaíso': '#049DD9',
-        'Viña del Mar': '#04B2D9',
-        'Prioritaria': '#E30613',
-        'Urgente': '#E30613',
-        'Reunión': '#9C27B0',
-        'Documentación': '#607D8B',
-        'Cliente': '#FF9800'
+        'Entrega': '#049DD9', 'Express': '#04B2D9', 'Factura': '#97BF04',
+        'Santiago': '#83A603', 'Valparaíso': '#049DD9', 'Viña del Mar': '#04B2D9',
+        'Prioritaria': '#E30613', 'Urgente': '#E30613', 'Reunión': '#9C27B0',
+        'Documentación': '#607D8B', 'Cliente': '#FF9800'
       };
-      return colors[labelName] || getRandomColor(labelName);
-    };
-
-    // Generar color consistente basado en el nombre de la etiqueta
-    const getRandomColor = (labelName) => {
-      const colors = [
-        '#049DD9', '#04B2D9', '#97BF04', '#83A603', '#E30613',
-        '#9C27B0', '#607D8B', '#FF9800', '#795548', '#009688'
-      ];
-      let hash = 0;
-      for (let i = 0; i < labelName.length; i++) {
-        hash = labelName.charCodeAt(i) + ((hash << 5) - hash);
-      }
-      return colors[Math.abs(hash) % colors.length];
+      return colors[labelName] || '#049DD9';
     };
 
     const getPriorityText = (priority) => {
-      return priority === 'alta' ? 'Alta' : priority === 'media' ? 'Media' : 'Baja';
+      const priorities = {
+        'alta': 'Alta', 'media': 'Media', 'baja': 'Baja'
+      };
+      return priorities[priority] || priority;
     };
 
-    const getFileSize = (bytes) => {
-      if (!bytes) return '0 B';
-      const sizes = ['B', 'KB', 'MB', 'GB'];
-      const i = Math.floor(Math.log(bytes) / Math.log(1024));
-      return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+    const downloadFile = async (attachment) => {
+      try {
+        const token = localStorage.getItem('auth_token');
+        const response = await fetch(`/api/download/${attachment.file_path}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (!response.ok) throw new Error('Error al descargar');
+        
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = attachment.file_name;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        setTimeout(() => window.URL.revokeObjectURL(url), 100);
+      } catch (err) {
+        alert('Error al descargar: ' + err.message);
+      }
     };
 
-    cargarDatos();
+    // Cargar datos cuando el componente se monta
+    onMounted(() => {
+      cargarDatos();
+    });
 
     return {
       user,
@@ -414,6 +317,8 @@ createApp({
       newTask,
       nuevaEtiqueta,
       archivoAdjunto,
+      loading,
+      error,
       tareasPendientes,
       tareasEnCamino,
       tareasCompletadas,
@@ -421,8 +326,8 @@ createApp({
       cargarDatos,
       crearTarea,
       crearEtiqueta,
-      moverACamino,
-      completar,
+      moverACamino: (id) => cambiarEstadoTarea(id, 'en_camino'),
+      completar: (id) => cambiarEstadoTarea(id, 'completada'),
       verDetalles,
       handleFileUpload,
       removeFile,
@@ -430,7 +335,6 @@ createApp({
       formatDate,
       getColor,
       getPriorityText,
-      getFileSize,
       downloadFile
     };
   }

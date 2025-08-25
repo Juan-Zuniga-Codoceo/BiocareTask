@@ -1,5 +1,27 @@
-// js/perfil.js
+// frontend/js/perfil.js
 const { createApp, ref, computed } = Vue;
+
+// Función auxiliar para hacer fetch con autenticación
+const authFetch = async (url, options = {}) => {
+  const token = localStorage.getItem('auth_token');
+  const defaultOptions = {
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    }
+  };
+  
+  const mergedOptions = {
+    ...defaultOptions,
+    ...options,
+    headers: {
+      ...defaultOptions.headers,
+      ...options.headers
+    }
+  };
+  
+  return fetch(url, mergedOptions);
+};
 
 createApp({
   setup() {
@@ -18,9 +40,14 @@ createApp({
     const cargarTareas = async () => {
       try {
         const [asignadasRes, creadasRes] = await Promise.all([
-          fetch(`/api/tasks?assigned_to=${user.value.id}`),
-          fetch(`/api/tasks?created_by=${user.value.id}`)
+          authFetch(`/api/tasks?assigned_to=${user.value.id}`),
+          authFetch(`/api/tasks?created_by=${user.value.id}`)
         ]);
+        
+        if (!asignadasRes.ok || !creadasRes.ok) {
+          throw new Error('Error al cargar tareas');
+        }
+        
         const tareasAsignadas = await asignadasRes.json();
         const tareasCreadas = await creadasRes.json();
 
@@ -32,6 +59,10 @@ createApp({
         historial.value.vencidas = tareasAsignadas.filter(t => t.status !== 'completada' && new Date(t.due_date) < new Date()).length;
       } catch (err) {
         console.error('Error al cargar tareas:', err);
+        if (err.message.includes('401')) {
+          alert('Sesión expirada. Por favor inicia sesión nuevamente.');
+          logout();
+        }
       }
     };
 
@@ -53,6 +84,7 @@ createApp({
 
     const logout = () => {
       localStorage.removeItem('biocare_user');
+      localStorage.removeItem('auth_token');
       window.location.href = '/login';
     };
 
