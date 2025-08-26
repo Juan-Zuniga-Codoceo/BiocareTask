@@ -1,13 +1,15 @@
 :root {
-  --biocare-verde: #006837;
-  --biocare-verde-claro: #00A651;
-  --biocare-azul: #00BFFF;
-  --biocare-rojo: #E30613;
+  --azul-principal: #049DD9;
+  --azul-claro: #04B2D9;
+  --verde-lima: #97BF04;
+  --verde-oliva: #87A617;
+  --fondo: #F2F2F2;
   --blanco: #FFFFFF;
-  --gris-claro: #F5F5F5;
   --gris-oscuro: #333333;
-  --sombra: 0 4px 12px rgba(0,0,0,0.1);
-  --borde: 1px solid #ddd;
+  --gris-medio: #666666;
+  --sombra: 0 4px 20px rgba(0, 0, 0, 0.1);
+  --radio: 12px;
+  --transicion: all 0.3s ease;
 }
 
 * {
@@ -18,7 +20,7 @@
 
 body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background: var(--gris-claro);
+  background: var(--fondo);
   color: var(--gris-oscuro);
   line-height: 1.6;
   min-height: 100vh;
@@ -26,36 +28,75 @@ body {
   justify-content: center;
   align-items: center;
   padding: 20px;
+  background-image: linear-gradient(135deg, rgba(4, 157, 217, 0.05) 0%, rgba(4, 178, 217, 0.05) 100%);
 }
 
 .login-container {
   display: flex;
-  max-width: 900px;
+  max-width: 1000px;
   width: 100%;
-  background: white;
-  border-radius: 16px;
+  background: var(--blanco);
+  border-radius: var(--radio);
   overflow: hidden;
   box-shadow: var(--sombra);
-  height: 500px;
+  min-height: 550px;
 }
 
 /* Lado izquierdo: Branding */
 .brand {
   flex: 1;
-  background: var(--biocare-verde);
-  color: white;
+  background: linear-gradient(135deg, var(--azul-principal) 0%, var(--azul-claro) 100%);
+  color: var(--blanco);
   padding: 40px;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
   text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.brand::before {
+  content: '';
+  position: absolute;
+  top: -50px;
+  right: -50px;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.brand::after {
+  content: '';
+  position: absolute;
+  bottom: -80px;
+  left: -80px;
+  width: 250px;
+  height: 250px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .brand .logo {
-  width: 80px;
-  height: 80px;
-  margin-bottom: 20px;
+  width: 100px;
+  height: 100px;
+  margin-bottom: 25px;
+  position: relative;
+  z-index: 2;
+  background: var(--blanco);
+  border-radius: 20px;
+  padding: 15px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transicion);
+}
+
+.brand .logo:hover {
+  transform: scale(1.05);
 }
 
 .brand .logo img {
@@ -65,130 +106,233 @@ body {
 }
 
 .brand h1 {
-  font-size: 28px;
+  font-size: 32px;
   margin: 10px 0;
-  font-weight: 600;
+  font-weight: 700;
+  position: relative;
+  z-index: 2;
 }
 
 .brand p {
   font-size: 16px;
   opacity: 0.9;
   margin-top: 10px;
+  max-width: 300px;
+  position: relative;
+  z-index: 2;
 }
 
 /* Lado derecho: Formulario */
 .login-form {
   flex: 1;
-  padding: 40px;
+  padding: 50px;
   display: flex;
   flex-direction: column;
   justify-content: center;
+  background: var(--blanco);
 }
 
 .login-form h2 {
-  font-size: 24px;
-  margin-bottom: 8px;
+  font-size: 28px;
+  margin-bottom: 10px;
   color: var(--gris-oscuro);
+  font-weight: 600;
 }
 
-.login-form p {
-  font-size: 14px;
-  color: #666;
-  margin-bottom: 20px;
+.login-form > p {
+  font-size: 16px;
+  color: var(--gris-medio);
+  margin-bottom: 30px;
 }
 
 /* Mensaje de error */
 .error {
-  background: var(--biocare-rojo);
-  color: white;
-  padding: 10px 15px;
-  border-radius: 6px;
+  background: #FFEBEE;
+  color: #D32F2F;
+  padding: 12px 15px;
+  border-radius: 8px;
   font-size: 14px;
-  margin-bottom: 15px;
-  text-align: center;
+  margin-bottom: 20px;
+  border-left: 4px solid #D32F2F;
+  animation: fadeIn 0.3s ease;
+}
+
+/* Mensaje de éxito */
+.success {
+  background: #E8F5E9;
+  color: #2E7D32;
+  padding: 12px 15px;
+  border-radius: 8px;
+  font-size: 14px;
+  margin-bottom: 20px;
+  border-left: 4px solid #2E7D32;
+  animation: fadeIn 0.3s ease;
 }
 
 /* Grupo de inputs */
 .input-group {
-  margin-bottom: 18px;
+  margin-bottom: 20px;
 }
 
 .input-group label {
   display: block;
   font-size: 14px;
   color: var(--gris-oscuro);
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   font-weight: 500;
 }
 
 .input-group input {
   width: 100%;
-  padding: 12px 15px;
-  border: var(--borde);
-  border-radius: 8px;
+  padding: 15px;
+  border: 1px solid #ddd;
+  border-radius: var(--radio);
   font-size: 16px;
-  transition: border 0.2s;
+  transition: var(--transicion);
   font-family: inherit;
 }
 
 .input-group input:focus {
   outline: none;
-  border-color: var(--biocare-verde-claro);
-  box-shadow: 0 0 0 2px rgba(0, 166, 81, 0.2);
+  border-color: var(--azul-principal);
+  box-shadow: 0 0 0 3px rgba(4, 157, 217, 0.2);
 }
 
 /* Botón principal */
 .btn-primary {
-  background: var(--biocare-verde-claro);
-  color: white;
+  background: var(--verde-lima);
+  color: var(--blanco);
   border: none;
-  padding: 14px 20px;
-  border-radius: 8px;
+  padding: 15px 20px;
+  border-radius: var(--radio);
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: var(--transicion);
   margin-top: 10px;
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-primary::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.5);
+  opacity: 0;
+  border-radius: 100%;
+  transform: scale(1, 1) translate(-50%);
+  transform-origin: 50% 50%;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: var(--biocare-verde);
-  transform: translateY(-1px);
+  background: var(--verde-oliva);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(151, 191, 4, 0.3);
+}
+
+.btn-primary:active:not(:disabled)::after {
+  animation: ripple 1s ease-out;
 }
 
 .btn-primary:disabled {
   background: #ccc;
   cursor: not-allowed;
   transform: none;
+  box-shadow: none;
 }
 
 /* Enlaces */
 .links {
   text-align: center;
-  margin-top: 20px;
+  margin-top: 25px;
 }
 
 .links a {
-  color: var(--biocare-verde-claro);
+  color: var(--azul-principal);
   text-decoration: none;
   font-size: 14px;
   font-weight: 500;
+  transition: var(--transicion);
+  display: inline-block;
 }
 
 .links a:hover {
+  color: var(--azul-claro);
   text-decoration: underline;
+  transform: translateY(-1px);
+}
+
+/* Animaciones */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes ripple {
+  0% {
+    transform: scale(0, 0);
+    opacity: 0.5;
+  }
+  20% {
+    transform: scale(25, 25);
+    opacity: 0.3;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(40, 40);
+  }
 }
 
 /* Responsive */
-@media (max-width: 768px) {
+@media (max-width: 900px) {
   .login-container {
     flex-direction: column;
-    height: auto;
+    min-height: auto;
   }
+  
   .brand {
-    padding: 30px;
+    padding: 30px 20px;
+    border-radius: var(--radio) var(--radio) 0 0;
   }
+  
   .login-form {
-    padding: 30px;
+    padding: 30px 20px;
+    border-radius: 0 0 var(--radio) var(--radio);
+  }
+  
+  .brand .logo {
+    width: 80px;
+    height: 80px;
+  }
+  
+  .brand h1 {
+    font-size: 28px;
+  }
+}
+
+@media (max-width: 480px) {
+  body {
+    padding: 10px;
+  }
+  
+  .login-form {
+    padding: 25px 15px;
+  }
+  
+  .login-form h2 {
+    font-size: 24px;
+  }
+  
+  .brand h1 {
+    font-size: 24px;
+  }
+  
+  .brand p {
+    font-size: 14px;
   }
 }

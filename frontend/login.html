@@ -5,14 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>BiocareTask - Iniciar Sesión</title>
   <link rel="stylesheet" href="css/login.css" />
-  <link rel="stylesheet" href="/css/style.css" />
-  <link rel="manifest" href="/manifest.json">
-  <link rel="icon" href="/assets/logo.png" type="image/png">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="assets/logo.png" type="image/png">
 </head>
 <body>
   <div id="login-app">
     <div class="login-container">
-      <!-- Logo y encabezado -->
+      <!-- Lado izquierdo: Branding -->
       <div class="brand">
         <div class="logo">
           <img src="assets/logo.png" alt="Biocare Logo" />
@@ -21,7 +20,7 @@
         <p>Organiza tus tareas diarias de forma simple y segura</p>
       </div>
 
-      <!-- Formulario de login -->
+      <!-- Lado derecho: Formulario -->
       <form @submit.prevent="login" class="login-form">
         <h2>Iniciar Sesión</h2>
         <p>Accede a tu cuenta para gestionar tus tareas</p>
@@ -67,8 +66,7 @@
     </div>
   </div>
 
-  <!-- Vue.js desde CDN (DEBE IR ANTES) -->
-   <script src="/js/api.js"></script>
+  <!-- Vue.js desde CDN -->
   <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
   <script src="js/auth.js"></script>
 </body>

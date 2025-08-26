@@ -116,20 +116,34 @@ createApp({
       }
     };
 
-    const cargarDatos = async () => {
-      try {
-        const [tasksRes, usersRes, labelsRes, resumenRes] = await Promise.all([
-          fetch('/api/tasks'),
-          fetch('/api/users'),          fetch('/api/labels'),          fetch('/api/tasks/resumen')
-        ]);
-        tasks.value = await tasksRes.json();
-        users.value = await usersRes.json();
-        labels.value = await labelsRes.json();
-        resumen.value = await resumenRes.json();
-      } catch (err) {
-        console.error('Error al cargar datos:', err);
-      }
-    };
+ const cargarDatos = async () => {
+  // Obtener token (el userId se usa como token)
+  const userData = localStorage.getItem('biocare_user');
+  if (!userData) return;
+  const token = JSON.parse(userData).id;
+
+  const headers = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`
+  };
+
+  try {
+    const [tasksRes, usersRes, labelsRes, resumenRes] = await Promise.all([
+      fetch('/api/tasks', { headers }),
+      fetch('/api/users', { headers }),
+      fetch('/api/labels', { headers }),
+      fetch('/api/tasks/resumen', { headers })
+    ]);
+
+    tasks.value = await tasksRes.json();
+    users.value = await usersRes.json();
+    labels.value = await labelsRes.json();
+    resumen.value = await resumenRes.json();
+  } catch (err) {
+    console.error('Error al cargar datos:', err);
+    alert('No se pudo conectar con el servidor.');
+  }
+};
 
     const crearTarea = async () => {
       const taskData = {

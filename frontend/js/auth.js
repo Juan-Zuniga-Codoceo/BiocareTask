@@ -1,8 +1,13 @@
-// frontend/js/auth.js
+// js/auth.js
 const { createApp, ref } = Vue;
 
 // === LOGIN ===
 if (document.getElementById('login-app')) {
+  // Si ya está logueado, redirigir
+  if (localStorage.getItem('auth_token')) {
+    window.location.href = '/tablero';
+  }
+
   createApp({
     setup() {
       const email = ref('');
@@ -20,18 +25,24 @@ if (document.getElementById('login-app')) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email: email.value, password: password.value })
           });
-          
+
           if (!res.ok) {
             const errorData = await res.json();
-            throw new Error(errorData.error || 'Error en login');
+            throw new Error(errorData.error || 'Credenciales inválidas');
           }
-          
+
           const data = await res.json();
-          
-          // Guardar tanto el usuario como el token (usamos el ID como token)
+
+          // Validación extra
+          if (!data.id) {
+            throw new Error('Respuesta del servidor inválida');
+          }
+
+          // Guardar sesión
           localStorage.setItem('biocare_user', JSON.stringify(data));
           localStorage.setItem('auth_token', data.id.toString());
-          
+
+          // Redirigir
           window.location.href = '/tablero';
         } catch (err) {
           error.value = err.message || 'Error de conexión. Intenta nuevamente.';
@@ -74,9 +85,9 @@ if (document.getElementById('register-app')) {
               office: office.value 
             })
           });
-          
+
           const data = await res.json();
-          
+
           if (res.ok) {
             success.value = 'Cuenta creada. Redirigiendo al login...';
             setTimeout(() => {

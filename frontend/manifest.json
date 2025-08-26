@@ -3,8 +3,8 @@
   "short_name": "Tareas",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#006837",
-  "theme_color": "#006837",
+  "background_color": "#049DD9",
+  "theme_color": "#97BF04",
   "icons": [
     {
       "src": "assets/logo.png",

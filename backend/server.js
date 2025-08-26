@@ -66,10 +66,11 @@ const upload = multer({
 
 app.use('/uploads', express.static(uploadsDir));
 
-// Conexión a la base de datos
+// Conexión a la base de datos - CORREGIDO
 let db;
 try {
-  db = require('./db');
+  // Crear una nueva instancia de la base de datos en lugar de importar el módulo
+  db = new sqlite3.Database(path.join(__dirname, 'database.sqlite'));
   console.log('✅ Base de datos conectada correctamente');
 } catch (error) {
   console.error('❌ Error al conectar con la base de datos:', error);
@@ -82,7 +83,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Validar autenticación
+// Validar autenticación - MEJORADO
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1]; // Formato: Bearer TOKEN
@@ -93,14 +94,22 @@ const authenticateToken = (req, res, next) => {
   }
   
   // Validar que el usuario exista
-  db.get("SELECT id FROM users WHERE id = ?", [token], (err, user) => {
-    if (err || !user) {
+  db.get("SELECT id, name, email, office, role FROM users WHERE id = ?", [token], (err, user) => {
+    if (err) {
+      console.error('Error en autenticación:', err);
+      return res.status(500).json({ error: 'Error interno del servidor' });
+    }
+    
+    if (!user) {
       return res.status(403).json({ error: 'Token inválido o usuario no existe' });
     }
+    
     req.userId = user.id;
+    req.user = user; // Agregar información completa del usuario al request
     next();
   });
 };
+
 // Manejo de errores
 const errorHandler = (err, req, res, next) => {
   console.error('Error:', err.message);
