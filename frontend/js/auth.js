@@ -64,12 +64,43 @@ if (document.getElementById('register-app')) {
       const name = ref('');
       const email = ref('');
       const password = ref('');
+      const confirmPassword = ref('');
       const office = ref('');
       const loading = ref(false);
       const error = ref('');
       const success = ref('');
 
+      const isValidEmail = (email) => {
+        const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return re.test(email);
+      };
+
+      const validateForm = () => {
+        if (!name.value.trim()) {
+          return 'El nombre es obligatorio';
+        }
+        if (!email.value.trim() || !isValidEmail(email.value)) {
+          return 'Ingresa un correo válido';
+        }
+        if (password.value.length < 6) {
+          return 'La contraseña debe tener al menos 6 caracteres';
+        }
+        if (password.value !== confirmPassword.value) {
+          return 'Las contraseñas no coinciden';
+        }
+        if (!office.value) {
+          return 'Selecciona una oficina';
+        }
+        return null;
+      };
+
       const registrar = async () => {
+        const validationError = validateForm();
+        if (validationError) {
+          error.value = validationError;
+          return;
+        }
+
         error.value = '';
         success.value = '';
         loading.value = true;
@@ -77,10 +108,13 @@ if (document.getElementById('register-app')) {
         try {
           const res = await fetch('/api/register', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
             body: JSON.stringify({ 
-              name: name.value, 
-              email: email.value, 
+              name: name.value.trim(), 
+              email: email.value.trim(), 
               password: password.value, 
               office: office.value 
             })
@@ -89,12 +123,19 @@ if (document.getElementById('register-app')) {
           const data = await res.json();
 
           if (res.ok) {
-            success.value = 'Cuenta creada. Redirigiendo al login...';
+            success.value = 'Cuenta creada exitosamente. Redirigiendo al login...';
+            // Limpiar formulario
+            name.value = '';
+            email.value = '';
+            password.value = '';
+            confirmPassword.value = '';
+            office.value = '';
+            
             setTimeout(() => {
               window.location.href = '/login';
             }, 2000);
           } else {
-            error.value = data.error || 'No se pudo crear la cuenta';
+            error.value = data.error || 'No se pudo crear la cuenta. Intenta con otro correo.';
           }
         } catch (err) {
           error.value = 'Error de conexión. Intenta nuevamente.';
@@ -104,7 +145,17 @@ if (document.getElementById('register-app')) {
         }
       };
 
-      return { name, email, password, office, loading, error, success, registrar };
+      return { 
+        name, 
+        email, 
+        password, 
+        confirmPassword, 
+        office, 
+        loading, 
+        error, 
+        success, 
+        registrar 
+      };
     }
   }).mount('#register-app');
 }

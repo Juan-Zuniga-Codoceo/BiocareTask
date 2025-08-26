@@ -5,9 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>BiocareTask - Registro</title>
   <link rel="stylesheet" href="css/registro.css" />
-  <link rel="stylesheet" href="/css/style.css" />
-  <link rel="manifest" href="/manifest.json">
-  <link rel="icon" href="/assets/logo.png" type="image/png">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="assets/logo.png" type="image/png">
 </head>
 <body>
   <div id="register-app">
@@ -27,19 +26,20 @@
         <p>Completa los campos para registrarte</p>
 
         <!-- Mensaje de error -->
-        <div class="error" v-if="error">
+        <div class="error" v-if="error" role="alert" aria-live="polite">
           {{ error }}
         </div>
 
         <!-- Mensaje de éxito -->
-        <div class="success" v-if="success">
+        <div class="success" v-if="success" role="status" aria-live="polite">
           {{ success }}
         </div>
 
         <!-- Nombre -->
         <div class="input-group">
-          <label>Nombre completo</label>
+          <label for="name">Nombre completo</label>
           <input 
+            id="name"
             type="text" 
             v-model="name" 
             placeholder="Juan Pérez" 
@@ -50,8 +50,9 @@
 
         <!-- Correo -->
         <div class="input-group">
-          <label>Correo corporativo</label>
+          <label for="email">Correo corporativo</label>
           <input 
+            id="email"
             type="email" 
             v-model="email" 
             placeholder="tu@biocare.cl" 
@@ -61,8 +62,9 @@
 
         <!-- Contraseña -->
         <div class="input-group">
-          <label>Contraseña</label>
+          <label for="password">Contraseña</label>
           <input 
+            id="password"
             type="password" 
             v-model="password" 
             placeholder="••••••••" 
@@ -71,11 +73,24 @@
           />
         </div>
 
+        <!-- Confirmar Contraseña -->
+        <div class="input-group">
+          <label for="confirmPassword">Confirmar Contraseña</label>
+          <input 
+            id="confirmPassword"
+            type="password" 
+            v-model="confirmPassword" 
+            placeholder="••••••••" 
+            minlength="6" 
+            required 
+          />
+        </div>
+
         <!-- Oficina -->
         <div class="input-group">
-          <label>Oficina</label>
-          <select v-model="office" required>
-            <option value="" disabled>Selecciona tu oficina</option>
+          <label for="office">Oficina</label>
+          <select id="office" v-model="office" required>
+            <option value="" disabled selected>Selecciona tu oficina</option>
             <option value="Valparaíso">Valparaíso</option>
             <option value="Viña del Mar">Viña del Mar</option>
             <option value="Quilpué">Quilpué</option>
@@ -96,9 +111,8 @@
     </div>
   </div>
 
-  <!-- Vue.js desde CDN (antes del script) -->
-   <script src="/js/api.js"></script>
+  <!-- Vue.js desde CDN (sin espacios) -->
   <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-  <script src="js/auth.js"></script>
+  <script src="js/auth.js" defer></script>
 </body>
 </html>

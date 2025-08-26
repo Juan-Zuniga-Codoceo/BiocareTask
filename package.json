@@ -5,7 +5,7 @@
   "main": "backend/server.js",
   "scripts": {
     "start": "node start-server.js",
-    "dev": "node backend/server.js",
+    "dev": "nodemon backend/server.js",
     "init-db": "node backend/db.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -26,5 +26,8 @@
   },
   "engines": {
     "node": ">=14.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
   }
 }
