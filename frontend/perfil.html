@@ -5,9 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>BiocareTask - Mi Perfil</title>
   <link rel="stylesheet" href="css/perfil.css" />
-  <link rel="stylesheet" href="/css/style.css" />
-  <link rel="manifest" href="/manifest.json">
-  <link rel="icon" href="/assets/logo.png" type="image/png">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="assets/logo.png" type="image/png">
 </head>
 <body>
   <div id="app">
@@ -23,6 +22,7 @@
           <button class="btn-dropdown">⚙️</button>
           <div class="dropdown-menu">
             <a href="/perfil" class="active">Mi Perfil</a>
+            <a href="/tablero">Tablero</a>
             <a href="javascript:logout()">Cerrar sesión</a>
           </div>
         </div>
@@ -31,12 +31,30 @@
 
     <!-- Perfil -->
     <main class="profile-container">
+      <!-- Tarjeta de perfil con opción de subir imagen -->
       <div class="profile-card">
-        <div class="avatar">{{ user.name.charAt(0).toUpperCase() }}</div>
+        <div class="avatar-container">
+          <div class="avatar" :style="avatarStyle">
+            {{ user.avatar_url ? '' : user.name.charAt(0).toUpperCase() }}
+          </div>
+          <label for="avatar-upload" class="avatar-upload-label" title="Cambiar foto de perfil">
+            <input 
+              type="file" 
+              id="avatar-upload" 
+              accept="image/*" 
+              @change="handleAvatarUpload" 
+              style="display: none;"
+            />
+            📷
+          </label>
+          <div v-if="uploading" class="upload-progress">Subiendo...</div>
+        </div>
+        
         <h2>{{ user.name }}</h2>
         <p><strong>Correo:</strong> {{ user.email }}</p>
         <p><strong>Oficina:</strong> {{ user.office }}</p>
         <p><strong>Rol:</strong> <span class="badge">{{ user.role }}</span></p>
+        <p><strong>Miembro desde:</strong> {{ formatDate(user.created_at) }}</p>
       </div>
 
       <!-- Estadísticas -->
@@ -68,7 +86,7 @@
             <p>{{ task.description }}</p>
             <small>
               <strong>📅</strong> {{ formatDate(task.due_date) }} | 
-              <strong>Estado:</strong> {{ task.status }}
+              <strong>Estado:</strong> <span :class="'status-' + task.status">{{ task.status }}</span>
             </small>
           </div>
           <p class="empty" v-if="tareasAsignadas.length === 0">No tienes tareas asignadas</p>
@@ -84,7 +102,7 @@
             <p>{{ task.description }}</p>
             <small>
               <strong>📅</strong> {{ formatDate(task.due_date) }} | 
-              <strong>Estado:</strong> {{ task.status }}
+              <strong>Estado:</strong> <span :class="'status-' + task.status">{{ task.status }}</span>
             </small>
           </div>
           <p class="empty" v-if="tareasCreadas.length === 0">No has creado tareas</p>
@@ -93,8 +111,7 @@
     </main>
   </div>
 
-  <!-- Vue.js desde CDN (ANTES de tasks.js) -->
-   <script src="/js/api.js"></script>
+  <!-- Vue.js desde CDN -->
   <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
   <script src="js/perfil.js"></script>
 </body>

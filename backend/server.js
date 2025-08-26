@@ -1,4 +1,4 @@
-// backend/server.js - VERSIÓN COMPATIBLE CON EXPRESS 4
+// backend/server.js - VERSIÓN FINAL
 const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require('bcrypt');
@@ -39,43 +39,176 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter = (req, file, cb) => {
-  const allowedMimes = [
-    'image/jpeg',
-    'image/png',
-    'image/gif',
-    'application/pdf',
-    'text/plain',
-    'application/msword',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-  ];
-  
-  if (allowedMimes.includes(file.mimetype)) {
-    cb(null, true);
+  if (req.originalUrl === '/api/user/avatar') {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Solo se permiten imágenes para el avatar'), false);
+    }
   } else {
-    cb(new Error('Tipo de archivo no permitido'), false);
+    const allowedMimes = [
+      'image/jpeg', 'image/png', 'image/gif',
+      'application/pdf', 'text/plain',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ];
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Tipo de archivo no permitido'), false);
+    }
   }
 };
 
 const upload = multer({
   storage: storage,
-  limits: {
-    fileSize: 10 * 1024 * 1024
-  },
+  limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: fileFilter
 });
 
 app.use('/uploads', express.static(uploadsDir));
 
-// Conexión a la base de datos - CORREGIDO
+// === INICIALIZAR BASE DE DATOS ===
 let db;
-try {
-  // Crear una nueva instancia de la base de datos en lugar de importar el módulo
-  db = new sqlite3.Database(path.join(__dirname, 'database.sqlite'));
+const dbPath = path.join(__dirname, 'database.sqlite');
+
+db = new sqlite3.Database(dbPath, (err) => {
+  if (err) {
+    console.error('❌ Error al conectar con la base de datos:', err.message);
+    process.exit(1);
+  }
+
   console.log('✅ Base de datos conectada correctamente');
-} catch (error) {
-  console.error('❌ Error al conectar con la base de datos:', error);
-  process.exit(1);
-}
+  console.log('🚀 Inicializando tablas y datos...');
+
+  // === CREAR TABLAS ===
+  db.serialize(() => {
+    // Tabla users con avatar_url
+    db.run(`CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      email TEXT UNIQUE NOT NULL,
+      password TEXT NOT NULL,
+      office TEXT,
+      role TEXT DEFAULT 'user',
+      avatar_url TEXT,
+      created_at TEXT DEFAULT (datetime('now', 'localtime'))
+    )`, (err) => {
+      if (err) console.error('❌ users:', err.message);
+      else console.log('✅ Tabla users lista');
+    });
+
+    // Tabla tasks
+    db.run(`CREATE TABLE IF NOT EXISTS tasks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      description TEXT,
+      due_date TEXT,
+      priority TEXT DEFAULT 'media',
+      status TEXT DEFAULT 'pendiente',
+      created_by INTEGER,
+      created_at TEXT DEFAULT (datetime('now', 'localtime')),
+      completed_at TEXT,
+      FOREIGN KEY (created_by) REFERENCES users(id)
+    )`, (err) => {
+      if (err) console.error('❌ tasks:', err.message);
+      else console.log('✅ Tabla tasks lista');
+    });
+
+    // Tabla labels
+    db.run(`CREATE TABLE IF NOT EXISTS labels (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE,
+      color TEXT DEFAULT '#006837',
+      created_by INTEGER,
+      created_at TEXT DEFAULT (datetime('now', 'localtime')),
+      FOREIGN KEY (created_by) REFERENCES users(id)
+    )`, (err) => {
+      if (err) console.error('❌ labels:', err.message);
+      else console.log('✅ Tabla labels lista');
+    });
+
+    // Tabla task_assignments
+    db.run(`CREATE TABLE IF NOT EXISTS task_assignments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      task_id INTEGER,
+      user_id INTEGER,
+      FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id) REFERENCES users(id),
+      UNIQUE(task_id, user_id)
+    )`, (err) => {
+      if (err) console.error('❌ task_assignments:', err.message);
+      else console.log('✅ Tabla task_assignments lista');
+    });
+
+    // Tabla task_labels
+    db.run(`CREATE TABLE IF NOT EXISTS task_labels (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      task_id INTEGER,
+      label_id INTEGER,
+      FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+      FOREIGN KEY (label_id) REFERENCES labels(id),
+      UNIQUE(task_id, label_id)
+    )`, (err) => {
+      if (err) console.error('❌ task_labels:', err.message);
+      else console.log('✅ Tabla task_labels lista');
+    });
+
+    // Tabla attachments
+    db.run(`CREATE TABLE IF NOT EXISTS attachments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      task_id INTEGER,
+      file_path TEXT NOT NULL,
+      file_name TEXT NOT NULL,
+      file_type TEXT,
+      uploaded_by INTEGER,
+      uploaded_at TEXT DEFAULT (datetime('now', 'localtime')),
+      FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+      FOREIGN KEY (uploaded_by) REFERENCES users(id)
+    )`, (err) => {
+      if (err) console.error('❌ attachments:', err.message);
+      else console.log('✅ Tabla attachments lista');
+    });
+
+    // === DATOS INICIALES ===
+    const defaultPassword = bcrypt.hashSync('1234', 10);
+
+    // Admin
+    db.run(`INSERT OR IGNORE INTO users (name, email, password, office, role) VALUES (?, ?, ?, ?, ?)`,
+      ['Admin', 'admin@biocare.cl', defaultPassword, 'Valparaíso', 'admin'],
+      (err) => {
+        if (err) console.error('❌ admin:', err.message);
+        else console.log('✅ Usuario admin creado');
+      });
+
+    // Usuarios de ejemplo
+    const users = [
+      ['Paulo', 'paulo@biocare.cl', 'Quilpué'],
+      ['Ana', 'ana@biocare.cl', 'Viña del Mar'],
+      ['Luis', 'luis@biocare.cl', 'Quilpué'],
+      ['Carla', 'carla@biocare.cl', 'Valparaíso'],
+      ['Marta', 'marta@biocare.cl', 'Santiago']
+    ];
+
+    const userStmt = db.prepare("INSERT OR IGNORE INTO users (name, email, password, office) VALUES (?, ?, ?, ?)");
+    users.forEach(([name, email, office]) => {
+      userStmt.run(name, email, defaultPassword, office);
+    });
+    userStmt.finalize(() => {
+      console.log('✅ Usuarios de ejemplo insertados');
+    });
+
+    // Etiquetas iniciales
+    const labels = ['Viña del Mar', 'Valparaíso', 'Express', 'Factura', 'Entrega'];
+    const labelStmt = db.prepare("INSERT OR IGNORE INTO labels (name, created_by) VALUES (?, 1)");
+    labels.forEach(name => {
+      labelStmt.run(name);
+    });
+    labelStmt.finalize(() => {
+      console.log('✅ Etiquetas iniciales insertadas');
+    });
+  });
+});
 
 // === MIDDLEWARE PERSONALIZADO ===
 app.use((req, res, next) => {
@@ -83,17 +216,15 @@ app.use((req, res, next) => {
   next();
 });
 
-// Validar autenticación - MEJORADO
+// Validar autenticación
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; // Formato: Bearer TOKEN
+  const token = authHeader && authHeader.split(' ')[1];
   
-  // Si no hay token en el header, verificar si viene en query (para desarrollo)
   if (!token) {
     return res.status(401).json({ error: 'Token de acceso requerido' });
   }
   
-  // Validar que el usuario exista
   db.get("SELECT id, name, email, office, role FROM users WHERE id = ?", [token], (err, user) => {
     if (err) {
       console.error('Error en autenticación:', err);
@@ -105,7 +236,7 @@ const authenticateToken = (req, res, next) => {
     }
     
     req.userId = user.id;
-    req.user = user; // Agregar información completa del usuario al request
+    req.user = user;
     next();
   });
 };
@@ -127,25 +258,20 @@ const errorHandler = (err, req, res, next) => {
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'frontend', 'login.html'));
 });
-
 app.get('/login', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'frontend', 'login.html'));
 });
-
 app.get('/registro', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'frontend', 'registro.html'));
 });
-
 app.get('/tablero', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'frontend', 'tablero.html'));
 });
-
 app.get('/perfil', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'frontend', 'perfil.html'));
 });
 
 // === RUTAS API ===
-
 // 🔐 LOGIN
 app.post('/api/login', [
   body('email').isEmail().normalizeEmail(),
@@ -679,6 +805,63 @@ app.get('/api/user/profile', authenticateToken, (req, res) => {
   }
 });
 
+// 🖼️ SUBIR FOTO DE PERFIL
+app.post('/api/user/avatar', [
+  authenticateToken,
+  upload.single('avatar')
+], async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No se subió ninguna imagen' });
+    }
+
+    if (!req.file.mimetype.startsWith('image/')) {
+      fs.unlinkSync(req.file.path);
+      return res.status(400).json({ error: 'El archivo debe ser una imagen' });
+    }
+
+    if (req.file.size > 5 * 1024 * 1024) {
+      fs.unlinkSync(req.file.path);
+      return res.status(400).json({ error: 'La imagen debe ser menor a 5MB' });
+    }
+
+    const filePath = `/uploads/${req.file.filename}`;
+
+    db.run(
+      "UPDATE users SET avatar_url = ? WHERE id = ?",
+      [filePath, req.userId],
+      function (err) {
+        if (err) {
+          console.error('Error al actualizar avatar:', err);
+          fs.unlinkSync(req.file.path);
+          return res.status(500).json({ error: 'No se pudo actualizar la foto de perfil' });
+        }
+
+        db.get(
+          "SELECT id, name, email, office, role, avatar_url FROM users WHERE id = ?",
+          [req.userId],
+          (err, user) => {
+            if (err) console.error('Error al obtener usuario actualizado:', err);
+            
+            res.json({ 
+              success: true,
+              avatar_url: filePath,
+              user: user,
+              message: 'Foto de perfil actualizada correctamente'
+            });
+          }
+        );
+      }
+    );
+  } catch (err) {
+    console.error('Error en subida de avatar:', err);
+    if (req.file) {
+      fs.unlinkSync(req.file.path);
+    }
+    res.status(500).json({ error: 'Error al subir la foto' });
+  }
+});
+
 // Ruta de salud
 app.get('/api/health', (req, res) => {
   res.json({ 
@@ -697,7 +880,7 @@ app.use('*', (req, res) => {
   }
 });
 
-// Middleware de manejo de errores
+// ✅ Middleware de manejo de errores (DEBE IR AL FINAL)
 app.use(errorHandler);
 
 // Manejo de cierre graceful
