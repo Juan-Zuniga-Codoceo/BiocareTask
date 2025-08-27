@@ -1,18 +1,20 @@
 # netlify.toml
 
+# Configuración de construcción para Netlify
 [build]
+  # No hay un paso de construcción, solo son archivos estáticos
   command = "echo 'No build required'"
+  # La carpeta que se va a publicar
   publish = "frontend"
 
-# ▼▼▼ REGLA AÑADIDA PARA LA PÁGINA PRINCIPAL ▼▼▼
-# Esto le dice a Netlify que cuando alguien visite tu página principal ("/"),
-# debe mostrar el contenido de "/login.html".
+# Redirección para la página de inicio
 [[redirects]]
   from = "/"
   to = "/login.html"
   status = 200
 
-# Regla existente para el backend (no la cambies)
+# Redirección (proxy) para la API
+# Esto conecta el frontend con tu backend de forma segura
 [[redirects]]
   from = "/api/*"
   to = "https://biocaretask-backend.onrender.com/:splat"
