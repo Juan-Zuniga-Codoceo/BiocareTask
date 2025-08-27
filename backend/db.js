@@ -2,6 +2,7 @@
 const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require('bcrypt');
 const path = require('path');
+const fs = require('fs');
 
 // === CONFIGURACIÓN DE LA BASE DE DATOS ===
 const dbPath = path.join(__dirname, 'database.sqlite');

@@ -19,15 +19,18 @@ const queries = [
 ];
 
 db.serialize(() => {
+    db.run("PRAGMA foreign_keys = OFF;"); // Desactivamos temporalmente para evitar errores de orden
     queries.forEach(query => {
-        db.run(query, (err) => {
+        db.run(query, function(err) {
             if (err) {
                 console.error(`❌ Error ejecutando: ${query}`, err.message);
             } else {
-                console.log(`✅ Comando ejecutado: ${query.split(' ')[1]} ${query.split(' ')[2]}`);
+                // Usamos this.changes para ver cuántas filas se afectaron
+                console.log(`✅ Comando ejecutado: ${query.split(' ')[1]} ${query.split(' ')[2]} - Filas afectadas: ${this.changes}`);
             }
         });
     });
+    db.run("PRAGMA foreign_keys = ON;"); // Reactivamos las llaves foráneas
 });
 
 db.close((err) => {
