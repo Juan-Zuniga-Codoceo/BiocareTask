@@ -2,117 +2,119 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BiocareTask - Mi Perfil</title>
-  <link rel="stylesheet" href="css/perfil.css" />
-  <link rel="manifest" href="manifest.json">
-  <link rel="icon" href="assets/logo.png" type="image/png">
+  <link rel="stylesheet" href="/css/perfil.css" />
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/assets/logo.png" type="image/png">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
 </head>
+
 <body>
   <div id="app">
-    <!-- Header -->
     <header class="header">
-      <div class="logo">
-        <img src="assets/logo.png" alt="Biocare Logo" />
-        <h1>BiocareTask</h1>
+      <div class="header-left">
+        <div class="logo">
+          <img src="/assets/logo.png" alt="Biocare Logo" />
+          <h1><span class="biocare">Biocare</span><span class="task">Task</span></h1>
+        </div>
       </div>
-      <div class="user-menu">
-        <span>👋 {{ user.name }}</span>
-        <div class="dropdown">
-          <button class="btn-dropdown">⚙️</button>
-          <div class="dropdown-menu">
-            <a href="/perfil" class="active">Mi Perfil</a>
-            <a href="/tablero">Tablero</a>
-            <a href="javascript:logout()">Cerrar sesión</a>
+      
+      <div class="main-controls">
+        <nav class="main-nav">
+          <a href="/tablero" class="nav-link" title="Tablero">
+            <i class="fa-solid fa-table-columns"></i>
+            <span>Tablero</span>
+          </a>
+          <a href="/perfil" class="nav-link active" title="Mi Perfil">
+            <i class="fa-solid fa-user"></i>
+            <span>Perfil</span>
+          </a>
+        </nav>
+      </div>
+
+      <div class="header-right">
+        <div class="user-actions">
+          <div class="user-menu">
+            <div class="dropdown">
+              <button class="btn-icon" @click="toggleDropdown" title="Menú">
+                <i class="fa-solid fa-user-gear"></i>
+              </button>
+              <div class="dropdown-menu" v-if="showDropdown">
+                <a href="javascript:void(0)" @click="logout()"><i class="fa-solid fa-right-from-bracket"></i> Cerrar sesión</a>
+              </div>
+            </div>
+            <span class="user-name">{{ user.name }}</span>
           </div>
         </div>
       </div>
     </header>
-
-    <!-- Perfil -->
-    <main class="profile-container">
-      <!-- Tarjeta de perfil con opción de subir imagen -->
-      <div class="profile-card">
-        <div class="avatar-container">
-          <div class="avatar" :style="avatarStyle">
-            {{ user.avatar_url ? '' : user.name.charAt(0).toUpperCase() }}
+    <main class="profile-dashboard">
+      <div class="profile-grid">
+        <div class="profile-col-left">
+          <div class="profile-card card">
+            <div class="avatar-container">
+              <div class="avatar" :style="avatarStyle">
+                <span v-if="!user.avatar_url">{{ user.name ? user.name.charAt(0).toUpperCase() : '' }}</span>
+              </div>
+              <label for="avatar-upload" class="avatar-upload-btn" title="Cambiar foto">
+                <i class="fa-solid fa-camera"></i>
+                <input type="file" id="avatar-upload" @change="handleAvatarUpload" accept="image/*"
+                  style="display: none;" />
+              </label>
+            </div>
+            <div class="profile-info">
+              <h2>{{ user.name }}</h2>
+              <p><i class="fa-solid fa-envelope"></i> {{ user.email }}</p>
+              <p><i class="fa-solid fa-briefcase"></i> {{ user.office }}</p>
+              <p><i class="fa-solid fa-user-shield"></i> {{ user.role }}</p>
+            </div>
           </div>
-          <label for="avatar-upload" class="avatar-upload-label" title="Cambiar foto de perfil">
-            <input 
-              type="file" 
-              id="avatar-upload" 
-              accept="image/*" 
-              @change="handleAvatarUpload" 
-              style="display: none;"
-            />
-            📷
-          </label>
-          <div v-if="uploading" class="upload-progress">Subiendo...</div>
+
+          <div class="security-card card">
+            <h3><i class="fa-solid fa-lock"></i> Seguridad</h3>
+            <div class="form-group">
+              <label for="currentPassword">Contraseña Actual</label>
+              <input type="password" id="currentPassword" v-model="passwords.current" placeholder="••••••••" />
+            </div>
+            <div class="form-group">
+              <label for="newPassword">Nueva Contraseña</label>
+              <input type="password" id="newPassword" v-model="passwords.new" placeholder="••••••••" />
+            </div>
+            <div class="form-group">
+              <label for="confirmPassword">Confirmar Nueva Contraseña</label>
+              <input type="password" id="confirmPassword" v-model="passwords.confirm" placeholder="••••••••" />
+            </div>
+            <button @click="changePassword" class="btn-primary">Cambiar Contraseña</button>
+          </div>
         </div>
-        
-        <h2>{{ user.name }}</h2>
-        <p><strong>Correo:</strong> {{ user.email }}</p>
-        <p><strong>Oficina:</strong> {{ user.office }}</p>
-        <p><strong>Rol:</strong> <span class="badge">{{ user.role }}</span></p>
-        <p><strong>Miembro desde:</strong> {{ formatDate(user.created_at) }}</p>
+
+        <div class="profile-col-right">
+          <div class="stats-grid">
+            <div class="stat-card card"><span class="stat-value">{{ historial.creadas }}</span><span
+                class="stat-label">Tareas Creadas</span></div>
+            <div class="stat-card card"><span class="stat-value">{{ historial.asignadas }}</span><span
+                class="stat-label">Tareas Asignadas</span></div>
+            <div class="stat-card card"><span class="stat-value">{{ historial.completadas }}</span><span
+                class="stat-label">Completadas</span></div>
+          </div>
+
+          <div class="history-card card">
+            <h3><i class="fa-solid fa-list-check"></i> Historial de Tareas</h3>
+            <div class="task-list">
+              <div v-if="tareasAsignadas.length === 0" class="empty-history">No tienes tareas asignadas.</div>
+              <div v-for="task in tareasAsignadas" :key="task.id" class="task-item">
+                <span class="task-title">{{ task.title }}</span>
+                <span :class="'status-' + task.status">{{ task.status }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-
-      <!-- Estadísticas -->
-      <div class="stats">
-        <div class="stat-card">
-          <h3>{{ historial.creadas }}</h3>
-          <p>Tareas creadas</p>
-        </div>
-        <div class="stat-card">
-          <h3>{{ historial.asignadas }}</h3>
-          <p>Tareas asignadas</p>
-        </div>
-        <div class="stat-card">
-          <h3>{{ historial.completadas }}</h3>
-          <p>Completadas</p>
-        </div>
-        <div class="stat-card">
-          <h3>{{ historial.vencidas }}</h3>
-          <p>Vencidas</p>
-        </div>
-      </div>
-
-      <!-- Historial de tareas asignadas -->
-      <section class="history-section">
-        <h2>📋 Tareas Asignadas</h2>
-        <div class="task-list">
-          <div class="task-item" v-for="task in tareasAsignadas" :key="task.id">
-            <h4>{{ task.title }}</h4>
-            <p>{{ task.description }}</p>
-            <small>
-              <strong>📅</strong> {{ formatDate(task.due_date) }} | 
-              <strong>Estado:</strong> <span :class="'status-' + task.status">{{ task.status }}</span>
-            </small>
-          </div>
-          <p class="empty" v-if="tareasAsignadas.length === 0">No tienes tareas asignadas</p>
-        </div>
-      </section>
-
-      <!-- Historial de tareas creadas -->
-      <section class="history-section">
-        <h2>✅ Tareas que He Creado</h2>
-        <div class="task-list">
-          <div class="task-item" v-for="task in tareasCreadas" :key="task.id">
-            <h4>{{ task.title }}</h4>
-            <p>{{ task.description }}</p>
-            <small>
-              <strong>📅</strong> {{ formatDate(task.due_date) }} | 
-              <strong>Estado:</strong> <span :class="'status-' + task.status">{{ task.status }}</span>
-            </small>
-          </div>
-          <p class="empty" v-if="tareasCreadas.length === 0">No has creado tareas</p>
-        </div>
-      </section>
     </main>
-  </div>
-
-  <!-- Vue.js desde CDN -->
-  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-  <script src="js/perfil.js"></script>
+  </div> <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/perfil.js"></script>
 </body>
+
 </html>

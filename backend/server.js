@@ -352,6 +352,69 @@ app.post('/api/labels', jsonParser, [
   }
 });
 
+// 🔐 CAMBIAR CONTRASEÑA
+app.put('/api/user/password', jsonParser, [
+  authenticateToken,
+  body('currentPassword').isLength({ min: 1 }),
+  body('newPassword').isLength({ min: 6 })
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ error: 'Datos inválidos' });
+  }
+
+  const { currentPassword, newPassword } = req.body;
+  const userId = req.userId;
+
+  // 1. Obtener el hash actual de la contraseña del usuario
+  db.get("SELECT password FROM users WHERE id = ?", [userId], async (err, user) => {
+    if (err || !user) {
+      return res.status(500).json({ error: 'Error al obtener datos del usuario' });
+    }
+
+    // 2. Verificar si la contraseña actual es correcta
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      return res.status(403).json({ error: 'La contraseña actual es incorrecta' });
+    }
+
+    // 3. Hashear la nueva contraseña y actualizarla en la BD
+    const hashedNewPassword = await bcrypt.hash(newPassword, 12);
+    db.run("UPDATE users SET password = ? WHERE id = ?", [hashedNewPassword, userId], (err) => {
+      if (err) {
+        return res.status(500).json({ error: 'No se pudo actualizar la contraseña' });
+      }
+      res.status(200).json({ success: true, message: 'Contraseña actualizada' });
+    });
+  });
+});
+
+// 🖼️ SUBIR AVATAR DE USUARIO
+app.post('/api/user/avatar', authenticateToken, upload.single('avatar'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No se ha subido ningún archivo.' });
+  }
+
+  // Construimos la URL pública del archivo
+  const avatarUrl = `/uploads/${req.file.filename}`;
+  const userId = req.userId;
+
+  // Actualizamos la URL en la base de datos para el usuario
+  db.run("UPDATE users SET avatar_url = ? WHERE id = ?", [avatarUrl, userId], function(err) {
+    if (err) {
+      console.error("Error al actualizar el avatar en la BD:", err);
+      return res.status(500).json({ error: 'No se pudo actualizar la imagen de perfil.' });
+    }
+
+    // Devolvemos la nueva URL para que el frontend se actualice al instante
+    res.status(200).json({ 
+        success: true, 
+        message: 'Avatar actualizado correctamente.',
+        avatar_url: avatarUrl 
+    });
+  });
+});
+
 // 📎 ADJUNTOS
 app.get('/api/attachments/task/:taskId', authenticateToken, (req, res) => {
   const { taskId } = req.params;
@@ -443,8 +506,23 @@ app.get('/api/notifications', authenticateToken, (req, res) => {
 // 📝 COMENTARIOS
 app.get('/api/tasks/:id/comments', authenticateToken, (req, res) => {
   const taskId = req.params.id;
-  db.all(`SELECT c.*, u.name as autor_nombre FROM comments c JOIN users u ON c.autor_id = u.id WHERE c.task_id = ? ORDER BY c.fecha_creacion ASC`, [taskId],
-    (err, comments) => res.json(comments || [])
+  // ▼▼▼ CONSULTA SQL MODIFICADA ▼▼▼
+  const sql = `
+    SELECT c.*, u.name as autor_nombre, u.avatar_url as autor_avatar_url 
+    FROM comments c 
+    JOIN users u ON c.autor_id = u.id 
+    WHERE c.task_id = ? 
+    ORDER BY c.fecha_creacion ASC
+  `;
+  // ▲▲▲ FIN DE LA MODIFICACIÓN ▲▲▲
+  db.all(sql, [taskId],
+    (err, comments) => {
+        if (err) {
+            console.error("Error fetching comments:", err);
+            return res.status(500).json({ error: "Error al obtener comentarios" });
+        }
+        res.json(comments || [])
+    }
   );
 });
 

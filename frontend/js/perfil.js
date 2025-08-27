@@ -1,176 +1,123 @@
 // frontend/js/perfil.js
 const { createApp, ref, computed, onMounted } = Vue;
 
-// Función auxiliar para hacer fetch con autenticación
-const authFetch = async (url, options = {}) => {
-  const token = localStorage.getItem('auth_token');
-  const defaultOptions = {
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    }
-  };
-
-  const mergedOptions = {
-    ...defaultOptions,
-    ...options,
-    headers: {
-      ...defaultOptions.headers,
-      ...options.headers
-    }
-  };
-
-  return fetch(url, mergedOptions);
-};
-
 createApp({
   setup() {
     const user = ref({});
-    const tareas = ref([]);
-    const historial = ref({ creadas: 0, asignadas: 0, completadas: 0, vencidas: 0 });
+    const tareasAsignadas = ref([]);
+    const historial = ref({ creadas: 0, asignadas: 0, completadas: 0 });
     const uploading = ref(false);
+    const showDropdown = ref(false);
 
-    // Obtener usuario del localStorage
-    const userData = localStorage.getItem('biocare_user');
-    if (!userData) {
+    const passwords = ref({
+      current: '',
+      new: '',
+      confirm: ''
+    });
+
+    // ▼▼▼ INICIO DE LA SOLUCIÓN ▼▼▼
+    // Hacemos el inicio de sesión más robusto para evitar errores
+    try {
+      const userData = localStorage.getItem('biocare_user');
+      if (!userData) {
+        // Si no hay datos, redirigir al login
+        window.location.href = '/login';
+      } else {
+        // Intentamos parsear los datos, si falla, lo capturamos
+        user.value = JSON.parse(userData);
+      }
+    } catch (error) {
+      // Si los datos están corruptos, limpiamos y redirigimos
+      console.error("Error al parsear datos de usuario, redirigiendo al login:", error);
+      localStorage.removeItem('biocare_user');
+      localStorage.removeItem('auth_token');
       window.location.href = '/login';
-    } else {
-      user.value = JSON.parse(userData);
     }
-
-    // Computed para el estilo del avatar
-    const avatarStyle = computed(() => {
-      if (user.value.avatar_url) {
-        return {
-          'background-image': `url('${user.value.avatar_url}')`,
-          'background-size': 'cover',
-          'background-position': 'center'
-        };
-      }
-      return {
-        'background-color': '#04B2D9'
-      };
-    });
-
-    const cargarTareas = async () => {
-      try {
-        const [asignadasRes, creadasRes] = await Promise.all([
-          authFetch(`/api/tasks?assigned_to=${user.value.id}`),
-          authFetch(`/api/tasks?created_by=${user.value.id}`)
-        ]);
-
-        if (!asignadasRes.ok || !creadasRes.ok) {
-          throw new Error('Error al cargar tareas');
-        }
-
-        const tareasAsignadas = await asignadasRes.json();
-        const tareasCreadas = await creadasRes.json();
-
-        tareas.value = [...tareasAsignadas, ...tareasCreadas];
-
-        historial.value.asignadas = tareasAsignadas.length;
-        historial.value.creadas = tareasCreadas.length;
-        historial.value.completadas = tareasAsignadas.filter(t => t.status === 'completada').length;
-
-        // Calcular tareas vencidas (pendientes con fecha pasada)
-        historial.value.vencidas = tareasAsignadas.filter(t =>
-          t.status !== 'completada' &&
-          t.due_date &&
-          new Date(t.due_date) < new Date()
-        ).length;
-      } catch (err) {
-        console.error('Error al cargar tareas:', err);
-        if (err.message.includes('401')) {
-          alert('Sesión expirada. Por favor inicia sesión nuevamente.');
-          logout();
-        }
-      }
-    };
-
-    const handleAvatarUpload = async (event) => {
-      const file = event.target.files[0];
-      if (!file) return;
-
-      // Validaciones frontend
-      if (!file.type.startsWith('image/')) {
-        alert('Por favor selecciona una imagen válida (JPEG, PNG, GIF)');
-        return;
-      }
-
-      if (file.size > 5 * 1024 * 1024) {
-        alert('La imagen debe ser menor a 5MB');
-        return;
-      }
-
-      uploading.value = true;
-
-      try {
-        const formData = new FormData();
-        formData.append('avatar', file);
-
-        const res = await fetch('/api/user/avatar', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-          },
-          body: formData
-        });
-
-        const data = await res.json();
-
-        if (!res.ok) {
-          throw new Error(data.error || 'Error al subir la imagen');
-        }
-
-        // Actualizar avatar y datos del usuario
-        user.value = { ...user.value, ...data.user };
-
-        // Actualizar localStorage
-        localStorage.setItem('biocare_user', JSON.stringify(user.value));
-
-        alert('Foto de perfil actualizada correctamente');
-      } catch (err) {
-        console.error('Error al subir avatar:', err);
-        alert(err.message || 'Error al subir la imagen. Intenta nuevamente.');
-      } finally {
-        uploading.value = false;
-        event.target.value = '';
-      }
-    };
-
-    const tareasAsignadas = computed(() => {
-      return tareas.value.filter(t =>
-        t.assigned_names?.includes(user.value.name) && t.created_by !== user.value.id
-      );
-    });
-
-    const tareasCreadas = computed(() => {
-      return tareas.value.filter(t => t.created_by === user.value.id);
-    });
-
-    const formatDate = (isoDate) => {
-      if (!isoDate) return 'No especificada';
-      try {
-        const date = new Date(isoDate);
-        return date.toLocaleString('es-CL', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        });
-      } catch {
-        return isoDate;
-      }
-    };
-
+    // ▲▲▲ FIN DE LA SOLUCIÓN ▲▲▲
+    
+    const toggleDropdown = () => { showDropdown.value = !showDropdown.value; };
     const logout = () => {
       localStorage.removeItem('biocare_user');
       localStorage.removeItem('auth_token');
       window.location.href = '/login';
     };
 
-    // Cargar datos cuando el componente se monta
+    const avatarStyle = computed(() => ({
+      'background-image': user.value.avatar_url ? `url('${user.value.avatar_url}')` : 'none',
+    }));
+
+    const cargarTareas = async () => {
+      if (!user.value.id) return;
+      try {
+        const [asignadasRes, creadasRes] = await Promise.all([
+          API.get(`/api/tasks?assigned_to=${user.value.id}`),
+          API.get(`/api/tasks?created_by=${user.value.id}`)
+        ]);
+
+        tareasAsignadas.value = asignadasRes || [];
+        const tareasCreadas = creadasRes || [];
+        
+        historial.value.asignadas = tareasAsignadas.value.length;
+        historial.value.creadas = tareasCreadas.length;
+        historial.value.completadas = tareasAsignadas.value.filter(t => t.status === 'completada').length;
+
+      } catch (error) {
+        console.error("Error al cargar el historial de tareas:", error);
+        API.showNotification('No se pudo cargar el historial de tareas.', 'error');
+      }
+    };
+
+    const handleAvatarUpload = async (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        if (!file.type.startsWith('image/')) {
+            return API.showNotification('Por favor, selecciona un archivo de imagen.', 'error');
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            return API.showNotification('La imagen no debe pesar más de 5MB.', 'error');
+        }
+
+        uploading.value = true;
+        const formData = new FormData();
+        formData.append('avatar', file);
+
+        try {
+            const result = await API.upload('/api/user/avatar', formData);
+            
+            user.value.avatar_url = result.avatar_url;
+            localStorage.setItem('biocare_user', JSON.stringify(user.value));
+            API.showNotification('Imagen de perfil actualizada', 'success');
+        } catch (error) {
+            API.showNotification(error.message || 'Error al subir la imagen', 'error');
+        } finally {
+            uploading.value = false;
+        }
+    };
+    
+    const changePassword = async () => {
+        if (!passwords.value.current || !passwords.value.new || !passwords.value.confirm) {
+            return API.showNotification('Por favor, completa todos los campos de contraseña', 'error');
+        }
+        if (passwords.value.new !== passwords.value.confirm) {
+            return API.showNotification('Las nuevas contraseñas no coinciden', 'error');
+        }
+        if (passwords.value.new.length < 6) {
+            return API.showNotification('La nueva contraseña debe tener al menos 6 caracteres', 'error');
+        }
+
+        try {
+            await API.put('/api/user/password', {
+                currentPassword: passwords.value.current,
+                newPassword: passwords.value.new
+            });
+            API.showNotification('Contraseña actualizada con éxito', 'success');
+            passwords.value = { current: '', new: '', confirm: '' };
+        } catch (error) {
+            API.showNotification(error.message || 'Error al cambiar la contraseña', 'error');
+        }
+    };
+    
     onMounted(() => {
       cargarTareas();
     });
@@ -178,12 +125,14 @@ createApp({
     return {
       user,
       tareasAsignadas,
-      tareasCreadas,
       historial,
       uploading,
       avatarStyle,
-      formatDate,
+      showDropdown,
+      toggleDropdown,
       logout,
+      passwords,
+      changePassword,
       handleAvatarUpload
     };
   }

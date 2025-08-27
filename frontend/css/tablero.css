@@ -1,4 +1,4 @@
-/* frontend/css/tablero.css - Rediseño Profesional v9 (Final) por Gemini */
+/* frontend/css/tablero.css - Rediseño Profesional v10 (Final) por Gemini */
 
 /* ================================================================== */
 /* 1. Variables de Diseño                                             */
@@ -19,16 +19,16 @@
 /* ================================================================== */
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: var(--font-family); background-color: var(--c-bg); color: var(--c-text); font-size: 15px; line-height: 1.6; }
-
 .header { display: flex; justify-content: space-between; align-items: center; padding: 16px 32px; background-color: var(--c-panel-bg); border-bottom: 1px solid var(--c-border); position: sticky; top: 0; z-index: 1000; min-height: 80px; }
 .header-left, .header-right, .main-controls, .filters, .user-actions, .logo, .dropdown-menu a, .summary-card, .column-title, .task-card h3, .task-footer, .assigned-to, .due-date { display: flex; align-items: center; }
-.logo img { width: 60px; } .logo h1 { font-size: 22px; color: var(--c-primary); }
-
-
+.logo { margin-right: 20px; gap: 8px; }
+.logo img { width: 40px; } 
+.logo h1 { font-size: 22px; color: var(--c-text); }
+.logo .biocare { color: var(--c-primary); }
+.logo .task { color: var(--c-action); }
 .main-controls { gap: 24px; }
 .filters { gap: 16px; }
 .user-actions { gap: 20px; }
-
 .btn-create { background-color: var(--c-action); color: var(--c-white); border: none; padding: 10px 20px; border-radius: var(--radius); font-weight: 600; cursor: pointer; gap: 8px; transition: var(--transition); }
 .btn-create:hover { background-color: var(--c-action-dark); transform: translateY(-2px); box-shadow: var(--shadow-md); }
 .btn-icon { background: transparent; border: none; font-size: 20px; color: var(--c-text-light); cursor: pointer; padding: 8px; border-radius: 50%; width: 40px; height: 40px; justify-content: center; transition: var(--transition); position: relative; }
@@ -78,7 +78,7 @@ input[type="date"]:focus { outline: none; border-color: var(--c-primary); box-sh
   padding: 3px 12px;
   border-radius: 12px;
   color: var(--c-white);
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5); /* Sombra más fuerte para contraste */
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6); /* Sombra más fuerte para contraste */
 }
 /* ▲▲▲ FIN DE LA SOLUCIÓN ▲▲▲ */
 
@@ -150,7 +150,26 @@ input[type="date"]:focus { outline: none; border-color: var(--c-primary); box-sh
 /* Comentarios */
 .comments-list { max-height: 250px; overflow-y: auto; padding-right: 10px; margin-bottom: 16px; }
 .comment-item { display: flex; gap: 12px; margin-bottom: 12px; }
-.comment-avatar { flex-shrink: 0; width: 36px; height: 36px; background-color: var(--c-primary); color: var(--c-white); border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: 600; }
+
+
+.comment-avatar {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  background-color: var(--c-primary);
+  color: var(--c-white);
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-weight: 600;
+  /* --- Ajustes para imagen de fondo --- */
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+
 .comment-body { display: flex; flex-direction: column; }
 .comment-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
 .comment-author { font-weight: 700; font-size: 14px; }
@@ -161,7 +180,6 @@ input[type="date"]:focus { outline: none; border-color: var(--c-primary); box-sh
 .comment-form button { align-self: flex-end; background-color: var(--c-action); color: var(--c-white); border: none; padding: 8px 16px; border-radius: var(--radius); font-weight: 600; cursor: pointer; transition: var(--transition); }
 .comment-form button:disabled { background-color: #BDC3C7; cursor: not-allowed; }
 .comment-form button:hover:not(:disabled) { background-color: var(--c-action-dark); }
-
 /* ================================================================== */
 /* 8. Notificaciones                                                  */
 /* ================================================================== */

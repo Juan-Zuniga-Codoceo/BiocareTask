@@ -1,8 +1,9 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BiocareTask - Tablero</title>
   <link rel="stylesheet" href="/css/tablero.css" />
   <link rel="manifest" href="/manifest.json">
@@ -16,7 +17,7 @@
       <div class="header-left">
         <div class="logo">
           <img src="/assets/logo.png" alt="Biocare Logo" />
-          <h1>BiocareTask</h1>
+          <h1><span class="biocare">Biocare</span><span class="task">Task</span></h1>
         </div>
       </div>
       <div class="header-right">
@@ -41,15 +42,16 @@
             </button>
             <div class="notifications-panel" v-if="mostrarNotificaciones">
               <div class="notifications-header">
-                  <h3>Notificaciones</h3>
-                  <button @click="mostrarNotificaciones = false" class="btn-close-modal">×</button>
+                <h3>Notificaciones</h3>
+                <button @click="mostrarNotificaciones = false" class="btn-close-modal">×</button>
               </div>
               <div class="notifications-list">
-                  <div v-for="notificacion in notificaciones" :key="notificacion.id" class="notification-item" :class="{'unread': !notificacion.leida}">
-                      <p>{{ notificacion.mensaje }}</p>
-                      <small>{{ formatDate(notificacion.fecha_creacion) }}</small>
-                  </div>
-                   <p v-if="notificaciones.length === 0" class="empty">No hay notificaciones</p>
+                <div v-for="notificacion in notificaciones" :key="notificacion.id" class="notification-item"
+                  :class="{'unread': !notificacion.leida}">
+                  <p>{{ notificacion.mensaje }}</p>
+                  <small>{{ formatDate(notificacion.fecha_creacion) }}</small>
+                </div>
+                <p v-if="notificaciones.length === 0" class="empty">No hay notificaciones</p>
               </div>
             </div>
           </div>
@@ -60,10 +62,11 @@
               </button>
               <div class="dropdown-menu" v-if="showDropdown">
                 <a href="/perfil"><i class="fa-solid fa-user"></i> Mi Perfil</a>
-                <a href="javascript:void(0)" @click="logout()"><i class="fa-solid fa-right-from-bracket"></i> Cerrar sesión</a>
+                <a href="javascript:void(0)" @click="logout()"><i class="fa-solid fa-right-from-bracket"></i> Cerrar
+                  sesión</a>
               </div>
             </div>
-             <span class="user-name">{{ user.name }}</span>
+            <span class="user-name">{{ user.name }}</span>
           </div>
         </div>
       </div>
@@ -106,12 +109,15 @@
               <div class="task-meta">
                 <span class="due-date"><i class="fa-regular fa-calendar"></i> {{ formatDate(task.due_date) }}</span>
                 <div class="labels">
-                  <span v-for="label in getLabelsArray(task)" :key="label" class="label-tag" :style="{ backgroundColor: getColor(label) }">{{ label }}</span>
+                  <span v-for="label in getLabelsArray(task)" :key="label" class="label-tag"
+                    :style="{ backgroundColor: getColor(label) }">{{ label }}</span>
                 </div>
               </div>
               <div class="task-footer">
-                <span class="assigned-to"><i class="fa-solid fa-user-tag"></i> {{ task.assigned_names || 'Sin asignar' }}</span>
-                <button @click.stop="moverACamino(task.id)" class="btn-action">En Camino <i class="fa-solid fa-arrow-right"></i></button>
+                <span class="assigned-to"><i class="fa-solid fa-user-tag"></i> {{ task.assigned_names || 'Sin asignar'
+                  }}</span>
+                <button @click.stop="moverACamino(task.id)" class="btn-action">En Camino <i
+                    class="fa-solid fa-arrow-right"></i></button>
               </div>
             </div>
             <p class="empty" v-if="tareasPendientes.length === 0">No hay tareas pendientes</p>
@@ -123,37 +129,42 @@
             <i class="fa-solid fa-truck-fast"></i> En Camino
           </h2>
           <div class="task-list">
-             <div v-for="task in tareasEnCamino" :key="task.id" class="task-card" @click="verDetalles(task)">
+            <div v-for="task in tareasEnCamino" :key="task.id" class="task-card" @click="verDetalles(task)">
               <h3>{{ task.title }}</h3>
               <p>{{ task.description }}</p>
-               <div class="task-meta">
+              <div class="task-meta">
                 <span class="due-date"><i class="fa-regular fa-calendar"></i> {{ formatDate(task.due_date) }}</span>
                 <div class="labels">
-                  <span v-for="label in getLabelsArray(task)" :key="label" class="label-tag" :style="{ backgroundColor: getColor(label) }">{{ label }}</span>
+                  <span v-for="label in getLabelsArray(task)" :key="label" class="label-tag"
+                    :style="{ backgroundColor: getColor(label) }">{{ label }}</span>
                 </div>
               </div>
               <div class="task-footer">
-                <span class="assigned-to"><i class="fa-solid fa-user-tag"></i> {{ task.assigned_names || 'Sin asignar' }}</span>
-                <button @click.stop="completar(task.id)" class="btn-action green">Completar <i class="fa-solid fa-check"></i></button>
+                <span class="assigned-to"><i class="fa-solid fa-user-tag"></i> {{ task.assigned_names || 'Sin asignar'
+                  }}</span>
+                <button @click.stop="completar(task.id)" class="btn-action green">Completar <i
+                    class="fa-solid fa-check"></i></button>
               </div>
             </div>
             <p class="empty" v-if="tareasEnCamino.length === 0">No hay tareas en camino</p>
           </div>
         </div>
-        
+
         <div class="kanban-column column-done">
           <h2 class="column-title">
             <i class="fa-solid fa-flag-checkered"></i> Completadas
           </h2>
           <div class="task-list">
-            <div v-for="task in tareasCompletadas" :key="task.id" class="task-card completed" @click="verDetalles(task)">
+            <div v-for="task in tareasCompletadas" :key="task.id" class="task-card completed"
+              @click="verDetalles(task)">
               <h3>{{ task.title }}</h3>
               <p>{{ task.description }}</p>
               <div class="task-meta">
-                 <small>Completado el {{ formatDate(task.completed_at) }}</small>
+                <small>Completado el {{ formatDate(task.completed_at) }}</small>
               </div>
               <div class="task-footer">
-                <span class="assigned-to"><i class="fa-solid fa-user-tag"></i> {{ task.assigned_names || 'Sin asignar' }}</span>
+                <span class="assigned-to"><i class="fa-solid fa-user-tag"></i> {{ task.assigned_names || 'Sin asignar'
+                  }}</span>
               </div>
             </div>
             <p class="empty" v-if="tareasCompletadas.length === 0">No hay tareas completadas</p>
@@ -161,7 +172,7 @@
         </div>
       </div>
     </main>
-    
+
     <div class="modal" v-if="showModal" @click.self="showModal = false">
       <div class="modal-content">
         <div class="modal-header">
@@ -171,11 +182,13 @@
         <div class="modal-body">
           <div class="form-group">
             <label for="title">Título *</label>
-            <input id="title" type="text" v-model="newTask.title" placeholder="Ej: Preparar informe de ventas" required />
+            <input id="title" type="text" v-model="newTask.title" placeholder="Ej: Preparar informe de ventas"
+              required />
           </div>
           <div class="form-group">
             <label for="description">Descripción</label>
-            <textarea id="description" v-model="newTask.description" placeholder="Añade más detalles sobre la tarea..."></textarea>
+            <textarea id="description" v-model="newTask.description"
+              placeholder="Añade más detalles sobre la tarea..."></textarea>
           </div>
           <div class="form-grid">
             <div class="form-group">
@@ -205,12 +218,13 @@
             </select>
           </div>
           <div class="form-group create-label-group">
-             <input type="text" v-model="nuevaEtiqueta" placeholder="O crea una nueva etiqueta..." @keyup.enter="crearEtiqueta" />
-             <button @click="crearEtiqueta" class="btn-create-label">Crear</button>
+            <input type="text" v-model="nuevaEtiqueta" placeholder="O crea una nueva etiqueta..."
+              @keyup.enter="crearEtiqueta" />
+            <button @click="crearEtiqueta" class="btn-create-label">Crear</button>
           </div>
           <div class="form-group">
-             <label for="fileInput">Adjuntar Archivo</label>
-             <input type="file" @change="handleFileUpload" class="file-input" id="fileInput" />
+            <label for="fileInput">Adjuntar Archivo</label>
+            <input type="file" @change="handleFileUpload" class="file-input" id="fileInput" />
           </div>
         </div>
         <div class="modal-footer">
@@ -236,61 +250,71 @@
                 <p>{{ tareaSeleccionada.description || 'No se proporcionó una descripción.' }}</p>
               </div>
               <div class="detail-section">
-                 <h3><i class="fa-solid fa-comments"></i> Comentarios</h3>
-                 <div class="comments-list">
-                    <div v-if="!tareaSeleccionada.comentarios || tareaSeleccionada.comentarios.length === 0" class="empty-comments">
-                        Aún no hay comentarios.
+                <h3><i class="fa-solid fa-comments"></i> Comentarios</h3>
+                <div class="comments-list">
+                  <div v-if="!tareaSeleccionada.comentarios || tareaSeleccionada.comentarios.length === 0"
+                    class="empty-comments">
+                    Aún no hay comentarios.
+                  </div>
+                  <div v-for="comentario in tareaSeleccionada.comentarios" :key="comentario.id" class="comment-item">
+                    <div class="comment-avatar"
+                      :style="comentario.autor_avatar_url ? { backgroundImage: `url(${comentario.autor_avatar_url})` } : {}">
+                      <span v-if="!comentario.autor_avatar_url">{{ comentario.autor_nombre.charAt(0).toUpperCase()
+                        }}</span>
                     </div>
-                    <div v-for="comentario in tareaSeleccionada.comentarios" :key="comentario.id" class="comment-item">
-                        <div class="comment-avatar">{{ comentario.autor_nombre.charAt(0).toUpperCase() }}</div>
-                        <div class="comment-body">
-                            <div class="comment-header">
-                                <span class="comment-author">{{ comentario.autor_nombre }}</span>
-                                <span class="comment-date">{{ formatDate(comentario.fecha_creacion) }}</span>
-                            </div>
-                            <div class="comment-content">
-                                <p>{{ comentario.contenido }}</p>
-                            </div>
-                        </div>
+                    <div class="comment-body">
+                      <div class="comment-header">
+                        <span class="comment-author">{{ comentario.autor_nombre }}</span>
+                        <span class="comment-date">{{ formatDate(comentario.fecha_creacion) }}</span>
+                      </div>
+                      <div class="comment-content">
+                        <p>{{ comentario.contenido }}</p>
+                      </div>
                     </div>
-                 </div>
-                 <div class="comment-form">
-                    <textarea v-model="nuevoComentario" placeholder="Escribe un comentario..." @keyup.enter.prevent="agregarComentario"></textarea>
-                    <button @click="agregarComentario" :disabled="!nuevoComentario.trim()">Enviar</button>
-                 </div>
+                  </div>
+                </div>
+                <div class="comment-form">
+                  <textarea v-model="nuevoComentario" placeholder="Escribe un comentario..."
+                    @keyup.enter.prevent="agregarComentario"></textarea>
+                  <button @click="agregarComentario" :disabled="!nuevoComentario.trim()">Enviar</button>
+                </div>
               </div>
             </div>
             <div class="detail-col">
-               <div class="detail-section">
-                  <h3><i class="fa-solid fa-circle-info"></i> Detalles</h3>
-                  <ul class="detail-list">
-                      <li><strong>Asignado a:</strong> <span>{{ tareaSeleccionada.assigned_names || 'Nadie' }}</span></li>
-                      <li><strong>Fecha Límite:</strong> <span>{{ formatDate(tareaSeleccionada.due_date) }}</span></li>
-                      <li><strong>Prioridad:</strong> <span :class="'badge-' + tareaSeleccionada.priority">{{ getPriorityText(tareaSeleccionada.priority) }}</span></li>
-                      <li><strong>Creado por:</strong> <span>{{ tareaSeleccionada.created_by_name }}</span></li>
-                      <li v-if="getLabelsArray(tareaSeleccionada).length > 0">
-                        <strong>Etiquetas:</strong> 
-                        <div class="labels">
-                           <span v-for="label in getLabelsArray(tareaSeleccionada)" :key="label" class="label-tag" :style="{ backgroundColor: getColor(label) }">{{ label }}</span>
-                        </div>
-                      </li>
-                  </ul>
-               </div>
-               <div class="detail-section" v-if="tareaSeleccionada.attachments && tareaSeleccionada.attachments.length > 0">
-                  <h3><i class="fa-solid fa-paperclip"></i> Archivos Adjuntos</h3>
-                  <div class="attachments-list">
-                     <div v-for="attachment in tareaSeleccionada.attachments" :key="attachment.id" class="attachment-item">
-                        <i class="fa-solid fa-file"></i>
-                        <span class="attachment-name">{{ attachment.file_name }}</span>
-                        <button @click="downloadFile(attachment)" class="btn-download" title="Descargar"><i class="fa-solid fa-download"></i></button>
-                     </div>
+              <div class="detail-section">
+                <h3><i class="fa-solid fa-circle-info"></i> Detalles</h3>
+                <ul class="detail-list">
+                  <li><strong>Asignado a:</strong> <span>{{ tareaSeleccionada.assigned_names || 'Nadie' }}</span></li>
+                  <li><strong>Fecha Límite:</strong> <span>{{ formatDate(tareaSeleccionada.due_date) }}</span></li>
+                  <li><strong>Prioridad:</strong> <span :class="'badge-' + tareaSeleccionada.priority">{{
+                      getPriorityText(tareaSeleccionada.priority) }}</span></li>
+                  <li><strong>Creado por:</strong> <span>{{ tareaSeleccionada.created_by_name }}</span></li>
+                  <li v-if="getLabelsArray(tareaSeleccionada).length > 0">
+                    <strong>Etiquetas:</strong>
+                    <div class="labels">
+                      <span v-for="label in getLabelsArray(tareaSeleccionada)" :key="label" class="label-tag"
+                        :style="{ backgroundColor: getColor(label) }">{{ label }}</span>
+                    </div>
+                  </li>
+                </ul>
+              </div>
+              <div class="detail-section"
+                v-if="tareaSeleccionada.attachments && tareaSeleccionada.attachments.length > 0">
+                <h3><i class="fa-solid fa-paperclip"></i> Archivos Adjuntos</h3>
+                <div class="attachments-list">
+                  <div v-for="attachment in tareaSeleccionada.attachments" :key="attachment.id" class="attachment-item">
+                    <i class="fa-solid fa-file"></i>
+                    <span class="attachment-name">{{ attachment.file_name }}</span>
+                    <button @click="downloadFile(attachment)" class="btn-download" title="Descargar"><i
+                        class="fa-solid fa-download"></i></button>
                   </div>
-               </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
         <div class="modal-footer">
-            <button @click="tareaSeleccionada = null" class="btn-cancel">Cerrar</button>
+          <button @click="tareaSeleccionada = null" class="btn-cancel">Cerrar</button>
         </div>
       </div>
     </div>
@@ -300,4 +324,5 @@
   <script src="/js/api.js"></script>
   <script src="/js/tasks.js"></script>
 </body>
+
 </html>

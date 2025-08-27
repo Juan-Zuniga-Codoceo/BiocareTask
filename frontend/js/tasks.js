@@ -48,7 +48,7 @@ createApp({
 
     // === Archivo adjunto ===
     const archivoAdjunto = ref(null);
-    
+
     // === Cargar usuario desde localStorage ===
     const userData = localStorage.getItem('biocare_user');
     if (!userData) {
@@ -80,7 +80,7 @@ createApp({
         users.value = usersData || [];
         labels.value = labelsData || [];
         resumen.value = resumenData ||
-        { vencidas: 0, proximas: 0, total_pendientes: 0 };
+          { vencidas: 0, proximas: 0, total_pendientes: 0 };
         notificaciones.value = notifData || [];
       } catch (err) {
         console.error('Error al cargar datos:', err);
@@ -238,18 +238,26 @@ createApp({
     const agregarComentario = async () => {
       if (!nuevoComentario.value.trim() || !tareaSeleccionada.value) return;
       try {
-        await API.post('/api/tasks/comments', {
+        const newCommentData = {
           task_id: tareaSeleccionada.value.id,
-          contenido: nuevoComentario.value.trim(),
-          autor_id: user.value.id
-        });
+          contenido: nuevoComentario.value.trim()
+        };
+
+        // El backend ya sabe quién es el autor por el token
+        const savedComment = await API.post('/api/tasks/comments', newCommentData);
+
+        // Para feedback instantáneo, añadimos el comentario a la lista local
         tareaSeleccionada.value.comentarios.push({
-          id: Date.now(),
+          id: savedComment.id,
           contenido: nuevoComentario.value.trim(),
           autor_nombre: user.value.name,
           autor_id: user.value.id,
+          // ▼▼▼ LÍNEA AÑADIDA ▼▼▼
+          autor_avatar_url: user.value.avatar_url, // Añadimos el avatar del usuario actual
+          // ▲▲▲ FIN DE LA LÍNEA ▲▲▲
           fecha_creacion: new Date().toISOString()
         });
+
         tareaSeleccionada.value.comentarios_count++;
         nuevoComentario.value = '';
         showSuccess('💬 Comentario agregado');
@@ -281,7 +289,7 @@ createApp({
     const tareasPendientes = computed(() => tareasFiltradas.value.filter(t => t.status === 'pendiente'));
     const tareasEnCamino = computed(() => tareasFiltradas.value.filter(t => t.status === 'en_camino'));
     const tareasCompletadas = computed(() => tareasFiltradas.value.filter(t => t.status === 'completada'));
-    
+
     const toggleNotifications = () => {
       mostrarNotificaciones.value = !mostrarNotificaciones.value;
     };
@@ -321,7 +329,7 @@ createApp({
         'Valparaíso': '#F39C12', 'Viña del Mar': '#E67E22', 'Quilpué': '#16A085',
         'Prioritaria': '#E74C3C', 'Urgente': '#C0392B'
       };
-      
+
       if (predefinedColors[labelName]) {
         return predefinedColors[labelName];
       }
@@ -355,7 +363,7 @@ createApp({
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (!response.ok) throw new Error('No se pudo iniciar la descarga');
-        
+
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
