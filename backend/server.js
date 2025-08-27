@@ -275,18 +275,21 @@ app.post('/api/tasks', jsonParser, [
 });
 
 // ✅ CAMBIAR ESTADO
+// ▼▼▼ SOLUCIÓN: Añadir 'jsonParser' aquí para que el servidor pueda leer el body de la petición ▼▼▼
 app.put('/api/tasks/:id/status', jsonParser, [
   authenticateToken,
   body('status').isIn(['pendiente', 'en_camino', 'completada'])
 ], async (req, res) => {
   const { id } = req.params;
-  const { status } = req.body;
+  const { status } = req.body; // Esta línea ahora funcionará
   const completed_at = status === 'completada' ? new Date().toISOString() : null;
 
   db.get("SELECT id FROM tasks WHERE id = ? AND (created_by = ? OR id IN (SELECT task_id FROM task_assignments WHERE user_id = ?))",
     [id, req.userId, req.userId], (err, task) => {
+      
       if (err) return res.status(500).json({ error: 'Error interno' });
-      if (!task) return res.status(404).json({ error: 'Tarea no encontrada' });
+      
+      if (!task) return res.status(404).json({ error: 'Tarea no encontrada o sin permisos' });
 
       db.run("UPDATE tasks SET status = ?, completed_at = ? WHERE id = ?", [status, completed_at, id], function (err) {
         if (err) return res.status(500).json({ error: 'Error al actualizar' });
