@@ -2,7 +2,6 @@
 const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require('bcrypt');
 const path = require('path');
-const fs = require('fs');
 
 // === CONFIGURACIÓN DE LA BASE DE DATOS ===
 const dbPath = path.join(__dirname, 'database.sqlite');
@@ -23,10 +22,6 @@ db.run("PRAGMA foreign_keys = ON", (err) => {
     console.log('✅ Foreign keys activadas');
   }
 });
-
-// === MODO DEBUG (solo en desarrollo) ===
-// Descomenta la siguiente línea si quieres ver todas las consultas SQL
-// db.on('trace', console.log);
 
 // === CREAR TABLAS EN ORDEN ===
 db.serialize(() => {
@@ -170,54 +165,24 @@ db.serialize(() => {
     }
   });
 
-  // === DATOS INICIALES ===
+  // === DATOS INICIALES: SOLO ADMIN ===
   const defaultPassword = bcrypt.hashSync('1234', 10); // Contraseña: 1234
 
-  // Usuario admin
   db.run(
     `INSERT OR IGNORE INTO users (name, email, password, office, role) VALUES (?, ?, ?, ?, ?)`,
     ['Admin', 'admin@biocare.cl', defaultPassword, 'Valparaíso', 'admin'],
     function (err) {
       if (err) {
-        console.error('❌ Error al insertar admin:', err.message);
+        console.error('❌ Error al insertar usuario admin:', err.message);
       } else if (this.changes > 0) {
-        console.log('✅ Usuario admin creado');
+        console.log('✅ Usuario admin creado: admin@biocare.cl / contraseña: 1234');
       } else {
-        console.log('ℹ️  Usuario admin ya existe');
+        console.log('ℹ️  El usuario admin ya existe');
       }
     }
   );
 
-  // Usuarios de ejemplo
-  const users = [
-    ['Paulo', 'paulo@biocare.cl', 'Quilpué'],
-    ['Ana', 'ana@biocare.cl', 'Viña del Mar'],
-    ['Luis', 'luis@biocare.cl', 'Quilpué'],
-    ['Carla', 'carla@biocare.cl', 'Valparaíso'],
-    ['Marta', 'marta@biocare.cl', 'Santiago']
-  ];
-
-  const userStmt = db.prepare(
-    "INSERT OR IGNORE INTO users (name, email, password, office) VALUES (?, ?, ?, ?)"
-  );
-  users.forEach(([name, email, office]) => {
-    userStmt.run(name, email, defaultPassword, office);
-  });
-  userStmt.finalize(() => {
-    console.log('✅ Usuarios de ejemplo insertados');
-  });
-
-  // Etiquetas iniciales
-  const labels = ['Viña del Mar', 'Valparaíso', 'Express', 'Factura', 'Entrega'];
-  const labelStmt = db.prepare("INSERT OR IGNORE INTO labels (name, created_by) VALUES (?, 1)");
-  labels.forEach(name => {
-    labelStmt.run(name);
-  });
-  labelStmt.finalize(() => {
-    console.log('✅ Etiquetas iniciales insertadas');
-  });
-
-  // Índices para mejorar rendimiento
+  // === ÍNDICES PARA MEJORAR RENDIMIENTO ===
   db.run(`CREATE INDEX IF NOT EXISTS idx_tasks_due_date ON tasks(due_date)`);
   db.run(`CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status)`);
   db.run(`CREATE INDEX IF NOT EXISTS idx_attachments_task_id ON attachments(task_id)`);
