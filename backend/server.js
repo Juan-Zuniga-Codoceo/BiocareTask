@@ -17,16 +17,9 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
-// ==================================================================
-// ▼▼▼ INICIO DE LA SOLUCIÓN ▼▼▼
-// ==================================================================
 
 // Middleware para parsear JSON. Se aplicará selectivamente a las rutas que lo necesiten.
 const jsonParser = express.json({ limit: '10mb' });
-
-// ==================================================================
-// ▲▲▲ FIN DE LA SOLUCIÓN ▲▲▲
-// ==================================================================
 
 // Servir archivos estáticos
 app.use(express.static(path.join(__dirname, '..', 'frontend')));
