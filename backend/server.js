@@ -8,19 +8,25 @@ const multer = require('multer');
 const fs = require('fs');
 
 const app = express();
-
 // === CONFIGURACIÓN DE PUERTO Y HOST ===
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
-
 // === DIRECTORIOS ===
 const uploadsDir = path.join(__dirname, '..', 'uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
-// === MIDDLEWARE BÁSICO (sin express.json global) ===
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// ==================================================================
+// ▼▼▼ INICIO DE LA SOLUCIÓN ▼▼▼
+// ==================================================================
+
+// Middleware para parsear JSON. Se aplicará selectivamente a las rutas que lo necesiten.
+const jsonParser = express.json({ limit: '10mb' });
+
+// ==================================================================
+// ▲▲▲ FIN DE LA SOLUCIÓN ▲▲▲
+// ==================================================================
 
 // Servir archivos estáticos
 app.use(express.static(path.join(__dirname, '..', 'frontend')));
@@ -37,7 +43,6 @@ const storage = multer.diskStorage({
     cb(null, uniqueSuffix + '-' + originalName);
   }
 });
-
 const fileFilter = (req, file, cb) => {
   if (req.originalUrl === '/api/user/avatar') {
     if (file.mimetype.startsWith('image/')) {
@@ -59,22 +64,18 @@ const fileFilter = (req, file, cb) => {
     }
   }
 };
-
 const upload = multer({
   storage: storage,
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: fileFilter
 });
-
 // === CONEXIÓN A LA BASE DE DATOS ===
 const db = require('./db');
-
 // === MIDDLEWARE PERSONALIZADO ===
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
   next();
 });
-
 // === AUTENTICACIÓN ===
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -103,7 +104,6 @@ const authenticateToken = (req, res, next) => {
 // === MANEJO DE ERRORES ===
 const errorHandler = (err, req, res, next) => {
   console.error('Error:', err.message);
-
   if (err instanceof multer.MulterError) {
     if (err.code === 'LIMIT_FILE_SIZE') {
       return res.status(413).json({ error: 'El archivo es demasiado grande' });
@@ -112,7 +112,6 @@ const errorHandler = (err, req, res, next) => {
 
   res.status(500).json({ error: 'Error interno del servidor' });
 };
-
 // === RUTAS AMIGABLES ===
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'frontend', 'login.html'));
@@ -129,11 +128,10 @@ app.get('/tablero', (req, res) => {
 app.get('/perfil', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'frontend', 'perfil.html'));
 });
-
 // === RUTAS API ===
 
 // 🔐 LOGIN
-app.post('/api/login', [
+app.post('/api/login', jsonParser, [
   body('email').isEmail().normalizeEmail(),
   body('password').isLength({ min: 1 })
 ], async (req, res) => {
@@ -179,8 +177,7 @@ app.post('/api/login', [
 });
 
 // 🆕 REGISTRO
-app.use('/api/register', express.json({ limit: '10mb' }));
-app.post('/api/register', [
+app.post('/api/register', jsonParser, [
   body('email').isEmail().normalizeEmail(),
   body('password').isLength({ min: 6 }),
   body('name').trim().isLength({ min: 2 }).escape()
@@ -236,7 +233,6 @@ app.get('/api/tasks', authenticateToken, (req, res) => {
   if (search) { sql += " AND (t.title LIKE ? OR t.description LIKE ?)"; params.push(`%${search}%`, `%${search}%`); }
 
   sql += " GROUP BY t.id ORDER BY t.due_date ASC";
-
   db.all(sql, params, (err, tasks) => {
     if (err) return res.status(500).json({ error: 'Error al obtener tareas' });
     res.json(tasks || []);
@@ -244,8 +240,7 @@ app.get('/api/tasks', authenticateToken, (req, res) => {
 });
 
 // 🆕 CREAR TAREA
-app.use('/api/tasks', express.json({ limit: '10mb' }));
-app.post('/api/tasks', [
+app.post('/api/tasks', jsonParser, [
   authenticateToken,
   body('title').notEmpty().trim().escape(),
   body('due_date').isISO8601()
@@ -286,8 +281,7 @@ app.post('/api/tasks', [
 });
 
 // ✅ CAMBIAR ESTADO
-app.use('/api/tasks/:id/status', express.json({ limit: '10mb' }));
-app.put('/api/tasks/:id/status', [
+app.put('/api/tasks/:id/status', jsonParser, [
   authenticateToken,
   body('status').isIn(['pendiente', 'en_camino', 'completada'])
 ], async (req, res) => {
@@ -324,7 +318,7 @@ app.get('/api/labels', authenticateToken, (req, res) => {
 });
 
 // 🏷️ CREAR ETIQUETA
-app.post('/api/labels', [
+app.post('/api/labels', jsonParser, [
   authenticateToken,
   body('name').trim().isLength({ min: 1 }).escape().withMessage('El nombre es requerido')
 ], async (req, res) => {
@@ -390,9 +384,14 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
 
   db.get("SELECT id FROM tasks WHERE id = ? AND (created_by = ? OR id IN (SELECT task_id FROM task_assignments WHERE user_id = ?))",
     [task_id, req.userId, req.userId], (err, task) => {
+      if (err) {
+        fs.unlinkSync(req.file.path);
+        console.error("Error al buscar la tarea durante la subida:", err.message);
+        return res.status(500).json({ error: 'Error al verificar la tarea' });
+      }
       if (!task) {
         fs.unlinkSync(req.file.path);
-        return res.status(404).json({ error: 'Tarea no encontrada' });
+        return res.status(404).json({ error: 'Tarea no encontrada o sin permisos' });
       }
 
       db.run(
@@ -401,7 +400,9 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
         function (err) {
           if (err) {
             fs.unlinkSync(req.file.path);
-            return res.status(500).json({ error: 'No se pudo guardar el archivo' });
+            // Mensaje de error mejorado en la consola del servidor
+            console.error('Error al guardar adjunto en la BD:', err.message);
+            return res.status(500).json({ error: 'No se pudo guardar la información del archivo' });
           }
           res.status(201).json({ id: this.lastID, file_path: req.file.filename });
         }
@@ -455,7 +456,7 @@ app.get('/api/tasks/:id/comments', authenticateToken, (req, res) => {
 });
 
 // 📝 AGREGAR COMENTARIO
-app.post('/api/tasks/comments', [
+app.post('/api/tasks/comments', jsonParser, [
   authenticateToken,
   body('task_id').isInt(),
   body('contenido').trim().isLength({ min: 1 }).withMessage('El contenido es obligatorio')
