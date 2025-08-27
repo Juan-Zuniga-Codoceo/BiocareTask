@@ -3,10 +3,8 @@ const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require('bcrypt');
 const path = require('path');
 
-// Ruta absoluta para evitar problemas
+// === CONFIGURACIÓN DE LA BASE DE DATOS ===
 const dbPath = path.join(__dirname, 'database.sqlite');
-
-// Crear conexión a la base de datos
 let db = new sqlite3.Database(dbPath, (err) => {
   if (err) {
     console.error('❌ Error al conectar con la base de datos:', err.message);
@@ -16,14 +14,22 @@ let db = new sqlite3.Database(dbPath, (err) => {
   }
 });
 
-// Habilitar verbose para ver errores detallados
-db.on('trace', console.log);
+// === HABILITAR FOREIGN KEYS ===
+db.run("PRAGMA foreign_keys = ON", (err) => {
+  if (err) {
+    console.error('❌ Error al activar foreign keys:', err.message);
+  } else {
+    console.log('✅ Foreign keys activadas');
+  }
+});
 
-// Usar serialize para ejecutar comandos en orden
+// === MODO DEBUG (solo en desarrollo) ===
+// Descomenta la siguiente línea si quieres ver todas las consultas SQL
+// db.on('trace', console.log);
+
+// === CREAR TABLAS EN ORDEN ===
 db.serialize(() => {
-  // === CREAR TABLAS ===
-
-  // Tabla users con avatar_url
+  // Tabla users
   db.run(`CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
@@ -116,6 +122,7 @@ db.serialize(() => {
     file_path TEXT NOT NULL,
     file_name TEXT NOT NULL,
     file_type TEXT,
+    file_size INTEGER DEFAULT 0,
     uploaded_by INTEGER,
     uploaded_at TEXT DEFAULT (datetime('now', 'localtime')),
     FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
@@ -128,12 +135,46 @@ db.serialize(() => {
     }
   });
 
+  // Tabla comments
+  db.run(`CREATE TABLE IF NOT EXISTS comments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER,
+    contenido TEXT NOT NULL,
+    autor_id INTEGER,
+    fecha_creacion TEXT DEFAULT (datetime('now', 'localtime')),
+    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+    FOREIGN KEY (autor_id) REFERENCES users(id)
+  )`, (err) => {
+    if (err) {
+      console.error('❌ Error al crear tabla comments:', err.message);
+    } else {
+      console.log('✅ Tabla comments lista');
+    }
+  });
+
+  // Tabla notifications
+  db.run(`CREATE TABLE IF NOT EXISTS notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    usuario_id INTEGER,
+    mensaje TEXT NOT NULL,
+    leida INTEGER DEFAULT 0,
+    tipo TEXT DEFAULT 'info',
+    fecha_creacion TEXT DEFAULT (datetime('now', 'localtime')),
+    FOREIGN KEY (usuario_id) REFERENCES users(id)
+  )`, (err) => {
+    if (err) {
+      console.error('❌ Error al crear tabla notifications:', err.message);
+    } else {
+      console.log('✅ Tabla notifications lista');
+    }
+  });
+
   // === DATOS INICIALES ===
+  const defaultPassword = bcrypt.hashSync('1234', 10); // Contraseña: 1234
 
-  const defaultPassword = bcrypt.hashSync('1234', 10);
-
-  // Admin
-  db.run(`INSERT OR IGNORE INTO users (name, email, password, office, role) VALUES (?, ?, ?, ?, ?)`,
+  // Usuario admin
+  db.run(
+    `INSERT OR IGNORE INTO users (name, email, password, office, role) VALUES (?, ?, ?, ?, ?)`,
     ['Admin', 'admin@biocare.cl', defaultPassword, 'Valparaíso', 'admin'],
     function (err) {
       if (err) {
@@ -143,7 +184,8 @@ db.serialize(() => {
       } else {
         console.log('ℹ️  Usuario admin ya existe');
       }
-    });
+    }
+  );
 
   // Usuarios de ejemplo
   const users = [
@@ -154,7 +196,9 @@ db.serialize(() => {
     ['Marta', 'marta@biocare.cl', 'Santiago']
   ];
 
-  const userStmt = db.prepare("INSERT OR IGNORE INTO users (name, email, password, office) VALUES (?, ?, ?, ?)");
+  const userStmt = db.prepare(
+    "INSERT OR IGNORE INTO users (name, email, password, office) VALUES (?, ?, ?, ?)"
+  );
   users.forEach(([name, email, office]) => {
     userStmt.run(name, email, defaultPassword, office);
   });
@@ -171,7 +215,13 @@ db.serialize(() => {
   labelStmt.finalize(() => {
     console.log('✅ Etiquetas iniciales insertadas');
   });
+
+  // Índices para mejorar rendimiento
+  db.run(`CREATE INDEX IF NOT EXISTS idx_tasks_due_date ON tasks(due_date)`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status)`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_attachments_task_id ON attachments(task_id)`);
+  console.log('✅ Índices creados para mejor rendimiento');
 });
 
-// Exportar la base de datos para usar en server.js
+// === EXPORTAR LA BASE DE DATOS ===
 module.exports = db;

@@ -4,27 +4,72 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>BiocareTask - Tablero</title>
+  <!-- Rutas absolutas para evitar problemas -->
   <link rel="stylesheet" href="/css/tablero.css" />
-  <link rel="stylesheet" href="/css/style.css" />
   <link rel="manifest" href="/manifest.json">
   <link rel="icon" href="/assets/logo.png" type="image/png">
 </head>
 
 <body>
   <div id="app">
-    <!-- Header -->
+    <!-- Header con navegación mejorada -->
     <header class="header">
-      <div class="logo">
-        <img src="assets/logo.png" alt="Biocare Logo" />
-        <h1>BiocareTask</h1>
+      <div class="header-left">
+        <div class="logo">
+          <img src="/assets/logo.png" alt="Biocare Logo" />
+          <h1>BiocareTask</h1>
+        </div>
+        <nav class="main-nav">
+          <a href="/tablero" class="nav-link active" title="Inicio">
+            <span class="nav-icon">🏠</span>
+            <span class="nav-text">Inicio</span>
+          </a>
+          <a href="/perfil" class="nav-link" title="Mi Perfil">
+            <span class="nav-icon">👤</span>
+            <span class="nav-text">Perfil</span>
+          </a>
+        </nav>
       </div>
-      <div class="user-menu">
-        <span>👋 {{ user.name }}</span>
-        <div class="dropdown">
-          <button class="btn-dropdown">⚙️</button>
-          <div class="dropdown-menu">
-            <a href="/perfil">Mi Perfil</a>
-            <a href="javascript:logout()">Cerrar sesión</a>
+      
+      <div class="header-right">
+        <!-- Notificaciones -->
+        <div class="notifications">
+          <button class="btn-notification" @click="toggleNotifications" title="Notificaciones">
+            <span class="notification-icon">🔔</span>
+            <span class="notification-badge" v-if="notificacionesPendientes > 0">
+              {{ notificacionesPendientes }}
+            </span>
+          </button>
+          
+          <div class="notifications-panel" v-if="mostrarNotificaciones">
+            <div class="notifications-header">
+              <h3>Notificaciones</h3>
+              <button @click="mostrarNotificaciones = false" class="btn-close">×</button>
+            </div>
+            <div class="notifications-list">
+              <div v-for="notificacion in notificaciones" :key="notificacion.id" 
+                   class="notification-item" :class="{'unread': !notificacion.leida}">
+                <div class="notification-content">
+                  <p>{{ notificacion.mensaje }}</p>
+                  <small>{{ formatDate(notificacion.fecha) }}</small>
+                </div>
+                <button v-if="!notificacion.leida" @click="marcarComoLeida(notificacion.id)" 
+                        class="btn-mark-read" title="Marcar como leída">✓</button>
+              </div>
+              <p v-if="notificaciones.length === 0" class="empty">No hay notificaciones</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Usuario -->
+        <div class="user-menu">
+          <span class="user-greeting">👋 {{ user.name }}</span>
+          <div class="dropdown">
+            <button class="btn-dropdown">⚙️</button>
+            <div class="dropdown-menu">
+              <a href="/perfil">Mi Perfil</a>
+              <a href="javascript:logout()">Cerrar sesión</a>
+            </div>
           </div>
         </div>
       </div>
@@ -70,6 +115,14 @@
             >
               <h3>{{ task.title }}</h3>
               <p>{{ task.description }}</p>
+              
+              <!-- Comentarios preview -->
+              <div class="comments-preview" v-if="task.comentarios_count > 0">
+                <span class="comment-icon">💬</span>
+                <span class="comment-count">{{ task.comentarios_count }}</span>
+                <span class="comment-text">comentario{{ task.comentarios_count !== 1 ? 's' : '' }}</span>
+              </div>
+              
               <div class="task-meta">
                 <span class="due-date">📅 {{ formatDate(task.due_date) }}</span>
                 <div class="labels">
@@ -103,6 +156,14 @@
             >
               <h3>{{ task.title }}</h3>
               <p>{{ task.description }}</p>
+              
+              <!-- Comentarios preview -->
+              <div class="comments-preview" v-if="task.comentarios_count > 0">
+                <span class="comment-icon">💬</span>
+                <span class="comment-count">{{ task.comentarios_count }}</span>
+                <span class="comment-text">comentario{{ task.comentarios_count !== 1 ? 's' : '' }}</span>
+              </div>
+              
               <div class="task-meta">
                 <span class="due-date">📅 {{ formatDate(task.due_date) }}</span>
                 <div class="labels">
@@ -136,6 +197,14 @@
             >
               <h3>✅ {{ task.title }}</h3>
               <p>{{ task.description }}</p>
+              
+              <!-- Comentarios preview -->
+              <div class="comments-preview" v-if="task.comentarios_count > 0">
+                <span class="comment-icon">💬</span>
+                <span class="comment-count">{{ task.comentarios_count }}</span>
+                <span class="comment-text">comentario{{ task.comentarios_count !== 1 ? 's' : '' }}</span>
+              </div>
+              
               <div class="task-meta">
                 <small>Completado el {{ formatDate(task.completed_at) }}</small>
                 <div class="labels">
@@ -203,6 +272,13 @@
           <small>Mantén presionada la tecla Ctrl para seleccionar múltiples etiquetas</small>
         </div>
 
+        <!-- Comentario inicial -->
+        <div class="form-group">
+          <label>Comentario inicial (opcional)</label>
+          <textarea v-model="newTask.comentario_inicial" placeholder="Añade un comentario para esta tarea..." 
+                   rows="3"></textarea>
+        </div>
+
         <!-- Crear nueva etiqueta -->
         <div class="form-group">
           <label>Crear nueva etiqueta</label>
@@ -242,7 +318,7 @@
       </div>
     </div>
 
-    <!-- Modal: Detalles de Tarea -->
+    <!-- Modal: Detalles de Tarea con Comentarios -->
     <div class="modal" v-if="tareaSeleccionada" @click.self="tareaSeleccionada = null">
       <div class="modal-content large">
         <div class="modal-header">
@@ -291,6 +367,33 @@
               </div>
             </div>
             
+            <!-- Sección de Comentarios -->
+            <div class="detail-section">
+              <h3>💬 Comentarios</h3>
+              <div class="comments-section">
+                <div class="comment-form">
+                  <textarea v-model="nuevoComentario" placeholder="Escribe un comentario..." 
+                           rows="3"></textarea>
+                  <button @click="agregarComentario" class="btn-comment" :disabled="!nuevoComentario.trim()">
+                    Enviar
+                  </button>
+                </div>
+                
+                <div class="comments-list">
+                  <div v-for="comentario in tareaSeleccionada.comentarios" :key="comentario.id" 
+                       class="comment-item">
+                    <div class="comment-header">
+                      <strong>{{ comentario.autor_nombre }}</strong>
+                      <span class="comment-date">{{ formatDate(comentario.fecha_creacion) }}</span>
+                    </div>
+                    <p class="comment-text">{{ comentario.contenido }}</p>
+                  </div>
+                  <p v-if="!tareaSeleccionada.comentarios || tareaSeleccionada.comentarios.length === 0" 
+                     class="empty">No hay comentarios</p>
+                </div>
+              </div>
+            </div>
+            
             <!-- Archivos adjuntos -->
             <div class="detail-section" v-if="tareaSeleccionada.attachments && tareaSeleccionada.attachments.length > 0">
               <h3>Archivos adjuntos</h3>
@@ -320,9 +423,11 @@
     </div>
   </div>
 
-  <!-- Vue.js desde CDN -->
+  <!-- Vue.js desde CDN (primero) -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+
+  <!-- Luego tus scripts -->
   <script src="/js/api.js"></script>
-  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
   <script src="/js/tasks.js"></script>
 </body>
 </html>
