@@ -233,45 +233,43 @@ app.get('/api/tasks', authenticateToken, (req, res) => {
   });
 });
 
-// 🆕 CREAR TAREA
-app.post('/api/tasks', jsonParser, [
-  authenticateToken,
-  body('title').notEmpty().trim().escape(),
-  body('due_date').isISO8601()
-], async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
-
+// 🆕 CREAR TAREA (CON NOTIFICACIÓN POR ASIGNACIÓN)
+app.post('/api/tasks', jsonParser, [authenticateToken, body('title').notEmpty().trim().escape()], async (req, res) => {
   const { title, description, due_date, priority, assigned_to, label_ids } = req.body;
   const created_by = req.userId;
 
-  db.serialize(() => {
-    db.run(
-      `INSERT INTO tasks (title, description, due_date, priority, created_by) VALUES (?, ?, ?, ?, ?)`,
-      [title, description || '', due_date, priority || 'media', created_by],
-      function (err) {
-        if (err) return res.status(500).json({ error: 'No se pudo crear la tarea' });
+  db.run(`INSERT INTO tasks (title, description, due_date, priority, created_by) VALUES (?, ?, ?, ?, ?)`,
+    [title, description || '', due_date, priority || 'media', created_by],
+    function (err) {
+      if (err) return res.status(500).json({ error: 'No se pudo crear la tarea' });
 
-        const taskId = this.lastID;
+      const taskId = this.lastID;
+      const taskTitle = title.substring(0, 30); // Acortamos el título para la notificación
 
-        // Asignar usuarios
-        if (assigned_to && Array.isArray(assigned_to)) {
-          const stmt = db.prepare("INSERT INTO task_assignments (task_id, user_id) VALUES (?, ?)");
-          assigned_to.forEach(id => stmt.run(taskId, id));
-          stmt.finalize();
-        }
-
-        // Asignar etiquetas
-        if (label_ids && Array.isArray(label_ids)) {
-          const stmt = db.prepare("INSERT INTO task_labels (task_id, label_id) VALUES (?, ?)");
-          label_ids.forEach(id => stmt.run(taskId, id));
-          stmt.finalize();
-        }
-
-        res.status(201).json({ id: taskId, success: true });
+      // Asignar usuarios y crear notificaciones
+      if (assigned_to && Array.isArray(assigned_to)) {
+        const stmt = db.prepare("INSERT INTO task_assignments (task_id, user_id) VALUES (?, ?)");
+        assigned_to.forEach(userId => {
+          stmt.run(taskId, userId);
+          // --- Lógica de Notificación ---
+          if (userId !== req.userId) { // No te notifica si te auto-asignas la tarea
+            const mensaje = `${req.user.name} te ha asignado una nueva tarea: "${taskTitle}..."`;
+            db.run(`INSERT INTO notifications (usuario_id, mensaje, tipo) VALUES (?, ?, ?)`, [userId, mensaje, 'assignment']);
+          }
+        });
+        stmt.finalize();
       }
-    );
-  });
+
+      // Asignar etiquetas (sin cambios)
+      if (label_ids && Array.isArray(label_ids)) {
+        const stmt = db.prepare("INSERT INTO task_labels (task_id, label_id) VALUES (?, ?)");
+        label_ids.forEach(id => stmt.run(taskId, id));
+        stmt.finalize();
+      }
+
+      res.status(201).json({ id: taskId, success: true });
+    }
+  );
 });
 
 // ✅ CAMBIAR ESTADO
@@ -507,6 +505,54 @@ app.get('/api/notifications', authenticateToken, (req, res) => {
   });
 });
 
+// MARCAR UNA NOTIFICACIÓN COMO LEÍDA
+app.put('/api/notifications/:id/read', authenticateToken, (req, res) => {
+  const notificationId = req.params.id;
+  const userId = req.userId;
+
+  // Se asegura de que solo puedas marcar como leídas TUS notificaciones
+  const sql = "UPDATE notifications SET leida = 1 WHERE id = ? AND usuario_id = ?";
+  db.run(sql, [notificationId, userId], function (err) {
+    if (err) {
+      return res.status(500).json({ error: 'Error al actualizar la notificación' });
+    }
+    if (this.changes === 0) {
+      return res.status(404).json({ error: 'Notificación no encontrada o sin permisos' });
+    }
+    res.status(200).json({ success: true });
+  });
+});
+
+// MARCAR TODAS LAS NOTIFICACIONES COMO LEÍDAS
+app.put('/api/notifications/read-all', authenticateToken, (req, res) => {
+  const userId = req.userId;
+  const sql = "UPDATE notifications SET leida = 1 WHERE usuario_id = ? AND leida = 0";
+  db.run(sql, [userId], function (err) {
+    if (err) {
+      return res.status(500).json({ error: 'Error al actualizar las notificaciones' });
+    }
+    res.status(200).json({ success: true, changes: this.changes });
+  });
+});
+
+// ELIMINAR UNA NOTIFICACIÓN
+app.delete('/api/notifications/:id', authenticateToken, (req, res) => {
+  const notificationId = req.params.id;
+  const userId = req.userId;
+
+  // Se asegura de que solo puedas eliminar TUS notificaciones
+  const sql = "DELETE FROM notifications WHERE id = ? AND usuario_id = ?";
+  db.run(sql, [notificationId, userId], function (err) {
+    if (err) {
+      return res.status(500).json({ error: 'Error al eliminar la notificación' });
+    }
+    if (this.changes === 0) {
+      return res.status(404).json({ error: 'Notificación no encontrada o sin permisos' });
+    }
+    res.status(200).json({ success: true });
+  });
+});
+
 // 📝 COMENTARIOS
 app.get('/api/tasks/:id/comments', authenticateToken, (req, res) => {
   const taskId = req.params.id;
@@ -530,32 +576,40 @@ app.get('/api/tasks/:id/comments', authenticateToken, (req, res) => {
   );
 });
 
-// 📝 AGREGAR COMENTARIO
-app.post('/api/tasks/comments', jsonParser, [
-  authenticateToken,
-  body('task_id').isInt(),
-  body('contenido').trim().isLength({ min: 1 }).withMessage('El contenido es obligatorio')
-], async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+// 📝 AGREGAR COMENTARIO (CON NOTIFICACIÓN)
+app.post('/api/tasks/comments', jsonParser, [authenticateToken, body('task_id').isInt()], async (req, res) => {
+  const { task_id, contenido } = req.body;
+  const autor_id = req.userId;
+
+  db.run(`INSERT INTO comments (task_id, contenido, autor_id) VALUES (?, ?, ?)`,
+    [task_id, contenido, autor_id],
+    function (err) {
+      if (err) return res.status(500).json({ error: 'Error al crear comentario' });
+      
+      const commentId = this.lastID;
+      
+      // --- Lógica de Notificación ---
+      db.get("SELECT title, created_by FROM tasks WHERE id = ?", [task_id], (err, taskInfo) => {
+        if (taskInfo) {
+          db.all("SELECT user_id FROM task_assignments WHERE task_id = ?", [task_id], (err, assignments) => {
+            const assignedUserIds = assignments.map(a => a.user_id);
+            const allInvolvedIds = [...new Set([taskInfo.created_by, ...assignedUserIds])];
+            const usersToNotify = allInvolvedIds.filter(id => id !== autor_id);
+
+            if (usersToNotify.length > 0) {
+              const taskTitle = taskInfo.title.substring(0, 30);
+              const mensaje = `${req.user.name} comentó en la tarea: "${taskTitle}..."`;
+              const stmt = db.prepare(`INSERT INTO notifications (usuario_id, mensaje, tipo) VALUES (?, ?, ?)`);
+              usersToNotify.forEach(userId => stmt.run(userId, mensaje, 'comment'));
+              stmt.finalize();
+            }
+          });
+        }
+      });
+      
+      res.status(201).json({ id: commentId, success: true });
     }
-
-    const { task_id, contenido } = req.body;
-    const autor_id = req.userId;
-
-    db.run(
-      `INSERT INTO comments (task_id, contenido, autor_id) VALUES (?, ?, ?)`,
-      [task_id, contenido, autor_id],
-      function (err) {
-        if (err) return res.status(500).json({ error: 'Error al crear comentario' });
-        res.status(201).json({ id: this.lastID, success: true });
-      }
-    );
-  } catch (error) {
-    res.status(500).json({ error: 'Error interno del servidor' });
-  }
+  );
 });
 
 // Ruta de salud

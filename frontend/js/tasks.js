@@ -242,22 +242,15 @@ createApp({
           task_id: tareaSeleccionada.value.id,
           contenido: nuevoComentario.value.trim()
         };
-
-        // El backend ya sabe quién es el autor por el token
         const savedComment = await API.post('/api/tasks/comments', newCommentData);
-
-        // Para feedback instantáneo, añadimos el comentario a la lista local
         tareaSeleccionada.value.comentarios.push({
           id: savedComment.id,
           contenido: nuevoComentario.value.trim(),
           autor_nombre: user.value.name,
           autor_id: user.value.id,
-          // ▼▼▼ LÍNEA AÑADIDA ▼▼▼
-          autor_avatar_url: user.value.avatar_url, // Añadimos el avatar del usuario actual
-          // ▲▲▲ FIN DE LA LÍNEA ▲▲▲
+          autor_avatar_url: user.value.avatar_url,
           fecha_creacion: new Date().toISOString()
         });
-
         tareaSeleccionada.value.comentarios_count++;
         nuevoComentario.value = '';
         showSuccess('💬 Comentario agregado');
@@ -273,7 +266,6 @@ createApp({
 
     const tareasFiltradas = computed(() => {
       if (!Array.isArray(tasks.value)) return [];
-
       return tasks.value.filter(t => {
         let match = true;
         if (misTareas.value && user.value) {
@@ -289,7 +281,8 @@ createApp({
     const tareasPendientes = computed(() => tareasFiltradas.value.filter(t => t.status === 'pendiente'));
     const tareasEnCamino = computed(() => tareasFiltradas.value.filter(t => t.status === 'en_camino'));
     const tareasCompletadas = computed(() => tareasFiltradas.value.filter(t => t.status === 'completada'));
-
+    
+    // === Funciones de Notificaciones ===
     const toggleNotifications = () => {
       mostrarNotificaciones.value = !mostrarNotificaciones.value;
     };
@@ -299,9 +292,28 @@ createApp({
         await API.put(`/api/notifications/${id}/read`);
         const notif = notificaciones.value.find(n => n.id === id);
         if (notif) notif.leida = true;
-        showSuccess('Notificación marcada como leída');
       } catch (err) {
         showError('Error al marcar como leída');
+      }
+    };
+
+    const marcarTodasComoLeidas = async () => {
+      try {
+        await API.put('/api/notifications/read-all');
+        notificaciones.value.forEach(n => {
+          if (!n.leida) n.leida = true;
+        });
+      } catch (err) {
+        showError('Error al marcar todas como leídas');
+      }
+    };
+
+    const eliminarNotificacion = async (id) => {
+      try {
+        await API.delete(`/api/notifications/${id}`);
+        notificaciones.value = notificaciones.value.filter(n => n.id !== id);
+      } catch (err) {
+        showError('Error al eliminar notificación');
       }
     };
 
@@ -309,32 +321,24 @@ createApp({
     const formatDate = (isoDate) => {
       if (!isoDate) return 'No especificada';
       try {
-        // Formato mejorado para incluir la hora
         return new Date(isoDate).toLocaleString('es-CL', {
-          day: 'numeric',
-          month: 'long',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
+          day: 'numeric', month: 'long', year: 'numeric',
+          hour: '2-digit', minute: '2-digit'
         });
       } catch {
         return isoDate;
       }
     };
 
-    // ▼▼▼ FUNCIÓN DE COLOR MEJORADA ▼▼▼
     const getColor = (labelName) => {
       const predefinedColors = {
         'Entrega': '#049DD9', 'Express': '#3498DB', 'Factura': '#97BF04',
         'Valparaíso': '#F39C12', 'Viña del Mar': '#E67E22', 'Quilpué': '#16A085',
         'Prioritaria': '#E74C3C', 'Urgente': '#C0392B'
       };
-
       if (predefinedColors[labelName]) {
         return predefinedColors[labelName];
       }
-
-      // Paleta de colores por defecto con buen contraste para texto blanco
       const defaultColors = ['#2980B9', '#27AE60', '#8E44AD', '#2C3E50', '#7F8C8D'];
       let hash = 0;
       for (let i = 0; i < labelName.length; i++) {
@@ -363,7 +367,6 @@ createApp({
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (!response.ok) throw new Error('No se pudo iniciar la descarga');
-
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -395,11 +398,13 @@ createApp({
       logout, cargarDatos, crearTarea, crearEtiqueta,
       agregarComentario, handleFileUpload, removeFile,
       verDetalles, downloadFile, toggleNotifications,
-      marcarComoLeida,
       moverACamino: (id) => cambiarEstadoTarea(id, 'en_camino'),
       completar: (id) => cambiarEstadoTarea(id, 'completada'),
       tareasPendientes, tareasEnCamino, tareasCompletadas,
-      formatDate, getColor, getPriorityText, getLabelsArray, getFileSize
+      formatDate, getColor, getPriorityText, getLabelsArray, getFileSize,
+      marcarComoLeida,
+      marcarTodasComoLeidas,
+      eliminarNotificacion
     };
   }
 }).mount('#app');
