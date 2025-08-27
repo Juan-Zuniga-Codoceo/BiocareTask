@@ -123,7 +123,7 @@ app.get('/perfil', (req, res) => {
 });
 // === RUTAS API ===
 
-// 🔐 LOGIN
+/// 🔐 LOGIN
 app.post('/api/login', jsonParser, [
   body('email').isEmail().normalizeEmail(),
   body('password').isLength({ min: 1 })
@@ -136,10 +136,11 @@ app.post('/api/login', jsonParser, [
 
     const { email, password } = req.body;
 
-    db.get(
-      "SELECT id, name, email, office, role, password FROM users WHERE email = ?",
-      [email],
-      async (err, user) => {
+    // ▼▼▼ INICIO DE LA SOLUCIÓN (LÍNEA MODIFICADA) ▼▼▼
+    const sql = "SELECT id, name, email, office, role, password, avatar_url FROM users WHERE email = ?";
+    // ▲▲▲ FIN DE LA SOLUCIÓN ▲▲▲
+
+    db.get(sql, [email], async (err, user) => {
         if (err) {
           console.error('Error en consulta de login:', err);
           return res.status(500).json({ error: 'Error interno del servidor' });
