@@ -301,28 +301,38 @@ createApp({
     const formatDate = (isoDate) => {
       if (!isoDate) return 'No especificada';
       try {
+        // Formato mejorado para incluir la hora
         return new Date(isoDate).toLocaleString('es-CL', {
-          day: '2-digit',
-          month: 'short',
-          year: 'numeric'
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
         });
       } catch {
         return isoDate;
       }
     };
 
+    // ▼▼▼ FUNCIÓN DE COLOR MEJORADA ▼▼▼
     const getColor = (labelName) => {
-      const colors = {
+      const predefinedColors = {
         'Entrega': '#049DD9', 'Express': '#3498DB', 'Factura': '#97BF04',
-        'Valparaíso': '#F39C12', 'Viña del Mar': '#E67E22',
+        'Valparaíso': '#F39C12', 'Viña del Mar': '#E67E22', 'Quilpué': '#16A085',
         'Prioritaria': '#E74C3C', 'Urgente': '#C0392B'
       };
+      
+      if (predefinedColors[labelName]) {
+        return predefinedColors[labelName];
+      }
+
+      // Paleta de colores por defecto con buen contraste para texto blanco
+      const defaultColors = ['#2980B9', '#27AE60', '#8E44AD', '#2C3E50', '#7F8C8D'];
       let hash = 0;
       for (let i = 0; i < labelName.length; i++) {
         hash = labelName.charCodeAt(i) + ((hash << 5) - hash);
       }
-      const defaultColors = ['#1ABC9C', '#2ECC71', '#3498DB', '#9B59B6', '#34495E'];
-      return colors[labelName] || defaultColors[Math.abs(hash) % defaultColors.length];
+      return defaultColors[Math.abs(hash) % defaultColors.length];
     };
 
     const getPriorityText = (priority) => {

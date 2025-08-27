@@ -242,9 +242,16 @@
                         Aún no hay comentarios.
                     </div>
                     <div v-for="comentario in tareaSeleccionada.comentarios" :key="comentario.id" class="comment-item">
-                        <div class="comment-author">{{ comentario.autor_nombre }}</div>
-                        <div class="comment-content">{{ comentario.contenido }}</div>
-                        <div class="comment-date">{{ formatDate(comentario.fecha_creacion) }}</div>
+                        <div class="comment-avatar">{{ comentario.autor_nombre.charAt(0).toUpperCase() }}</div>
+                        <div class="comment-body">
+                            <div class="comment-header">
+                                <span class="comment-author">{{ comentario.autor_nombre }}</span>
+                                <span class="comment-date">{{ formatDate(comentario.fecha_creacion) }}</span>
+                            </div>
+                            <div class="comment-content">
+                                <p>{{ comentario.contenido }}</p>
+                            </div>
+                        </div>
                     </div>
                  </div>
                  <div class="comment-form">
