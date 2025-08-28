@@ -612,33 +612,71 @@ app.delete('/api/notifications/:id', authenticateToken, (req, res) => {
   });
 });
 
-// 📝 COMENTARIOS
+// ▼▼▼ REEMPLAZA ESTA RUTA EN backend/server.js ▼▼▼
+
+// 📝 COMENTARIOS (CON ADJUNTOS AGRUPADOS)
 app.get('/api/tasks/:id/comments', authenticateToken, (req, res) => {
   const taskId = req.params.id;
-  // ▼▼▼ CONSULTA SQL MODIFICADA ▼▼▼
   const sql = `
-    SELECT c.*, u.name as autor_nombre, u.avatar_url as autor_avatar_url 
+    SELECT 
+      c.id, c.contenido, c.autor_id, c.fecha_creacion,
+      u.name as autor_nombre, 
+      u.avatar_url as autor_avatar_url,
+      a.id as attachment_id,
+      a.file_path as attachment_path,
+      a.file_name as attachment_name
     FROM comments c 
     JOIN users u ON c.autor_id = u.id 
+    LEFT JOIN attachments a ON a.comment_id = c.id
     WHERE c.task_id = ? 
     ORDER BY c.fecha_creacion ASC
   `;
-  // ▲▲▲ FIN DE LA MODIFICACIÓN ▲▲▲
-  db.all(sql, [taskId],
-    (err, comments) => {
-        if (err) {
-            console.error("Error fetching comments:", err);
-            return res.status(500).json({ error: "Error al obtener comentarios" });
-        }
-        res.json(comments || [])
+
+  db.all(sql, [taskId], (err, rows) => {
+    if (err) {
+      console.error("Error fetching comments:", err);
+      return res.status(500).json({ error: "Error al obtener comentarios" });
     }
-  );
+
+    // --- Lógica para agrupar adjuntos por comentario ---
+    const commentsMap = {};
+    rows.forEach(row => {
+      // Si no hemos visto este comentario, lo creamos
+      if (!commentsMap[row.id]) {
+        commentsMap[row.id] = {
+          id: row.id,
+          contenido: row.contenido,
+          autor_id: row.autor_id,
+          fecha_creacion: row.fecha_creacion,
+          autor_nombre: row.autor_nombre,
+          autor_avatar_url: row.autor_avatar_url,
+          attachments: [] // Creamos un array para sus adjuntos
+        };
+      }
+      // Si la fila tiene datos de un adjunto, lo agregamos al array
+      if (row.attachment_id) {
+        commentsMap[row.id].attachments.push({
+          id: row.attachment_id,
+          file_path: row.attachment_path,
+          file_name: row.attachment_name
+        });
+      }
+    });
+
+    // Convertimos el mapa de vuelta a un array de comentarios
+    const structuredComments = Object.values(commentsMap);
+    res.json(structuredComments);
+  });
 });
 
-// 📝 AGREGAR COMENTARIO (CON NOTIFICACIÓN)
-app.post('/api/tasks/comments', jsonParser, [authenticateToken, body('task_id').isInt()], async (req, res) => {
+// 📝 AGREGAR COMENTARIO (CON NOTIFICACIÓN Y ARCHIVO ADJUNTO)
+app.post('/api/tasks/comments', authenticateToken, upload.single('attachment'), async (req, res) => {
   const { task_id, contenido } = req.body;
   const autor_id = req.userId;
+
+  if (!contenido || !contenido.trim()) {
+    return res.status(400).json({ error: 'El contenido del comentario no puede estar vacío.' });
+  }
 
   db.run(`INSERT INTO comments (task_id, contenido, autor_id) VALUES (?, ?, ?)`,
     [task_id, contenido, autor_id],
@@ -647,7 +685,15 @@ app.post('/api/tasks/comments', jsonParser, [authenticateToken, body('task_id').
       
       const commentId = this.lastID;
       
-      // --- Lógica de Notificación ---
+      // Si se adjuntó un archivo, lo guardamos en la tabla 'attachments'
+      if (req.file) {
+        db.run(
+          `INSERT INTO attachments (task_id, comment_id, file_path, file_name, file_type, file_size, uploaded_by) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [task_id, commentId, req.file.filename, req.file.originalname, req.file.mimetype, req.file.size, autor_id]
+        );
+      }
+      
+      // --- Lógica de Notificación (sin cambios) ---
       db.get("SELECT title, created_by FROM tasks WHERE id = ?", [task_id], (err, taskInfo) => {
         if (taskInfo) {
           db.all("SELECT user_id FROM task_assignments WHERE task_id = ?", [task_id], (err, assignments) => {

@@ -111,25 +111,27 @@ db.serialize(() => {
     }
   });
 
-  // Tabla attachments
-  db.run(`CREATE TABLE IF NOT EXISTS attachments (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    task_id INTEGER,
-    file_path TEXT NOT NULL,
-    file_name TEXT NOT NULL,
-    file_type TEXT,
-    file_size INTEGER DEFAULT 0,
-    uploaded_by INTEGER,
-    uploaded_at TEXT DEFAULT (datetime('now', 'localtime')),
-    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
-    FOREIGN KEY (uploaded_by) REFERENCES users(id)
-  )`, (err) => {
-    if (err) {
-      console.error('❌ Error al crear tabla attachments:', err.message);
-    } else {
-      console.log('✅ Tabla attachments lista');
-    }
-  });
+  // Tabla attachments (MODIFICADA)
+db.run(`CREATE TABLE IF NOT EXISTS attachments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  task_id INTEGER,
+  comment_id INTEGER, -- <<< NUEVA COLUMNA
+  file_path TEXT NOT NULL,
+  file_name TEXT NOT NULL,
+  file_type TEXT,
+  file_size INTEGER DEFAULT 0,
+  uploaded_by INTEGER,
+  uploaded_at TEXT DEFAULT (datetime('now', 'localtime')),
+  FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+  FOREIGN KEY (comment_id) REFERENCES comments(id) ON DELETE CASCADE, -- <<< NUEVA FOREIGN KEY
+  FOREIGN KEY (uploaded_by) REFERENCES users(id)
+)`, (err) => {
+  if (err) {
+    console.error('❌ Error al crear tabla attachments:', err.message);
+  } else {
+    console.log('✅ Tabla attachments lista');
+  }
+});
 
   // Tabla comments
   db.run(`CREATE TABLE IF NOT EXISTS comments (

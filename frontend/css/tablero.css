@@ -1,4 +1,4 @@
-/* frontend/css/tablero.css - Rediseño Profesional v10 (Final) por Gemini */
+/* frontend/css/tablero.css - Rediseño Profesional v11 (Final y Ordenado) */
 
 /* ================================================================== */
 /* 1. Variables de Diseño                                             */
@@ -80,12 +80,12 @@ input[type="date"]:focus { outline: none; border-color: var(--c-primary); box-sh
 .task-card.completed { opacity: 0.7; border-left-color: var(--c-border); }
 .task-card.completed h3 { text-decoration: line-through; }
 .empty, .empty-comments { text-align: center; color: var(--c-text-light); font-style: italic; padding: 20px; font-size: 14px; }
+
 .task-card.vence-hoy {
   border-left-color: var(--c-danger);
   box-shadow: 0 4px 15px rgba(231, 76, 60, 0.2);
   animation: pulse-danger 2s infinite;
 }
-
 .task-card.vence-hoy h3::after {
   content: '🔥 VENCE HOY';
   font-size: 10px;
@@ -97,17 +97,10 @@ input[type="date"]:focus { outline: none; border-color: var(--c-primary); box-sh
   margin-left: auto; /* La mueve a la derecha */
   align-self: center;
 }
-
 @keyframes pulse-danger {
-  0% {
-    box-shadow: 0 4px 15px rgba(231, 76, 60, 0.2);
-  }
-  50% {
-    box-shadow: 0 4px 25px rgba(231, 76, 60, 0.4);
-  }
-  100% {
-    box-shadow: 0 4px 15px rgba(231, 76, 60, 0.2);
-  }
+  0% { box-shadow: 0 4px 15px rgba(231, 76, 60, 0.2); }
+  50% { box-shadow: 0 4px 25px rgba(231, 76, 60, 0.4); }
+  100% { box-shadow: 0 4px 15px rgba(231, 76, 60, 0.2); }
 }
 
 /* ================================================================== */
@@ -116,8 +109,8 @@ input[type="date"]:focus { outline: none; border-color: var(--c-primary); box-sh
 .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(10, 25, 41, 0.7); display: flex; justify-content: center; align-items: center; z-index: 2000; padding: 20px; backdrop-filter: blur(5px); }
 .modal-content { background-color: var(--c-white); padding: 0; border-radius: var(--radius); width: 100%; max-width: 550px; max-height: 90vh; display: flex; flex-direction: column; box-shadow: var(--shadow-md); }
 .modal-content.large { max-width: 900px; }
-.modal-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; border-bottom: 1px solid var(--c-border); flex-shrink: 0; }
-.modal-header h2 { font-size: 20px; display: flex; align-items: center; gap: 12px; color: var(--c-primary); }
+.modal-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; border-bottom: 1px solid var(--c-border); flex-shrink: 0; transition: var(--transition); }
+.modal-header h2 { font-size: 20px; display: flex; align-items: center; gap: 12px; color: var(--c-primary); flex-grow: 1; }
 .btn-close-modal { background: transparent; border: none; font-size: 28px; color: var(--c-text-light); cursor: pointer; transition: var(--transition); }
 .btn-close-modal:hover { color: var(--c-danger); }
 .modal-body { padding: 24px; overflow-y: auto; flex-grow: 1; background-color: var(--c-bg); }
@@ -162,25 +155,108 @@ input[type="date"]:focus { outline: none; border-color: var(--c-primary); box-sh
 .attachment-name { flex-grow: 1; margin: 0 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 14px; }
 .btn-download { background: none; border: none; color: var(--c-primary); font-size: 16px; cursor: pointer; transition: var(--transition); }
 .btn-download:hover { color: var(--c-primary-light); }
+
+.modal-content.large.vence-hoy { border-top: 4px solid var(--c-danger); animation: none; }
+.modal-content.vence-hoy .modal-header { background-color: #fdedec; border-bottom: 1px solid #f5b7b1; }
+.modal-content.vence-hoy .modal-header h2, .modal-content.vence-hoy .modal-header .btn-close-modal { color: #c0392b; }
+.due-today-badge { font-size: 14px; font-weight: 700; color: #c0392b; display: flex; align-items: center; gap: 6px; }
+
+/* --- Sub-sección: Comentarios (Mejorada y Ordenada) --- */
 .comments-list { max-height: 250px; overflow-y: auto; padding-right: 10px; margin-bottom: 16px; }
 .comment-item { display: flex; gap: 12px; margin-bottom: 12px; }
 .comment-avatar { flex-shrink: 0; width: 36px; height: 36px; background-color: var(--c-primary); color: var(--c-white); border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: 600; background-size: cover; background-position: center; background-repeat: no-repeat; }
-.comment-body { display: flex; flex-direction: column; }
+.comment-body { display: flex; flex-direction: column; flex-grow: 1; }
 .comment-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
 .comment-author { font-weight: 700; font-size: 14px; }
 .comment-date { font-size: 12px; color: var(--c-text-light); }
 .comment-content { padding: 10px 12px; background-color: var(--c-bg); border-radius: var(--radius); }
-.comment-form { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--c-border); }
-.comment-form textarea { width: 100%; border: 1px solid var(--c-border); padding: 10px; border-radius: var(--radius); resize: vertical; min-height: 60px; font-family: var(--font-family); font-size: 15px; }
-.comment-form button { align-self: flex-end; background-color: var(--c-action); color: var(--c-white); border: none; padding: 8px 16px; border-radius: var(--radius); font-weight: 600; cursor: pointer; transition: var(--transition); }
+
+.comment-form {
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  background-color: var(--c-panel-bg);
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: var(--transition);
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--c-border);
+}
+.comment-form:focus-within {
+  border-color: var(--c-primary);
+  box-shadow: 0 0 0 3px rgba(4, 157, 217, 0.2);
+}
+.comment-form textarea {
+  border: none;
+  resize: vertical;
+  min-height: 40px;
+  padding: 8px;
+  font-family: var(--font-family);
+  font-size: 15px;
+  outline: none;
+  background-color: transparent;
+}
+.attachment-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 16px;
+  background-color: #eaf5fb;
+  border: 1px solid #d6eaf8;
+  align-self: flex-start;
+}
+.btn-remove-attachment {
+  background: none;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  color: var(--c-text-light);
+  margin-left: auto;
+}
+.comment-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+}
+.btn-attach {
+  color: var(--c-text-light);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  transition: var(--transition);
+}
+.btn-attach:hover {
+  background-color: var(--c-bg);
+  color: var(--c-primary);
+}
+.comment-form button {
+  background-color: var(--c-action);
+  color: var(--c-white);
+  border: none;
+  padding: 8px 16px;
+  border-radius: var(--radius);
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  margin-top: 0;
+}
 .comment-form button:disabled { background-color: #BDC3C7; cursor: not-allowed; }
 .comment-form button:hover:not(:disabled) { background-color: var(--c-action-dark); }
+.comment-attachment-list { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--c-border); display: flex; flex-direction: column; gap: 4px; }
+.comment-attachment a { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--c-primary); text-decoration: none; font-weight: 500; }
+.comment-attachment a:hover { text-decoration: underline; }
 
 /* ================================================================== */
-/* 8. ▼▼▼ NOTIFICACIONES (SECCIÓN CORREGIDA Y MEJORADA) ▼▼▼             */
+/* 8. Notificaciones                                                  */
 /* ================================================================== */
 .notification-badge { position: absolute; top: 2px; right: 2px; background-color: var(--c-danger); color: var(--c-white); border-radius: 50%; width: 18px; height: 18px; font-size: 11px; display: flex; align-items: center; justify-content: center; font-weight: 700; border: 2px solid var(--c-panel-bg); }
-.notifications { position: relative; } /* Contenedor para el panel */
+.notifications { position: relative; }
 .notifications-panel { position: absolute; top: calc(100% + 10px); right: 0; width: 400px; background-color: var(--c-panel-bg); border: 1px solid var(--c-border); border-radius: var(--radius); box-shadow: var(--shadow-md); z-index: 1100; }
 .notifications-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--c-border); }
 .notifications-header h3 { font-size: 16px; margin: 0; }
@@ -198,24 +274,9 @@ input[type="date"]:focus { outline: none; border-color: var(--c-primary); box-sh
 .btn-icon-action { background-color: var(--c-bg); border: 1px solid var(--c-border); color: var(--c-text-light); width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: var(--transition); }
 .btn-icon-action:hover { background-color: var(--c-action); color: var(--c-white); border-color: var(--c-action-dark); }
 .btn-icon-action.danger:hover { background-color: var(--c-danger); border-color: #c0392b; }
-/* Agregar al final del archivo CSS */
-.user-actions {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
+.user-actions { display: flex; align-items: center; gap: 15px; }
+.user-menu { display: flex; align-items: center; gap: 8px; }
 
-.notifications {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.user-menu {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
 /* ================================================================== */
 /* 9. Responsividad                                                   */
 /* ================================================================== */

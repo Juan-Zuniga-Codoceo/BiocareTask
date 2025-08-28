@@ -253,25 +253,59 @@ createApp({
       tareaSeleccionada.value = task;
     };
 
+    const commentAttachment = ref(null);
+
+    const handleCommentAttachment = (event) => {
+      const file = event.target.files[0];
+      if (file) {
+        if (file.size > 10 * 1024 * 1024) { // Límite de 10MB
+          showError('El archivo no debe exceder 10MB');
+          return;
+        }
+        commentAttachment.value = file;
+      }
+    };
+
+    const removeCommentAttachment = () => {
+      commentAttachment.value = null;
+      document.getElementById('comment-attachment-input').value = '';
+    };
+
     const agregarComentario = async () => {
-      if (!nuevoComentario.value.trim() || !tareaSeleccionada.value) return;
+      // Condición para enviar: debe haber un texto o un archivo adjunto.
+      if ((!nuevoComentario.value.trim() && !commentAttachment.value) || !tareaSeleccionada.value) {
+        return;
+      }
+
       try {
-        const newCommentData = {
-          task_id: tareaSeleccionada.value.id,
-          contenido: nuevoComentario.value.trim()
-        };
-        const savedComment = await API.post('/api/tasks/comments', newCommentData);
-        tareaSeleccionada.value.comentarios.push({
-          id: savedComment.id,
-          contenido: nuevoComentario.value.trim(),
-          autor_nombre: user.value.name,
-          autor_id: user.value.id,
-          autor_avatar_url: user.value.avatar_url,
-          fecha_creacion: new Date().toISOString()
-        });
-        tareaSeleccionada.value.comentarios_count++;
+        // 1. Creamos un objeto FormData. Este es el formato para enviar archivos.
+        const formData = new FormData();
+
+        // 2. Añadimos los datos de texto al formulario.
+        formData.append('task_id', tareaSeleccionada.value.id);
+        formData.append('contenido', nuevoComentario.value.trim());
+
+        // 3. Si hay un archivo seleccionado, lo añadimos también.
+        // El nombre 'attachment' debe coincidir con el del backend: upload.single('attachment')
+        if (commentAttachment.value) {
+          formData.append('attachment', commentAttachment.value);
+        }
+
+        // 4. Usamos el método API.upload, que está diseñado para enviar FormData.
+        // Esto es crucial, ya que NO establece el 'Content-Type' y deja que el navegador lo haga.
+        await API.upload('/api/tasks/comments', formData);
+
+        // 5. Limpiamos el formulario en el frontend.
         nuevoComentario.value = '';
+        removeCommentAttachment(); // Esta función ya la teníamos, la usamos para limpiar el archivo.
         showSuccess('💬 Comentario agregado');
+
+        // 6. Volvemos a cargar los detalles de la tarea para ver el nuevo comentario con su adjunto.
+        const taskActual = tasks.value.find(t => t.id === tareaSeleccionada.value.id);
+        if (taskActual) {
+          await verDetalles(taskActual);
+        }
+
       } catch (err) {
         showError('❌ Error al agregar comentario: ' + err.message);
       }
@@ -420,7 +454,10 @@ createApp({
       completar: (id) => cambiarEstadoTarea(id, 'completada'),
       tareasPendientes, tareasEnCamino, tareasCompletadas,
       formatDate, getColor, getPriorityText, getLabelsArray, getFileSize,
-      esTareaParaHoy, 
+      commentAttachment,
+      handleCommentAttachment,
+      removeCommentAttachment,
+      esTareaParaHoy,
       marcarComoLeida,
       marcarTodasComoLeidas,
       eliminarNotificacion

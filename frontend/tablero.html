@@ -252,11 +252,17 @@
     </div>
 
     <div class="modal" v-if="tareaSeleccionada" @click.self="tareaSeleccionada = null">
-      <div class="modal-content large">
+      <div class="modal-content large" :class="{ 'vence-hoy': esTareaParaHoy(tareaSeleccionada.due_date) }">
         <div class="modal-header">
-          <h2>{{ tareaSeleccionada.title }}</h2>
+          <h2>
+            <span>{{ tareaSeleccionada.title }}</span>
+            <span v-if="esTareaParaHoy(tareaSeleccionada.due_date)" class="due-today-badge">
+              <i class="fa-solid fa-fire"></i> VENCE HOY
+            </span>
+          </h2>
           <button @click="tareaSeleccionada = null" class="btn-close-modal">&times;</button>
         </div>
+
         <div class="modal-body">
           <div class="detail-grid">
             <div class="detail-col">
@@ -284,14 +290,38 @@
                       </div>
                       <div class="comment-content">
                         <p>{{ comentario.contenido }}</p>
+
+                        <div v-if="comentario.attachments && comentario.attachments.length > 0"
+                          class="comment-attachment-list">
+                          <div v-for="att in comentario.attachments" :key="att.id" class="comment-attachment">
+                            <a href="javascript:void(0)" @click.stop="downloadFile(att)">
+                              <i class="fa-solid fa-paperclip"></i>
+                              <span>{{ att.file_name }}</span>
+                            </a>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
                 <div class="comment-form">
-                  <textarea v-model="nuevoComentario" placeholder="Escribe un comentario..."
-                    @keyup.enter.prevent="agregarComentario"></textarea>
-                  <button @click="agregarComentario" :disabled="!nuevoComentario.trim()">Enviar</button>
+                  <textarea v-model="nuevoComentario" placeholder="Escribe un comentario..."></textarea>
+
+                  <div v-if="commentAttachment" class="attachment-preview">
+                    <i class="fa-solid fa-file"></i>
+                    <span>{{ commentAttachment.name }}</span>
+                    <button @click="removeCommentAttachment" class="btn-remove-attachment">&times;</button>
+                  </div>
+
+                  <div class="comment-form-actions">
+                    <label for="comment-attachment-input" class="btn-attach" title="Adjuntar archivo">
+                      <i class="fa-solid fa-paperclip"></i>
+                      <input type="file" id="comment-attachment-input" @change="handleCommentAttachment"
+                        style="display: none;" />
+                    </label>
+                    <button @click="agregarComentario"
+                      :disabled="!nuevoComentario.trim() && !commentAttachment">Enviar</button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -328,6 +358,7 @@
             </div>
           </div>
         </div>
+
         <div class="modal-footer">
           <button @click="tareaSeleccionada = null" class="btn-cancel">Cerrar</button>
         </div>
