@@ -233,6 +233,65 @@ app.get('/api/tasks', authenticateToken, (req, res) => {
   });
 });
 
+// 💡 VERIFICAR Y CREAR NOTIFICACIONES DE VENCIMIENTO
+app.post('/api/tasks/check-due-today', authenticateToken, async (req, res) => {
+  const userId = req.userId;
+  const today = new Date().toISOString().slice(0, 10); // Formato YYYY-MM-DD
+
+  // Busca tareas pendientes para el usuario (asignadas o creadas por él) que vencen hoy
+  const sqlTasks = `
+    SELECT DISTINCT t.id, t.title
+    FROM tasks t
+    LEFT JOIN task_assignments ta ON t.id = ta.task_id
+    WHERE (t.created_by = ? OR ta.user_id = ?)
+      AND date(t.due_date) = date(?)
+      AND t.status = 'pendiente'
+  `;
+  
+  db.all(sqlTasks, [userId, userId, today], (err, tasks) => {
+    if (err) {
+      console.error('Error al buscar tareas que vencen hoy:', err);
+      return res.status(500).json({ error: 'Error al buscar tareas' });
+    }
+    if (tasks.length === 0) {
+      return res.status(200).json({ message: 'No hay tareas que venzan hoy.' });
+    }
+
+    // Preparamos una única consulta para insertar múltiples notificaciones evitando duplicados
+    const stmt = db.prepare(`
+      INSERT INTO notifications (usuario_id, mensaje, tipo)
+      SELECT ?, ?, 'due_today'
+      WHERE NOT EXISTS (
+        SELECT 1 FROM notifications 
+        WHERE usuario_id = ? 
+          AND tipo = 'due_today' 
+          AND date(fecha_creacion) = date('now', 'localtime')
+          AND mensaje = ?
+      )
+    `);
+
+    let newNotificationsCount = 0;
+    tasks.forEach(task => {
+      const mensaje = `La tarea "${task.title.substring(0, 25)}..." vence hoy.`;
+      stmt.run(userId, mensaje, userId, mensaje, function(err) {
+        if (err) {
+          console.error('Error al insertar notificación de vencimiento:', err.message);
+        } else if (this.changes > 0) {
+          newNotificationsCount++;
+        }
+      });
+    });
+
+    stmt.finalize((err) => {
+      if (err) {
+        return res.status(500).json({ error: 'Error al finalizar la creación de notificaciones' });
+      }
+      res.status(200).json({ success: true, new_notifications: newNotificationsCount });
+    });
+  });
+});
+
+
 // 🆕 CREAR TAREA (CON NOTIFICACIÓN POR ASIGNACIÓN)
 app.post('/api/tasks', jsonParser, [authenticateToken, body('title').notEmpty().trim().escape()], async (req, res) => {
   const { title, description, due_date, priority, assigned_to, label_ids } = req.body;

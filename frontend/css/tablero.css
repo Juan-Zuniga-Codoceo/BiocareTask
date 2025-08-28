@@ -80,6 +80,35 @@ input[type="date"]:focus { outline: none; border-color: var(--c-primary); box-sh
 .task-card.completed { opacity: 0.7; border-left-color: var(--c-border); }
 .task-card.completed h3 { text-decoration: line-through; }
 .empty, .empty-comments { text-align: center; color: var(--c-text-light); font-style: italic; padding: 20px; font-size: 14px; }
+.task-card.vence-hoy {
+  border-left-color: var(--c-danger);
+  box-shadow: 0 4px 15px rgba(231, 76, 60, 0.2);
+  animation: pulse-danger 2s infinite;
+}
+
+.task-card.vence-hoy h3::after {
+  content: '🔥 VENCE HOY';
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--c-white);
+  background-color: var(--c-danger);
+  padding: 3px 8px;
+  border-radius: 4px;
+  margin-left: auto; /* La mueve a la derecha */
+  align-self: center;
+}
+
+@keyframes pulse-danger {
+  0% {
+    box-shadow: 0 4px 15px rgba(231, 76, 60, 0.2);
+  }
+  50% {
+    box-shadow: 0 4px 25px rgba(231, 76, 60, 0.4);
+  }
+  100% {
+    box-shadow: 0 4px 15px rgba(231, 76, 60, 0.2);
+  }
+}
 
 /* ================================================================== */
 /* 5. Estilos para Modales (General)                                  */

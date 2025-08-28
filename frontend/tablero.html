@@ -112,12 +112,15 @@
       </div>
 
       <div class="kanban-board">
+
         <div class="kanban-column column-pending">
           <h2 class="column-title">
             <i class="fa-regular fa-clock"></i> Pendientes
           </h2>
           <div class="task-list">
-            <div v-for="task in tareasPendientes" :key="task.id" class="task-card" @click="verDetalles(task)">
+            <div v-for="task in tareasPendientes" :key="task.id" class="task-card"
+              :class="{ 'vence-hoy': esTareaParaHoy(task.due_date) }" @click="verDetalles(task)">
+
               <h3>{{ task.title }}</h3>
               <p>{{ task.description }}</p>
               <div class="task-meta">
@@ -137,7 +140,6 @@
             <p class="empty" v-if="tareasPendientes.length === 0">No hay tareas pendientes</p>
           </div>
         </div>
-
         <div class="kanban-column column-progress">
           <h2 class="column-title">
             <i class="fa-solid fa-truck-fast"></i> En Camino
@@ -163,7 +165,6 @@
             <p class="empty" v-if="tareasEnCamino.length === 0">No hay tareas en camino</p>
           </div>
         </div>
-
         <div class="kanban-column column-done">
           <h2 class="column-title">
             <i class="fa-solid fa-flag-checkered"></i> Completadas

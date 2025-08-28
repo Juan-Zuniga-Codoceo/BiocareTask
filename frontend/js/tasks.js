@@ -46,6 +46,15 @@ createApp({
       return notificaciones.value.filter(n => !n.leida).length;
     });
 
+    const esTareaParaHoy = (isoDate) => {
+      if (!isoDate) return false;
+      const hoy = new Date();
+      const fechaTarea = new Date(isoDate);
+      return hoy.getFullYear() === fechaTarea.getFullYear() &&
+        hoy.getMonth() === fechaTarea.getMonth() &&
+        hoy.getDate() === fechaTarea.getDate();
+    };
+
     // === Archivo adjunto ===
     const archivoAdjunto = ref(null);
 
@@ -79,9 +88,18 @@ createApp({
         tasks.value = tasksData || [];
         users.value = usersData || [];
         labels.value = labelsData || [];
-        resumen.value = resumenData ||
-          { vencidas: 0, proximas: 0, total_pendientes: 0 };
+        resumen.value = resumenData || { vencidas: 0, proximas: 0, total_pendientes: 0 };
         notificaciones.value = notifData || [];
+
+        API.post('/api/tasks/check-due-today').then(result => {
+          if (result && result.new_notifications > 0) {
+            // Si se crearon notificaciones nuevas, actualizamos la lista para que aparezcan en la campana
+            API.get('/api/notifications').then(newNotifData => {
+              notificaciones.value = newNotifData || [];
+            });
+          }
+        }).catch(err => console.warn('No se pudo verificar vencimientos, puede que ya se haya hecho hoy.'));
+
       } catch (err) {
         console.error('Error al cargar datos:', err);
         showError('No se pudieron cargar los datos. Revisa tu conexión.');
@@ -281,7 +299,7 @@ createApp({
     const tareasPendientes = computed(() => tareasFiltradas.value.filter(t => t.status === 'pendiente'));
     const tareasEnCamino = computed(() => tareasFiltradas.value.filter(t => t.status === 'en_camino'));
     const tareasCompletadas = computed(() => tareasFiltradas.value.filter(t => t.status === 'completada'));
-    
+
     // === Funciones de Notificaciones ===
     const toggleNotifications = () => {
       mostrarNotificaciones.value = !mostrarNotificaciones.value;
@@ -402,6 +420,7 @@ createApp({
       completar: (id) => cambiarEstadoTarea(id, 'completada'),
       tareasPendientes, tareasEnCamino, tareasCompletadas,
       formatDate, getColor, getPriorityText, getLabelsArray, getFileSize,
+      esTareaParaHoy, 
       marcarComoLeida,
       marcarTodasComoLeidas,
       eliminarNotificacion
