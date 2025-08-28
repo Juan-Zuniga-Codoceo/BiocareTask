@@ -70,18 +70,7 @@ input[type="date"]:focus { outline: none; border-color: var(--c-primary); box-sh
 .task-meta { margin-bottom: 16px; }
 .due-date { font-size: 13px; color: var(--c-text-light); gap: 6px; margin-bottom: 8px; }
 .labels { display: flex; flex-wrap: wrap; gap: 6px; }
-
-/* ▼▼▼ SOLUCIÓN PARA LEGIBILIDAD DE ETIQUETAS ▼▼▼ */
-.label-tag {
-  font-size: 12px;
-  font-weight: 500;
-  padding: 3px 12px;
-  border-radius: 12px;
-  color: var(--c-white);
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6); /* Sombra más fuerte para contraste */
-}
-/* ▲▲▲ FIN DE LA SOLUCIÓN ▲▲▲ */
-
+.label-tag { font-size: 12px; font-weight: 500; padding: 3px 12px; border-radius: 12px; color: var(--c-white); text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6); }
 .task-footer { justify-content: space-between; padding-top: 12px; border-top: 1px solid var(--c-border); }
 .assigned-to { font-size: 13px; color: var(--c-text-light); gap: 6px; }
 .btn-action { background: transparent; border: 1px solid var(--c-primary); color: var(--c-primary); font-weight: 600; font-size: 12px; padding: 6px 12px; border-radius: var(--radius); cursor: pointer; display: flex; align-items: center; gap: 6px; transition: var(--transition); }
@@ -138,38 +127,15 @@ input[type="date"]:focus { outline: none; border-color: var(--c-primary); box-sh
 .badge-alta { background-color: var(--c-danger); }
 .badge-media { background-color: #F39C12; }
 .badge-baja { background-color: #2ECC71; }
-
-/* Adjuntos */
 .attachments-list { display: flex; flex-direction: column; gap: 8px; }
 .attachment-item { display: flex; align-items: center; background-color: var(--c-bg); padding: 8px 12px; border-radius: var(--radius); transition: var(--transition); }
 .attachment-item:hover { background-color: #e8e8e8; }
 .attachment-name { flex-grow: 1; margin: 0 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 14px; }
 .btn-download { background: none; border: none; color: var(--c-primary); font-size: 16px; cursor: pointer; transition: var(--transition); }
 .btn-download:hover { color: var(--c-primary-light); }
-
-/* Comentarios */
 .comments-list { max-height: 250px; overflow-y: auto; padding-right: 10px; margin-bottom: 16px; }
 .comment-item { display: flex; gap: 12px; margin-bottom: 12px; }
-
-
-.comment-avatar {
-  flex-shrink: 0;
-  width: 36px;
-  height: 36px;
-  background-color: var(--c-primary);
-  color: var(--c-white);
-  border-radius: 50%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  font-weight: 600;
-  /* --- Ajustes para imagen de fondo --- */
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-}
-
-
+.comment-avatar { flex-shrink: 0; width: 36px; height: 36px; background-color: var(--c-primary); color: var(--c-white); border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: 600; background-size: cover; background-position: center; background-repeat: no-repeat; }
 .comment-body { display: flex; flex-direction: column; }
 .comment-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
 .comment-author { font-weight: 700; font-size: 14px; }
@@ -180,20 +146,47 @@ input[type="date"]:focus { outline: none; border-color: var(--c-primary); box-sh
 .comment-form button { align-self: flex-end; background-color: var(--c-action); color: var(--c-white); border: none; padding: 8px 16px; border-radius: var(--radius); font-weight: 600; cursor: pointer; transition: var(--transition); }
 .comment-form button:disabled { background-color: #BDC3C7; cursor: not-allowed; }
 .comment-form button:hover:not(:disabled) { background-color: var(--c-action-dark); }
+
 /* ================================================================== */
-/* 8. Notificaciones                                                  */
+/* 8. ▼▼▼ NOTIFICACIONES (SECCIÓN CORREGIDA Y MEJORADA) ▼▼▼             */
 /* ================================================================== */
 .notification-badge { position: absolute; top: 2px; right: 2px; background-color: var(--c-danger); color: var(--c-white); border-radius: 50%; width: 18px; height: 18px; font-size: 11px; display: flex; align-items: center; justify-content: center; font-weight: 700; border: 2px solid var(--c-panel-bg); }
-.notifications-panel { position: absolute; top: calc(100% + 10px); right: 0; width: 380px; background-color: var(--c-panel-bg); border: 1px solid var(--c-border); border-radius: var(--radius); box-shadow: var(--shadow-md); z-index: 1100; }
+.notifications { position: relative; } /* Contenedor para el panel */
+.notifications-panel { position: absolute; top: calc(100% + 10px); right: 0; width: 400px; background-color: var(--c-panel-bg); border: 1px solid var(--c-border); border-radius: var(--radius); box-shadow: var(--shadow-md); z-index: 1100; }
 .notifications-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--c-border); }
 .notifications-header h3 { font-size: 16px; margin: 0; }
+.btn-mark-all-read { background: none; border: none; color: var(--c-primary); font-size: 12px; font-weight: 600; cursor: pointer; transition: var(--transition); }
+.btn-mark-all-read:hover { text-decoration: underline; }
 .notifications-list { max-height: 350px; overflow-y: auto; }
-.notification-item { display: flex; flex-direction: column; gap: 4px; padding: 12px 16px; transition: var(--transition); }
+.notification-item { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 16px; transition: var(--transition); }
+.notification-item.unread { background-color: #f8f9fa; }
 .notification-item:not(:last-child) { border-bottom: 1px solid var(--c-border); }
 .notification-item:hover { background-color: var(--c-bg); }
-.notification-item p { margin: 0; font-size: 14px; }
-.notification-item small { color: var(--c-text-light); font-size: 12px; }
+.notification-content { display: flex; flex-direction: column; gap: 4px; flex-grow: 1; }
+.notification-content p { margin: 0; font-size: 14px; }
+.notification-content small { color: var(--c-text-light); font-size: 12px; }
+.notification-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.btn-icon-action { background-color: var(--c-bg); border: 1px solid var(--c-border); color: var(--c-text-light); width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: var(--transition); }
+.btn-icon-action:hover { background-color: var(--c-action); color: var(--c-white); border-color: var(--c-action-dark); }
+.btn-icon-action.danger:hover { background-color: var(--c-danger); border-color: #c0392b; }
+/* Agregar al final del archivo CSS */
+.user-actions {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
 
+.notifications {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.user-menu {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 /* ================================================================== */
 /* 9. Responsividad                                                   */
 /* ================================================================== */
