@@ -331,6 +331,70 @@ app.post('/api/tasks', jsonParser, [authenticateToken, body('title').notEmpty().
   );
 });
 
+// ✏️ EDITAR TAREA
+app.put('/api/tasks/:id', jsonParser, authenticateToken, async (req, res) => {
+  const taskId = req.params.id;
+  const { title, description, due_date, priority, assigned_to, label_ids } = req.body;
+
+  // 1. Verificación de permisos: ¿El usuario es el creador de la tarea?
+  db.get("SELECT created_by FROM tasks WHERE id = ?", [taskId], (err, task) => {
+    if (err) return res.status(500).json({ error: 'Error al verificar la tarea' });
+    if (!task) return res.status(404).json({ error: 'Tarea no encontrada' });
+    if (task.created_by !== req.userId) {
+      return res.status(403).json({ error: 'No tienes permiso para editar esta tarea' });
+    }
+
+    // 2. Si tiene permiso, actualizamos la tarea principal
+    db.run(
+      `UPDATE tasks SET title = ?, description = ?, due_date = ?, priority = ? WHERE id = ?`,
+      [title, description, due_date, priority, taskId],
+      function (err) {
+        if (err) return res.status(500).json({ error: 'Error al actualizar la tarea' });
+
+        // 3. Actualizamos asignaciones (borrar y volver a crear es lo más simple)
+        db.run("DELETE FROM task_assignments WHERE task_id = ?", [taskId], () => {
+          if (assigned_to && Array.isArray(assigned_to)) {
+            const stmt = db.prepare("INSERT INTO task_assignments (task_id, user_id) VALUES (?, ?)");
+            assigned_to.forEach(userId => stmt.run(taskId, userId));
+            stmt.finalize();
+          }
+        });
+
+        // 4. Actualizamos etiquetas (mismo método)
+        db.run("DELETE FROM task_labels WHERE task_id = ?", [taskId], () => {
+          if (label_ids && Array.isArray(label_ids)) {
+            const stmt = db.prepare("INSERT INTO task_labels (task_id, label_id) VALUES (?, ?)");
+            label_ids.forEach(labelId => stmt.run(taskId, labelId));
+            stmt.finalize();
+          }
+        });
+        
+        res.status(200).json({ success: true, message: 'Tarea actualizada' });
+      }
+    );
+  });
+});
+
+// 🗑️ ELIMINAR TAREA
+app.delete('/api/tasks/:id', authenticateToken, (req, res) => {
+  const taskId = req.params.id;
+
+  // 1. Verificación de permisos: ¿El usuario es el creador de la tarea?
+  db.get("SELECT created_by FROM tasks WHERE id = ?", [taskId], (err, task) => {
+    if (err) return res.status(500).json({ error: 'Error al verificar la tarea' });
+    if (!task) return res.status(404).json({ error: 'Tarea no encontrada' });
+    if (task.created_by !== req.userId) {
+      return res.status(403).json({ error: 'No tienes permiso para eliminar esta tarea' });
+    }
+
+    // 2. Si tiene permiso, eliminamos la tarea. ON DELETE CASCADE se encargará del resto.
+    db.run("DELETE FROM tasks WHERE id = ?", [taskId], function(err) {
+      if (err) return res.status(500).json({ error: 'Error al eliminar la tarea' });
+      res.status(200).json({ success: true, message: 'Tarea eliminada' });
+    });
+  });
+});
+
 // ✅ CAMBIAR ESTADO
 // ▼▼▼ SOLUCIÓN: Añadir 'jsonParser' aquí para que el servidor pueda leer el body de la petición ▼▼▼
 app.put('/api/tasks/:id/status', jsonParser, [

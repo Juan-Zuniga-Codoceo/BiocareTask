@@ -252,6 +252,45 @@ input[type="date"]:focus { outline: none; border-color: var(--c-primary); box-sh
 .comment-attachment a { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--c-primary); text-decoration: none; font-weight: 500; }
 .comment-attachment a:hover { text-decoration: underline; }
 
+/* EN tablero.css, al final de la sección 7 de estilos de modal */
+
+.modal-footer {
+  justify-content: space-between; /* Alinea los botones de acción a la izquierda */
+}
+
+.modal-actions-left {
+  display: flex;
+  gap: 12px;
+}
+
+.btn-edit, .btn-delete {
+  border: none;
+  padding: 10px 20px;
+  border-radius: var(--radius);
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: var(--transition);
+}
+
+.btn-edit {
+  background-color: #f39c12; /* Naranja */
+  color: white;
+}
+.btn-edit:hover {
+  background-color: #d35400;
+}
+
+.btn-delete {
+  background-color: var(--c-danger);
+  color: white;
+}
+.btn-delete:hover {
+  background-color: #c0392b;
+}
+
 /* ================================================================== */
 /* 8. Notificaciones                                                  */
 /* ================================================================== */

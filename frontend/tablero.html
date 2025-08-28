@@ -112,7 +112,6 @@
       </div>
 
       <div class="kanban-board">
-
         <div class="kanban-column column-pending">
           <h2 class="column-title">
             <i class="fa-regular fa-clock"></i> Pendientes
@@ -120,7 +119,6 @@
           <div class="task-list">
             <div v-for="task in tareasPendientes" :key="task.id" class="task-card"
               :class="{ 'vence-hoy': esTareaParaHoy(task.due_date) }" @click="verDetalles(task)">
-
               <h3>{{ task.title }}</h3>
               <p>{{ task.description }}</p>
               <div class="task-meta">
@@ -262,7 +260,6 @@
           </h2>
           <button @click="tareaSeleccionada = null" class="btn-close-modal">&times;</button>
         </div>
-
         <div class="modal-body">
           <div class="detail-grid">
             <div class="detail-col">
@@ -290,7 +287,6 @@
                       </div>
                       <div class="comment-content">
                         <p>{{ comentario.contenido }}</p>
-
                         <div v-if="comentario.attachments && comentario.attachments.length > 0"
                           class="comment-attachment-list">
                           <div v-for="att in comentario.attachments" :key="att.id" class="comment-attachment">
@@ -306,13 +302,11 @@
                 </div>
                 <div class="comment-form">
                   <textarea v-model="nuevoComentario" placeholder="Escribe un comentario..."></textarea>
-
                   <div v-if="commentAttachment" class="attachment-preview">
                     <i class="fa-solid fa-file"></i>
                     <span>{{ commentAttachment.name }}</span>
                     <button @click="removeCommentAttachment" class="btn-remove-attachment">&times;</button>
                   </div>
-
                   <div class="comment-form-actions">
                     <label for="comment-attachment-input" class="btn-attach" title="Adjuntar archivo">
                       <i class="fa-solid fa-paperclip"></i>
@@ -358,12 +352,89 @@
             </div>
           </div>
         </div>
-
         <div class="modal-footer">
+          <div class="modal-actions-left" v-if="user && tareaSeleccionada && user.id === tareaSeleccionada.created_by">
+            <button @click="abrirModalEditar" class="btn-edit">
+              <i class="fa-solid fa-pencil"></i> Editar
+            </button>
+            <button @click="abrirConfirmarEliminar" class="btn-delete">
+              <i class="fa-solid fa-trash-can"></i> Eliminar
+            </button>
+          </div>
           <button @click="tareaSeleccionada = null" class="btn-cancel">Cerrar</button>
         </div>
       </div>
     </div>
+
+    <div class="modal" v-if="showEditModal" @click.self="showEditModal = false">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2><i class="fa-solid fa-pencil"></i> Editar Tarea</h2>
+          <button @click="showEditModal = false" class="btn-close-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Título *</label>
+            <input type="text" v-model="editTask.title" required />
+          </div>
+          <div class="form-group">
+            <label>Descripción</label>
+            <textarea v-model="editTask.description"></textarea>
+          </div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Fecha de Entrega *</label>
+              <input type="datetime-local" v-model="editTask.due_date" required />
+            </div>
+            <div class="form-group">
+              <label>Prioridad</label>
+              <select v-model="editTask.priority">
+                <option value="baja">Baja</option>
+                <option value="media">Media</option>
+                <option value="alta">Alta</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Asignar a</label>
+            <select v-model="editTask.assigned_to" multiple>
+              <option v-for="u in users" :key="u.id" :value="u.id">{{ u.name }}</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Etiquetas</label>
+            <select v-model="editTask.label_ids" multiple>
+              <option v-for="l in labels" :key="l.id" :value="l.id">{{ l.name }}</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button @click="showEditModal = false" class="btn-cancel">Cancelar</button>
+          <button @click="guardarCambiosTarea" class="btn-create">
+            <i class="fa-solid fa-save"></i> Guardar Cambios
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal" v-if="showDeleteConfirm">
+      <div class="modal-content" style="max-width: 400px;">
+        <div class="modal-header">
+          <h2><i class="fa-solid fa-triangle-exclamation"></i> Confirmar Eliminación</h2>
+        </div>
+        <div class="modal-body" style="background-color: var(--c-panel-bg);">
+          <p>¿Estás seguro de que deseas eliminar la tarea "<strong>{{ tareaSeleccionada.title }}</strong>"?</p>
+          <p style="color: var(--c-danger); font-weight: 600;">Esta acción no se puede deshacer.</p>
+        </div>
+        <div class="modal-footer">
+          <button @click="showDeleteConfirm = false" class="btn-cancel">Cancelar</button>
+          <button @click="eliminarTarea" class="btn-delete">
+            <i class="fa-solid fa-trash-can"></i> Sí, eliminar
+          </button>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>

@@ -15,6 +15,9 @@ createApp({
     const creandoTarea = ref(false);
     const loading = ref(true);
     const error = ref('');
+    const showEditModal = ref(false);
+    const editTask = ref({});
+    const showDeleteConfirm = ref(false);
 
     // Estado para el menú desplegable del usuario
     const showDropdown = ref(false);
@@ -33,6 +36,57 @@ createApp({
       comentario_inicial: ''
     });
 
+    const abrirModalEditar = () => {
+      // Clonamos la tarea seleccionada para no modificar la original
+      editTask.value = JSON.parse(JSON.stringify(tareaSeleccionada.value));
+
+      // --- CORRECCIÓN INICIA AQUÍ ---
+
+      // Obtenemos los nombres de las asignaciones y etiquetas de la tarea como strings
+      const assignmentNames = tasks.value.find(t => t.id === editTask.value.id)?.assigned_names || '';
+      const labelNames = tasks.value.find(t => t.id === editTask.value.id)?.label_names || '';
+
+      // Usamos los arrays maestros (users.value y labels.value) para encontrar los IDs
+      editTask.value.assigned_to = users.value
+        .filter(u => assignmentNames.includes(u.name))
+        .map(u => u.id);
+
+      editTask.value.label_ids = labels.value
+        .filter(l => labelNames.includes(l.name))
+        .map(l => l.id);
+
+      // --- CORRECCIÓN TERMINA AQUÍ ---
+
+      tareaSeleccionada.value = null; // Cierra el modal de detalles
+      showEditModal.value = true;   // Abre el modal de edición
+    };
+
+    const guardarCambiosTarea = async () => {
+      try {
+        await API.put(`/api/tasks/${editTask.value.id}`, editTask.value);
+        showEditModal.value = false;
+        await cargarDatos();
+        showSuccess('✅ Tarea actualizada correctamente');
+      } catch (err) {
+        showError('❌ Error al guardar los cambios: ' + err.message);
+      }
+    };
+
+    const abrirConfirmarEliminar = () => {
+      showDeleteConfirm.value = true;
+    };
+
+    const eliminarTarea = async () => {
+      try {
+        await API.delete(`/api/tasks/${tareaSeleccionada.value.id}`);
+        showDeleteConfirm.value = false;
+        tareaSeleccionada.value = null;
+        await cargarDatos();
+        showSuccess('🗑️ Tarea eliminada correctamente');
+      } catch (err) {
+        showError('❌ Error al eliminar la tarea: ' + err.message);
+      }
+    };
     // === Variable separada para nueva etiqueta ===
     const nuevaEtiqueta = ref('');
 
@@ -460,7 +514,14 @@ createApp({
       esTareaParaHoy,
       marcarComoLeida,
       marcarTodasComoLeidas,
-      eliminarNotificacion
+      eliminarNotificacion,
+      showEditModal,
+      editTask,
+      showDeleteConfirm,
+      abrirModalEditar,
+      guardarCambiosTarea,
+      abrirConfirmarEliminar,
+      eliminarTarea
     };
   }
 }).mount('#app');
