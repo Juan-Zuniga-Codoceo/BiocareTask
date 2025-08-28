@@ -106,52 +106,65 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
+/// backend/server.js
+
 // 🔑 1. SOLICITAR RESETEO DE CONTRASEÑA
-app.post('/api/forgot-password', jsonParser, [body('email').isEmail()], async (req, res) => {
-  const { email } = req.body;
-  
-  db.get("SELECT * FROM users WHERE email = ?", [email], (err, user) => {
-    // IMPORTANTE: Incluso si no encontramos al usuario, enviamos una respuesta exitosa
-    // para no revelar qué correos están registrados en el sistema (seguridad).
-    if (err || !user) {
-      console.log(`Solicitud de reseteo para correo no encontrado o error: ${email}`);
-      return res.status(200).json({ message: 'Si existe una cuenta, se ha enviado un correo de recuperación.' });
+app.post('/api/forgot-password', jsonParser, [
+    body('email').isEmail().normalizeEmail() 
+], async (req, res) => {
+
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(200).json({ message: 'Si existe una cuenta, se ha enviado un correo de recuperación.' });
     }
 
-    // Generar un token seguro
-    const token = crypto.randomBytes(32).toString('hex');
-    const expires = Date.now() + 3600000; // 1 hora de validez
+    const { email } = req.body;
+  
+    db.get("SELECT * FROM users WHERE email = ?", [email], (err, user) => {
+        if (err || !user) {
+            if (err) {
+                console.error("🔥🔥🔥 ERROR DE BASE DE DATOS:", err.message);
+            }
+            if (!user) {
+                console.log(`ℹ️ No se encontró usuario con el correo normalizado: ${email}`);
+            }
+            return res.status(200).json({ message: 'Si existe una cuenta, se ha enviado un correo de recuperación.' });
+        }
 
-    db.run("UPDATE users SET reset_token = ?, reset_token_expires = ? WHERE id = ?", [token, expires, user.id], async (err) => {
-      if (err) {
-        return res.status(500).json({ error: 'Error al guardar el token de reseteo' });
-      }
+        const token = crypto.randomBytes(32).toString('hex');
+        const expires = Date.now() + 3600000;
 
-      // Enviar el correo
-      const resetLink = `http://localhost:3000/reset-password.html?token=${token}`;
-      const mailOptions = {
-        from: '"BiocareTask" <tu_correo@gmail.com>',
-        to: user.email,
-        subject: 'Recuperación de Contraseña - BiocareTask',
-        html: `
-          <p>Hola ${user.name},</p>
-          <p>Has solicitado restablecer tu contraseña. Haz clic en el siguiente enlace para continuar:</p>
-          <a href="${resetLink}" style="color: #049DD9; font-weight: bold;">Restablecer mi contraseña</a>
-          <p>Este enlace es válido por 1 hora. Si no solicitaste esto, puedes ignorar este correo.</p>
-        `
-      };
+        db.run("UPDATE users SET reset_token = ?, reset_token_expires = ? WHERE id = ?", [token, expires, user.id], async (err) => {
+            if (err) {
+                console.error("Error al guardar el token:", err.message);
+                return res.status(500).json({ error: 'Error al guardar el token de reseteo' });
+            }
 
-      try {
-        await transporter.sendMail(mailOptions);
-        res.status(200).json({ message: 'Si existe una cuenta, se ha enviado un correo de recuperación.' });
-      } catch (emailError) {
-        console.error("Error al enviar correo de reseteo:", emailError);
-        res.status(500).json({ error: 'No se pudo enviar el correo de recuperación' });
-      }
+            const resetLink = `http://localhost:3000/reset-password.html?token=${token}`;
+            
+            const mailOptions = {
+                from: `"BiocareTask" <${process.env.EMAIL_USER}>`, 
+                to: user.email,
+                subject: 'Recuperación de Contraseña - BiocareTask',
+                html: `
+                  <p>Hola ${user.name},</p>
+                  <p>Has solicitado restablecer tu contraseña. Haz clic en el siguiente enlace para continuar:</p>
+                  <a href="${resetLink}" style="color: #049DD9; font-weight: bold;">Restablecer mi contraseña</a>
+                  <p>Este enlace es válido por 1 hora. Si no solicitaste esto, puedes ignorar este correo.</p>
+                `
+            };
+
+            try {
+                await transporter.sendMail(mailOptions);
+                console.log(`✅ Correo de recuperación enviado a ${user.email}`);
+                res.status(200).json({ message: 'Si existe una cuenta, se ha enviado un correo de recuperación.' });
+            } catch (emailError) {
+                console.error("🔥🔥🔥 ERROR AL ENVIAR CORREO:", emailError);
+                res.status(500).json({ error: 'No se pudo enviar el correo de recuperación' });
+            }
+        });
     });
-  });
 });
-
 
 // 🔑 2. REALIZAR EL RESETEO DE CONTRASEÑA
 app.post('/api/reset-password', jsonParser, [body('newPassword').isLength({ min: 6 })], async (req, res) => {
