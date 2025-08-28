@@ -34,7 +34,9 @@ db.serialize(() => {
     office TEXT,
     role TEXT DEFAULT 'user',
     avatar_url TEXT,
-    created_at TEXT DEFAULT (datetime('now', 'localtime'))
+    created_at TEXT DEFAULT (datetime('now', 'localtime')),
+    reset_token TEXT,  
+    reset_token_expires INTEGER
   )`, (err) => {
     if (err) {
       console.error('❌ Error al crear tabla users:', err.message);

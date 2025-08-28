@@ -1,8 +1,12 @@
 // backend/server.js
+require('dotenv').config();
+
 const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require('bcrypt');
 const path = require('path');
+const nodemailer = require('nodemailer');
+const crypto = require('crypto');
 const { body, validationResult } = require('express-validator');
 const multer = require('multer');
 const fs = require('fs');
@@ -16,6 +20,14 @@ const uploadsDir = path.join(__dirname, '..', 'uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
+// --- CONFIGURACIÓN DE NODEMAILER (USA VARIABLES DE ENTORNO EN PRODUCCIÓN) ---
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER, 
+    pass: process.env.EMAIL_PASS  
+  }
+});
 
 
 // Middleware para parsear JSON. Se aplicará selectivamente a las rutas que lo necesiten.
@@ -93,6 +105,77 @@ const authenticateToken = (req, res, next) => {
     next();
   });
 };
+
+// 🔑 1. SOLICITAR RESETEO DE CONTRASEÑA
+app.post('/api/forgot-password', jsonParser, [body('email').isEmail()], async (req, res) => {
+  const { email } = req.body;
+  
+  db.get("SELECT * FROM users WHERE email = ?", [email], (err, user) => {
+    // IMPORTANTE: Incluso si no encontramos al usuario, enviamos una respuesta exitosa
+    // para no revelar qué correos están registrados en el sistema (seguridad).
+    if (err || !user) {
+      console.log(`Solicitud de reseteo para correo no encontrado o error: ${email}`);
+      return res.status(200).json({ message: 'Si existe una cuenta, se ha enviado un correo de recuperación.' });
+    }
+
+    // Generar un token seguro
+    const token = crypto.randomBytes(32).toString('hex');
+    const expires = Date.now() + 3600000; // 1 hora de validez
+
+    db.run("UPDATE users SET reset_token = ?, reset_token_expires = ? WHERE id = ?", [token, expires, user.id], async (err) => {
+      if (err) {
+        return res.status(500).json({ error: 'Error al guardar el token de reseteo' });
+      }
+
+      // Enviar el correo
+      const resetLink = `http://localhost:3000/reset-password.html?token=${token}`;
+      const mailOptions = {
+        from: '"BiocareTask" <tu_correo@gmail.com>',
+        to: user.email,
+        subject: 'Recuperación de Contraseña - BiocareTask',
+        html: `
+          <p>Hola ${user.name},</p>
+          <p>Has solicitado restablecer tu contraseña. Haz clic en el siguiente enlace para continuar:</p>
+          <a href="${resetLink}" style="color: #049DD9; font-weight: bold;">Restablecer mi contraseña</a>
+          <p>Este enlace es válido por 1 hora. Si no solicitaste esto, puedes ignorar este correo.</p>
+        `
+      };
+
+      try {
+        await transporter.sendMail(mailOptions);
+        res.status(200).json({ message: 'Si existe una cuenta, se ha enviado un correo de recuperación.' });
+      } catch (emailError) {
+        console.error("Error al enviar correo de reseteo:", emailError);
+        res.status(500).json({ error: 'No se pudo enviar el correo de recuperación' });
+      }
+    });
+  });
+});
+
+
+// 🔑 2. REALIZAR EL RESETEO DE CONTRASEÑA
+app.post('/api/reset-password', jsonParser, [body('newPassword').isLength({ min: 6 })], async (req, res) => {
+  const { token, newPassword } = req.body;
+
+  const sql = "SELECT * FROM users WHERE reset_token = ? AND reset_token_expires > ?";
+  db.get(sql, [token, Date.now()], async (err, user) => {
+    if (err || !user) {
+      return res.status(400).json({ error: 'El token es inválido o ha expirado. Por favor, solicita uno nuevo.' });
+    }
+
+    // Hashear la nueva contraseña
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+
+    // Actualizar la contraseña y limpiar el token
+    const updateSql = "UPDATE users SET password = ?, reset_token = NULL, reset_token_expires = NULL WHERE id = ?";
+    db.run(updateSql, [hashedPassword, user.id], (err) => {
+      if (err) {
+        return res.status(500).json({ error: 'Error al actualizar la contraseña' });
+      }
+      res.status(200).json({ success: true, message: '¡Contraseña actualizada con éxito!' });
+    });
+  });
+});
 
 // === MANEJO DE ERRORES ===
 const errorHandler = (err, req, res, next) => {

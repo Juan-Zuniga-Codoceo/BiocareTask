@@ -36,8 +36,9 @@ __pycache__/
 logs
 *.log
 
-# Base de datos local (opcional: si quieres respaldarla, quita esta línea)
-database.sqlite
+# Archivo de la base de datos
+backend/database.sqlite
+uploads/
 
 # Archivos temporales
 *.tmp

@@ -1,13 +1,15 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BiocareTask - Iniciar Sesión</title>
   <link rel="stylesheet" href="css/login.css" />
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="assets/logo.png" type="image/png">
 </head>
+
 <body>
   <div id="login-app">
     <div class="login-container">
@@ -33,24 +35,13 @@
         <!-- Campo de correo -->
         <div class="input-group">
           <label>Correo corporativo</label>
-          <input 
-            type="email" 
-            v-model="email" 
-            placeholder="tu@biocare.cl" 
-            required 
-            autofocus
-          />
+          <input type="email" v-model="email" placeholder="tu@biocare.cl" required autofocus />
         </div>
 
         <!-- Campo de contraseña -->
         <div class="input-group">
           <label>Contraseña</label>
-          <input 
-            type="password" 
-            v-model="password" 
-            placeholder="••••••••" 
-            required 
-          />
+          <input type="password" v-model="password" placeholder="••••••••" required />
         </div>
 
         <!-- Botón de acceso -->
@@ -60,7 +51,8 @@
 
         <!-- Enlace a registro -->
         <div class="links">
-          <a href="/registro">¿No tienes cuenta? Regístrate</a>
+          <a href="/registro.html">¿No tienes cuenta? Regístrate</a>
+          <a href="/forgot-password.html" class="forgot-password">¿Olvidaste tu contraseña?</a>
         </div>
       </form>
     </div>
@@ -70,4 +62,5 @@
   <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
   <script src="js/auth.js"></script>
 </body>
+
 </html>
