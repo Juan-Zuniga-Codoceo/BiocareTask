@@ -17,8 +17,8 @@ const jsonParser = express.json({ limit: '10mb' });
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
-    user: process.env.EMAIL_USER, 
-    pass: process.env.EMAIL_PASS  
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
   }
 });
 
@@ -41,25 +41,25 @@ router.post('/login', jsonParser, [
     const sql = "SELECT id, name, email, office, role, password, avatar_url FROM users WHERE email = ?";
 
     db.get(sql, [email], async (err, user) => {
-        if (err) {
-          console.error('Error en consulta de login:', err);
-          return res.status(500).json({ error: 'Error interno del servidor' });
-        }
-        if (!user) {
+      if (err) {
+        console.error('Error en consulta de login:', err);
+        return res.status(500).json({ error: 'Error interno del servidor' });
+      }
+      if (!user) {
+        return res.status(401).json({ error: 'Credenciales inválidas' });
+      }
+      try {
+        const valid = await bcrypt.compare(password, user.password);
+        if (!valid) {
           return res.status(401).json({ error: 'Credenciales inválidas' });
         }
-        try {
-          const valid = await bcrypt.compare(password, user.password);
-          if (!valid) {
-            return res.status(401).json({ error: 'Credenciales inválidas' });
-          }
-          const { password: _, ...userWithoutPassword } = user;
-          res.json(userWithoutPassword);
-        } catch (compareError) {
-          console.error('Error al comparar contraseñas:', compareError);
-          return res.status(500).json({ error: 'Error interno al validar credenciales' });
-        }
+        const { password: _, ...userWithoutPassword } = user;
+        res.json(userWithoutPassword);
+      } catch (compareError) {
+        console.error('Error al comparar contraseñas:', compareError);
+        return res.status(500).json({ error: 'Error interno al validar credenciales' });
       }
+    }
     );
   } catch (error) {
     console.error('Error en proceso de login:', error);
@@ -102,49 +102,50 @@ router.post('/register', jsonParser, [
 
 // 🔑 SOLICITAR RESETEO DE CONTRASEÑA
 router.post('/forgot-password', jsonParser, [
-    body('email').isEmail().normalizeEmail() 
+  body('email').isEmail().normalizeEmail()
 ], async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        // Aún si el email es inválido, damos una respuesta genérica por seguridad
-        return res.status(200).json({ message: 'Si existe una cuenta, se ha enviado un correo de recuperación.' });
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    // Aún si el email es inválido, damos una respuesta genérica por seguridad
+    return res.status(200).json({ message: 'Si existe una cuenta, se ha enviado un correo de recuperación.' });
+  }
+
+  const { email } = req.body;
+
+  db.get("SELECT * FROM users WHERE email = ?", [email], (err, user) => {
+    if (err || !user) {
+      // No revelamos si el usuario no existe.
+      return res.status(200).json({ message: 'Si existe una cuenta, se ha enviado un correo de recuperación.' });
     }
 
-    const { email } = req.body;
-  
-    db.get("SELECT * FROM users WHERE email = ?", [email], (err, user) => {
-        if (err || !user) {
-            // No revelamos si el usuario no existe.
-            return res.status(200).json({ message: 'Si existe una cuenta, se ha enviado un correo de recuperación.' });
-        }
+    const token = crypto.randomBytes(32).toString('hex');
+    const expires = Date.now() + 3600000; // 1 hora
 
-        const token = crypto.randomBytes(32).toString('hex');
-        const expires = Date.now() + 3600000; // 1 hora
+    db.run("UPDATE users SET reset_token = ?, reset_token_expires = ? WHERE id = ?", [token, expires, user.id], async (err) => {
+      if (err) {
+        console.error("Error al guardar el token de reseteo:", err.message);
+        return res.status(500).json({ error: 'Error al procesar la solicitud' });
+      }
 
-        db.run("UPDATE users SET reset_token = ?, reset_token_expires = ? WHERE id = ?", [token, expires, user.id], async (err) => {
-            if (err) {
-                console.error("Error al guardar el token de reseteo:", err.message);
-                return res.status(500).json({ error: 'Error al procesar la solicitud' });
-            }
+      const baseUrl = process.env.APP_URL || 'http://localhost:3000';
+      const resetLink = `${baseUrl}/reset-password.html?token=${token}`;
 
-            const resetLink = `http://localhost:3000/reset-password.html?token=${token}`;
-            
-            const mailOptions = {
-                from: `"BiocareTask" <${process.env.EMAIL_USER}>`, 
-                to: user.email,
-                subject: 'Recuperación de Contraseña - BiocareTask',
-                html: `<p>Hola ${user.name},</p><p>Has solicitado restablecer tu contraseña. Haz clic en el siguiente enlace para continuar:</p><a href="${resetLink}" style="color: #049DD9; font-weight: bold;">Restablecer mi contraseña</a><p>Este enlace es válido por 1 hora.</p>`
-            };
+      const mailOptions = {
+        from: `"BiocareTask" <${process.env.EMAIL_USER}>`,
+        to: user.email,
+        subject: 'Recuperación de Contraseña - BiocareTask',
+        html: `<p>Hola ${user.name},</p><p>Has solicitado restablecer tu contraseña. Haz clic en el siguiente enlace para continuar:</p><a href="${resetLink}" style="color: #049DD9; font-weight: bold;">Restablecer mi contraseña</a><p>Este enlace es válido por 1 hora.</p>`
+      };
 
-            try {
-                await transporter.sendMail(mailOptions);
-                res.status(200).json({ message: 'Si existe una cuenta, se ha enviado un correo de recuperación.' });
-            } catch (emailError) {
-                console.error("Error al enviar correo de recuperación:", emailError);
-                res.status(500).json({ error: 'No se pudo enviar el correo de recuperación' });
-            }
-        });
+      try {
+        await transporter.sendMail(mailOptions);
+        res.status(200).json({ message: 'Si existe una cuenta, se ha enviado un correo de recuperación.' });
+      } catch (emailError) {
+        console.error("Error al enviar correo de recuperación:", emailError);
+        res.status(500).json({ error: 'No se pudo enviar el correo de recuperación' });
+      }
     });
+  });
 });
 
 // 🔑 REALIZAR EL RESETEO DE CONTRASEÑA

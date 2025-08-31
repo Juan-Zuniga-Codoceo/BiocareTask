@@ -74,6 +74,7 @@ router.get('/tasks', authenticateToken, (req, res) => {
   let sql = `
     SELECT t.*, u.name as created_by_name,
            GROUP_CONCAT(DISTINCT ua.name) as assigned_names,
+           GROUP_CONCAT(DISTINCT ta.user_id) as assigned_ids, -- <<< LÍNEA AÑADIDA
            GROUP_CONCAT(DISTINCT l.name) as label_names
     FROM tasks t
     LEFT JOIN users u ON t.created_by = u.id
@@ -195,19 +196,32 @@ router.post('/tasks', jsonParser, authenticateToken, [body('title').notEmpty().t
   );
 });
 
+// backend/routes/tasks.routes.js
+
 // ✏️ EDITAR TAREA
 router.put('/tasks/:id', jsonParser, authenticateToken, (req, res) => {
   const taskId = req.params.id;
   const { title, description, due_date, priority, assigned_to, label_ids } = req.body;
 
-  db.get("SELECT created_by FROM tasks WHERE id = ?", [taskId], (err, task) => {
-    if (err) return res.status(500).json({ error: 'Error al verificar la tarea' });
-    if (!task) return res.status(404).json({ error: 'Tarea no encontrada' });
-    if (task.created_by !== req.userId) {
-      return res.status(403).json({ error: 'No tienes permiso para editar esta tarea' });
+  // Consulta que busca una tarea si el usuario es el creador O está asignado a ella.
+  const permissionSql = `
+    SELECT t.id
+    FROM tasks t
+    LEFT JOIN task_assignments ta ON t.id = ta.task_id
+    WHERE t.id = ? AND (t.created_by = ? OR ta.user_id = ?)
+    GROUP BY t.id
+  `;
+
+  db.get(permissionSql, [taskId, req.userId, req.userId], (err, task) => {
+    if (err) return res.status(500).json({ error: 'Error al verificar permisos de la tarea' });
+    
+    // Si la consulta no devuelve nada, es porque la tarea no existe o el usuario no tiene permisos.
+    if (!task) {
+      return res.status(403).json({ error: 'No tienes permiso para editar esta tarea o la tarea no existe' });
     }
 
-    // Usamos una transacción para asegurar que todas las operaciones se completen
+    // Si se encontró la tarea y el usuario tiene permiso, procedemos con la actualización.
+    // Usamos una transacción para asegurar que todas las operaciones se completen.
     db.serialize(() => {
       db.run("BEGIN TRANSACTION");
 

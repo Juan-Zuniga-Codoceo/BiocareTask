@@ -5,10 +5,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BiocareTask - Tablero</title>
+
   <link rel="stylesheet" href="/css/tablero.css" />
   <link rel="manifest" href="/manifest.json">
   <link rel="icon" href="/assets/logo.png" type="image/png">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+
 </head>
 
 <body>
@@ -202,11 +205,30 @@
             <label for="description">Descripción</label>
             <textarea id="description" v-model="newTask.description"
               placeholder="Añade más detalles sobre la tarea..."></textarea>
+
+            <div v-if="suggestedLabels.length > 0" class="suggestions-container">
+              <span class="suggestions-title">Sugerencias:</span>
+              <span v-for="label in suggestedLabels" :key="label.id" class="pill suggestion-pill"
+                @click="toggleLabelInNew(label.id)">
+                + {{ label.name }}
+              </span>
+            </div>
           </div>
           <div class="form-grid">
             <div class="form-group">
-              <label for="due_date">Fecha de Entrega *</label>
-              <input id="due_date" type="datetime-local" v-model="newTask.due_date" required />
+              <label for="new-task-datepicker">Fecha de Entrega *</label>
+              <div class="date-input-wrapper">
+                <input id="new-task-datepicker" type="text" v-model="newTask.due_date"
+                  placeholder="Selecciona una fecha y hora...">
+                <i class="fa-regular fa-calendar-alt"></i>
+              </div>
+
+              <div class="quick-dates">
+                <button @click.prevent="setQuickDate(0)">Hoy</button>
+                <button @click.prevent="setQuickDate(1)">Mañana</button>
+                <button @click.prevent="setQuickDate('eod')">Fin del Día</button>
+                <button @click.prevent="setQuickDate(7)">En 7 días</button>
+              </div>
             </div>
             <div class="form-group">
               <label for="priority">Prioridad</label>
@@ -225,10 +247,28 @@
             <small>Mantén Ctrl/Cmd presionado para seleccionar varios.</small>
           </div>
           <div class="form-group">
-            <label for="label_ids">Etiquetas</label>
-            <select id="label_ids" v-model="newTask.label_ids" multiple>
-              <option v-for="l in labels" :key="l.id" :value="l.id">{{ l.name }}</option>
-            </select>
+            <label>Etiquetas</label>
+
+            <div class="pills-container">
+              <span v-for="label in selectedLabelsInNew" :key="label.id" class="pill"
+                :style="{ backgroundColor: getColor(label.name) }">
+                {{ label.name }}
+                <button @click="toggleLabelInNew(label.id)" class="remove-pill">&times;</button>
+              </span>
+            </div>
+
+            <div class="dropdown-container">
+              <input type="text" placeholder="Añadir etiqueta..." @focus="showNewLabelDropdown = true"
+                @blur="showNewLabelDropdown = false" class="label-input" />
+              <div class="label-dropdown" v-if="showNewLabelDropdown">
+                <div v-for="label in availableLabelsInNew" :key="label.id" @mousedown="toggleLabelInNew(label.id)">
+                  {{ label.name }}
+                </div>
+                <div v-if="availableLabelsInNew.length === 0" class="empty-dropdown">
+                  No hay más etiquetas para añadir.
+                </div>
+              </div>
+            </div>
           </div>
           <div class="form-group create-label-group">
             <input type="text" v-model="nuevaEtiqueta" placeholder="O crea una nueva etiqueta..."
@@ -353,17 +393,17 @@
           </div>
         </div>
         <div class="modal-footer">
-          <div class="modal-actions-left" v-if="user && tareaSeleccionada && user.id === tareaSeleccionada.created_by">
+          <div class="modal-actions-left" v-if="puedeEditarTarea">
             <button @click="abrirModalEditar" class="btn-edit">
               <i class="fa-solid fa-pencil"></i> Editar
             </button>
-            <button @click="abrirConfirmarEliminar" class="btn-delete">
+            <button @click="abrirConfirmarEliminar" class="btn-delete" v-if="user && tareaSeleccionada && user.id === tareaSeleccionada.created_by">
               <i class="fa-solid fa-trash-can"></i> Eliminar
             </button>
           </div>
           <button @click="tareaSeleccionada = null" class="btn-cancel">Cerrar</button>
         </div>
-      </div>
+        </div>
     </div>
 
     <div class="modal" v-if="showEditModal" @click.self="showEditModal = false">
@@ -373,18 +413,31 @@
           <button @click="showEditModal = false" class="btn-close-modal">&times;</button>
         </div>
         <div class="modal-body">
+
           <div class="form-group">
             <label>Título *</label>
             <input type="text" v-model="editTask.title" required />
           </div>
+
           <div class="form-group">
             <label>Descripción</label>
             <textarea v-model="editTask.description"></textarea>
           </div>
+
           <div class="form-grid">
             <div class="form-group">
-              <label>Fecha de Entrega *</label>
-              <input type="datetime-local" v-model="editTask.due_date" required />
+              <label for="edit-task-datepicker">Fecha de Entrega *</label>
+              <div class="date-input-wrapper">
+                <input id="edit-task-datepicker" type="text" v-model="editTask.due_date"
+                  placeholder="Selecciona una fecha y hora...">
+                <i class="fa-regular fa-calendar-alt"></i>
+              </div>
+              <div class="quick-dates">
+                <button @click.prevent="setQuickEditDate(0)">Hoy</button>
+                <button @click.prevent="setQuickEditDate(1)">Mañana</button>
+                <button @click.prevent="setQuickEditDate('eod')">Fin del Día</button>
+                <button @click.prevent="setQuickEditDate(7)">En 7 días</button>
+              </div>
             </div>
             <div class="form-group">
               <label>Prioridad</label>
@@ -395,18 +448,43 @@
               </select>
             </div>
           </div>
+
           <div class="form-group">
             <label>Asignar a</label>
             <select v-model="editTask.assigned_to" multiple>
               <option v-for="u in users" :key="u.id" :value="u.id">{{ u.name }}</option>
             </select>
           </div>
+
           <div class="form-group">
             <label>Etiquetas</label>
-            <select v-model="editTask.label_ids" multiple>
-              <option v-for="l in labels" :key="l.id" :value="l.id">{{ l.name }}</option>
-            </select>
+            <div class="pills-container">
+              <span v-for="label in selectedLabelsInEdit" :key="label.id" class="pill"
+                :style="{ backgroundColor: getColor(label.name) }">
+                {{ label.name }}
+                <button @click="toggleLabelInEdit(label.id)" class="remove-pill">&times;</button>
+              </span>
+            </div>
+            <div class="dropdown-container">
+              <input type="text" placeholder="Añadir etiqueta..." @focus="showLabelDropdown = true"
+                @blur="showLabelDropdown = false" class="label-input" />
+              <div class="label-dropdown" v-if="showLabelDropdown">
+                <div v-for="label in availableLabelsInEdit" :key="label.id" @mousedown="toggleLabelInEdit(label.id)">
+                  {{ label.name }}
+                </div>
+                <div v-if="availableLabelsInEdit.length === 0" class="empty-dropdown">
+                  No hay más etiquetas para añadir.
+                </div>
+              </div>
+            </div>
           </div>
+
+          <div class="form-group create-label-group">
+            <input type="text" v-model="nuevaEtiqueta" placeholder="O crea una nueva etiqueta..."
+              @keyup.enter="crearEtiqueta" />
+            <button @click="crearEtiqueta" class="btn-create-label">Crear</button>
+          </div>
+
         </div>
         <div class="modal-footer">
           <button @click="showEditModal = false" class="btn-cancel">Cancelar</button>
@@ -414,6 +492,7 @@
             <i class="fa-solid fa-save"></i> Guardar Cambios
           </button>
         </div>
+
       </div>
     </div>
 
@@ -434,10 +513,12 @@
         </div>
       </div>
     </div>
-
   </div>
 
+
   <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script src="https://npmcdn.com/flatpickr/dist/l10n/es.js"></script>
   <script src="/js/api.js"></script>
   <script src="/js/tasks.js"></script>
 </body>

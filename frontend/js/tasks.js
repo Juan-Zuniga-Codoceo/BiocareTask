@@ -1,8 +1,10 @@
-// frontend/js/tasks.js
-const { createApp, ref, computed, onMounted } = Vue;
+const { createApp, ref, computed, onMounted, watch } = Vue;
+
 createApp({
   setup() {
-    // === Estado del usuario y tareas ===
+    // ======================================================
+    // 1. ESTADO REACTIVO (refs)
+    // ======================================================
     const user = ref(null);
     const tasks = ref([]);
     const users = ref([]);
@@ -18,47 +20,245 @@ createApp({
     const showEditModal = ref(false);
     const editTask = ref({});
     const showDeleteConfirm = ref(false);
-
-    // Estado para el menú desplegable del usuario
+    const suggestedLabels = ref([]);
     const showDropdown = ref(false);
-    const toggleDropdown = () => {
-      showDropdown.value = !showDropdown.value;
-    };
+    const showNewLabelDropdown = ref(false);
+    const showLabelDropdown = ref(false);
+    const nuevaEtiqueta = ref('');
+    const nuevoComentario = ref('');
+    const archivoAdjunto = ref(null);
+    const commentAttachment = ref(null);
+    const notificaciones = ref([]);
+    const mostrarNotificaciones = ref(false);
+    const newTaskFp = ref(null); // Instancia de Flatpickr para "Crear Tarea"
+    const editTaskFp = ref(null); // Instancia de Flatpickr para "Editar Tarea"
 
-    // === Nueva tarea ===
     const newTask = ref({
-      title: '',
-      description: '',
-      due_date: '',
-      priority: 'media',
-      assigned_to: [],
-      label_ids: [],
-      comentario_inicial: ''
+      title: '', description: '', due_date: '', priority: 'media',
+      assigned_to: [], label_ids: [], comentario_inicial: ''
     });
 
+    const keywordToLabelMap = {
+      'factura': 'Factura', 'facturas': 'Factura', 'boleta': 'Factura',
+      'enviar': 'Entrega', 'entrega': 'Entrega', 'despacho': 'Entrega',
+      'express': 'Express', 'urgente': 'Urgente', 'prioridad': 'Prioritaria',
+      'valparaíso': 'Valparaíso', 'valpo': 'Valparaíso', 'valparaiso': 'Valparaíso',
+      'viña': 'Viña del Mar', 'vina': 'Viña del Mar',
+      'quilpué': 'Quilpué', 'quilpue': 'Quilpué',
+      'santiago': 'Santiago', 'stgo': 'Santiago',
+      'pedido web': 'Pedido Web', 'starken': 'Starken', 'blueexpress': 'BlueExpress',
+      'chileexpress': 'ChileExpress', 'bodega': 'Bodega'
+    };
+
+    // ======================================================
+    // 2. PROPIEDADES COMPUTADAS (computed)
+    // ======================================================
+    const notificacionesPendientes = computed(() => notificaciones.value.filter(n => !n.leida).length);
+    const selectedLabelsInNew = computed(() => labels.value.filter(l => newTask.value.label_ids.includes(l.id)));
+    const availableLabelsInNew = computed(() => labels.value.filter(l => !newTask.value.label_ids.includes(l.id)));
+    const selectedLabelsInEdit = computed(() => labels.value.filter(l => editTask.value.label_ids.includes(l.id)));
+    const availableLabelsInEdit = computed(() => labels.value.filter(l => !editTask.value.label_ids.includes(l.id)));
+    const tareasFiltradas = computed(() => {
+      if (!Array.isArray(tasks.value)) return [];
+      return tasks.value.filter(t => {
+        let match = true;
+        if (misTareas.value && user.value) {
+          match = (t.assigned_names?.includes(user.value.name)) || t.created_by === user.value.id;
+        }
+        if (filtroFecha.value) {
+          match = match && t.due_date?.startsWith(filtroFecha.value);
+        }
+        return match;
+      });
+    });
+    const tareasPendientes = computed(() => tareasFiltradas.value.filter(t => t.status === 'pendiente'));
+    const tareasEnCamino = computed(() => tareasFiltradas.value.filter(t => t.status === 'en_camino'));
+    const tareasCompletadas = computed(() => tareasFiltradas.value.filter(t => t.status === 'completada'));
+
+
+    const puedeEditarTarea = computed(() => {
+      if (!user.value || !tareaSeleccionada.value) return false;
+
+      // Condición 1: El usuario es el creador de la tarea.
+      if (user.value.id === tareaSeleccionada.value.created_by) {
+        return true;
+      }
+
+      // Condición 2: El usuario está en la lista de asignados.
+      const assignedIds = tareaSeleccionada.value.assigned_ids?.split(',') || [];
+      return assignedIds.includes(user.value.id.toString());
+    });
+    // ======================================================
+    // 3. OBSERVADORES (watch)
+    // ======================================================
+    // Watchers para etiquetas inteligentes
+    watch(() => [newTask.value.title, newTask.value.description], ([newTitle, newDesc]) => {
+      if (labels.value.length === 0) return;
+      const text = newTitle + ' ' + newDesc;
+      if (!text.trim()) { suggestedLabels.value = []; return; }
+      const foundLabelNames = new Set();
+      for (const keyword in keywordToLabelMap) {
+        const regex = new RegExp(`\\b${keyword}\\b`, 'i');
+        if (regex.test(text)) { foundLabelNames.add(keywordToLabelMap[keyword]); }
+      }
+      const alreadySelectedNames = new Set(selectedLabelsInNew.value.map(l => l.name));
+      suggestedLabels.value = labels.value.filter(label =>
+        foundLabelNames.has(label.name) && !alreadySelectedNames.has(label.name)
+      );
+    }, { deep: true });
+
+    watch(() => [editTask.value.title, editTask.value.description], ([newTitle, newDesc]) => {
+      if (labels.value.length === 0) return;
+      if (!showEditModal.value) return;
+      const text = newTitle + ' ' + newDesc;
+      if (!text.trim()) { suggestedLabels.value = []; return; }
+      const foundLabelNames = new Set();
+      for (const keyword in keywordToLabelMap) {
+        const regex = new RegExp(`\\b${keyword}\\b`, 'i');
+        if (regex.test(text)) { foundLabelNames.add(keywordToLabelMap[keyword]); }
+      }
+      const alreadySelectedNames = new Set(selectedLabelsInEdit.value.map(l => l.name));
+      suggestedLabels.value = labels.value.filter(label =>
+        foundLabelNames.has(label.name) && !alreadySelectedNames.has(label.name)
+      );
+    }, { deep: true });
+
+    // Watcher para el modal de CREAR TAREA
+    watch(showModal, (isVisible) => {
+      if (isVisible) {
+        Vue.nextTick(() => {
+          newTaskFp.value = flatpickr("#new-task-datepicker", {
+            allowInput: true,
+            enableTime: true, altInput: true, altFormat: "d/m/Y H:i", // Cambiado para 24hr
+            dateFormat: "Y-m-d H:i", minDate: "today", locale: "es", static: true,
+            time_24hr: true,         // <-- AÑADIR ESTA LÍNEA
+            minuteIncrement: 15,     // <-- AÑADIR ESTA LÍNEA
+            onChange: (selectedDates, dateStr) => { newTask.value.due_date = dateStr; }
+          });
+        });
+      } else if (newTaskFp.value) {
+        newTaskFp.value.destroy();
+        newTaskFp.value = null;
+      }
+    });
+
+    // Watcher para el modal de EDITAR TAREA
+    watch(showEditModal, (isVisible) => {
+      // Cuando el modal de edición se abre
+      if (isVisible) {
+        // Esperamos a que Vue dibuje el modal en el HTML
+        Vue.nextTick(() => {
+          const datepickerElement = document.getElementById("edit-task-datepicker");
+
+          // Solo inicializamos si encontramos el elemento y no tiene ya un calendario
+          if (datepickerElement && !datepickerElement._flatpickr) {
+            editTaskFp.value = flatpickr(datepickerElement, {
+              enableTime: true,
+              altInput: true,
+              altFormat: "d/m/Y H:i",
+              dateFormat: "Y-m-d H:i",
+              minDate: "today",
+              locale: "es",
+              static: true,
+              time_24hr: true,
+              minuteIncrement: 15,
+              allowInput: true, // Permite escribir directamente
+              // Establece la fecha actual de la tarea al abrir
+              defaultDate: editTask.value.due_date,
+              onChange: (selectedDates, dateStr) => {
+                editTask.value.due_date = dateStr;
+              }
+            });
+          }
+        });
+      } else if (editTaskFp.value) {
+        // Cuando el modal se cierra, destruimos la instancia para limpiar
+        editTaskFp.value.destroy();
+        editTaskFp.value = null;
+      }
+    });
+    // ======================================================
+    // 4. FUNCIONES
+    // ======================================================
+    const toggleDropdown = () => { showDropdown.value = !showDropdown.value; };
+    const showError = (message) => { API.showNotification(message, 'error'); };
+    const showSuccess = (message) => { API.showNotification(message, 'success'); };
+
+    const setQuickDate = (daysToAdd) => {
+      const date = new Date();
+      if (daysToAdd === 'eod') {
+        date.setHours(18, 0, 0, 0);
+      } else {
+        date.setDate(date.getDate() + daysToAdd);
+      }
+
+      // Actualiza el modelo de Vue directamente con el formato correcto
+      newTask.value.due_date = flatpickr.formatDate(date, "Y-m-d H:i");
+
+      // Y también actualiza la instancia del calendario
+      if (newTaskFp.value) {
+        newTaskFp.value.setDate(date, false); // 'false' para no disparar onChange
+      }
+    };
+
+    const setQuickEditDate = (daysToAdd) => {
+      const date = new Date();
+      if (daysToAdd === 'eod') {
+        date.setHours(18, 0, 0, 0);
+      } else {
+        date.setDate(date.getDate() + daysToAdd);
+      }
+
+      // Actualiza el modelo de Vue directamente
+      editTask.value.due_date = flatpickr.formatDate(date, "Y-m-d H:i");
+
+      // Y también la instancia del calendario
+      if (editTaskFp.value) {
+        editTaskFp.value.setDate(date, false);
+      }
+    };
+
+    const cargarDatos = async () => {
+      try {
+        loading.value = true;
+        const [tasksData, usersData, labelsData, resumenData, notifData] = await Promise.all([
+          API.get('/api/tasks'), API.get('/api/users'), API.get('/api/labels'),
+          API.get('/api/tasks/resumen'), API.get('/api/notifications').catch(() => [])
+        ]);
+        tasks.value = tasksData || [];
+        users.value = usersData || [];
+        labels.value = labelsData || [];
+        resumen.value = resumenData || { vencidas: 0, proximas: 0, total_pendientes: 0 };
+        notificaciones.value = notifData || [];
+        API.post('/api/tasks/check-due-today');
+      } catch (err) {
+        console.error('Error al cargar datos:', err);
+        showError('No se pudieron cargar los datos. Revisa tu conexión.');
+      } finally {
+        loading.value = false;
+      }
+    };
+
+    const userData = localStorage.getItem('biocare_user');
+    if (!userData) { window.location.href = '/login'; }
+    else { user.value = JSON.parse(userData); }
+
+    const logout = () => {
+      localStorage.removeItem('biocare_user');
+      localStorage.removeItem('auth_token');
+      window.location.href = '/login';
+    };
+
     const abrirModalEditar = () => {
-      // Clonamos la tarea seleccionada para no modificar la original
       editTask.value = JSON.parse(JSON.stringify(tareaSeleccionada.value));
-
-      // --- CORRECCIÓN INICIA AQUÍ ---
-
-      // Obtenemos los nombres de las asignaciones y etiquetas de la tarea como strings
       const assignmentNames = tasks.value.find(t => t.id === editTask.value.id)?.assigned_names || '';
       const labelNames = tasks.value.find(t => t.id === editTask.value.id)?.label_names || '';
-
-      // Usamos los arrays maestros (users.value y labels.value) para encontrar los IDs
-      editTask.value.assigned_to = users.value
-        .filter(u => assignmentNames.includes(u.name))
-        .map(u => u.id);
-
-      editTask.value.label_ids = labels.value
-        .filter(l => labelNames.includes(l.name))
-        .map(l => l.id);
-
-      // --- CORRECCIÓN TERMINA AQUÍ ---
-
-      tareaSeleccionada.value = null; // Cierra el modal de detalles
-      showEditModal.value = true;   // Abre el modal de edición
+      const assignmentNameArray = assignmentNames ? assignmentNames.split(',') : [];
+      const labelNameArray = labelNames ? labelNames.split(',') : [];
+      editTask.value.assigned_to = users.value.filter(u => assignmentNameArray.includes(u.name)).map(u => u.id);
+      editTask.value.label_ids = labels.value.filter(l => labelNameArray.includes(l.name)).map(l => l.id);
+      tareaSeleccionada.value = null;
+      showEditModal.value = true;
     };
 
     const guardarCambiosTarea = async () => {
@@ -87,139 +287,28 @@ createApp({
         showError('❌ Error al eliminar la tarea: ' + err.message);
       }
     };
-    // === Variable separada para nueva etiqueta ===
-    const nuevaEtiqueta = ref('');
 
-    // === Comentarios ===
-    const nuevoComentario = ref('');
-
-    // === Notificaciones ===
-    const notificaciones = ref([]);
-    const mostrarNotificaciones = ref(false);
-    const notificacionesPendientes = computed(() => {
-      return notificaciones.value.filter(n => !n.leida).length;
-    });
-
-    const esTareaParaHoy = (isoDate) => {
-      if (!isoDate) return false;
-      const hoy = new Date();
-      const fechaTarea = new Date(isoDate);
-      return hoy.getFullYear() === fechaTarea.getFullYear() &&
-        hoy.getMonth() === fechaTarea.getMonth() &&
-        hoy.getDate() === fechaTarea.getDate();
-    };
-
-    // === Archivo adjunto ===
-    const archivoAdjunto = ref(null);
-
-    // === Cargar usuario desde localStorage ===
-    const userData = localStorage.getItem('biocare_user');
-    if (!userData) {
-      window.location.href = '/login';
-    } else {
-      user.value = JSON.parse(userData);
-    }
-
-    // === Funciones principales ===
-    const logout = () => {
-      localStorage.removeItem('biocare_user');
-      localStorage.removeItem('auth_token');
-      window.location.href = '/login';
-    };
-
-    const cargarDatos = async () => {
-      try {
-        loading.value = true;
-        error.value = '';
-
-        const [tasksData, usersData, labelsData, resumenData, notifData] = await Promise.all([
-          API.get('/api/tasks'),
-          API.get('/api/users'),
-          API.get('/api/labels'),
-          API.get('/api/tasks/resumen'),
-          API.get('/api/notifications').catch(() => [])
-        ]);
-        tasks.value = tasksData || [];
-        users.value = usersData || [];
-        labels.value = labelsData || [];
-        resumen.value = resumenData || { vencidas: 0, proximas: 0, total_pendientes: 0 };
-        notificaciones.value = notifData || [];
-
-        API.post('/api/tasks/check-due-today').then(result => {
-          if (result && result.new_notifications > 0) {
-            // Si se crearon notificaciones nuevas, actualizamos la lista para que aparezcan en la campana
-            API.get('/api/notifications').then(newNotifData => {
-              notificaciones.value = newNotifData || [];
-            });
-          }
-        }).catch(err => console.warn('No se pudo verificar vencimientos, puede que ya se haya hecho hoy.'));
-
-      } catch (err) {
-        console.error('Error al cargar datos:', err);
-        showError('No se pudieron cargar los datos. Revisa tu conexión.');
-      } finally {
-        loading.value = false;
-      }
-    };
-
-    const showError = (message) => {
-      API.showNotification(message, 'error');
-    };
-    const showSuccess = (message) => {
-      API.showNotification(message, 'success');
-    };
     const crearTarea = async () => {
       if (!newTask.value.title.trim()) {
-        showError('El título es obligatorio');
-        return;
+        return showError('El título es obligatorio');
       }
       if (!newTask.value.due_date) {
-        showError('La fecha de entrega es obligatoria');
-        return;
+        return showError('La fecha de entrega es obligatoria');
       }
-
       creandoTarea.value = true;
       try {
-        const taskData = {
-          title: newTask.value.title.trim(),
-          description: newTask.value.description || '',
-          due_date: newTask.value.due_date,
-          priority: newTask.value.priority || 'media',
-          assigned_to: newTask.value.assigned_to || [],
-          label_ids: newTask.value.label_ids || []
-        };
-
-        const result = await API.post('/api/tasks', taskData);
-
+        const result = await API.post('/api/tasks', newTask.value);
         if (archivoAdjunto.value && result.id) {
-          try {
-            const formData = new FormData();
-            formData.append('file', archivoAdjunto.value);
-            formData.append('task_id', result.id.toString());
-            formData.append('file_name', archivoAdjunto.value.name);
-            await API.upload('/api/upload', formData);
-          } catch (uploadError) {
-            console.error('Error detallado al subir archivo:', uploadError);
-            showError('⚠️ Tarea creada, pero no se pudo subir el archivo');
-          }
+          const formData = new FormData();
+          formData.append('file', archivoAdjunto.value);
+          formData.append('task_id', result.id.toString());
+          formData.append('file_name', archivoAdjunto.value.name);
+          await API.upload('/api/upload', formData);
         }
-
-        if (newTask.value.comentario_inicial && newTask.value.comentario_inicial.trim()) {
-          try {
-            await API.post('/api/tasks/comments', {
-              task_id: result.id,
-              contenido: newTask.value.comentario_inicial.trim()
-            });
-          } catch (commentError) {
-            console.warn('Error al crear comentario:', commentError);
-          }
-        }
-
         showModal.value = false;
         resetForm();
         await cargarDatos();
         showSuccess('✅ Tarea creada exitosamente');
-
       } catch (err) {
         showError('❌ Error al crear la tarea: ' + (err.message || ''));
       } finally {
@@ -227,15 +316,28 @@ createApp({
       }
     };
 
+    const toggleLabelInNew = (labelId) => {
+      const index = newTask.value.label_ids.indexOf(labelId);
+      if (index > -1) {
+        newTask.value.label_ids.splice(index, 1);
+      } else {
+        newTask.value.label_ids.push(labelId);
+      }
+    };
+
+    const toggleLabelInEdit = (labelId) => {
+      const index = editTask.value.label_ids.indexOf(labelId);
+      if (index > -1) {
+        editTask.value.label_ids.splice(index, 1);
+      } else {
+        editTask.value.label_ids.push(labelId);
+      }
+    };
+
     const resetForm = () => {
       newTask.value = {
-        title: '',
-        description: '',
-        due_date: '',
-        priority: 'media',
-        assigned_to: [],
-        label_ids: [],
-        comentario_inicial: ''
+        title: '', description: '', due_date: '', priority: 'media',
+        assigned_to: [], label_ids: [], comentario_inicial: ''
       };
       nuevaEtiqueta.value = '';
       nuevoComentario.value = '';
@@ -263,20 +365,15 @@ createApp({
 
     const crearEtiqueta = async () => {
       if (!nuevaEtiqueta.value.trim()) {
-        showError('El nombre de la etiqueta es obligatorio');
-        return;
+        return showError('El nombre de la etiqueta es obligatorio');
       }
-
       try {
-        await API.post('/api/labels', {
-          name: nuevaEtiqueta.value.trim()
-        });
+        await API.post('/api/labels', { name: nuevaEtiqueta.value.trim() });
         nuevaEtiqueta.value = '';
         await cargarDatos();
         showSuccess('🏷️ Etiqueta creada exitosamente');
       } catch (err) {
-        console.error('Error detallado al crear etiqueta:', err);
-        showError('❌ No se pudo crear la etiqueta: ' + (err.message || 'Verifica los datos'));
+        showError('❌ No se pudo crear la etiqueta: ' + (err.message || ''));
       }
     };
 
@@ -298,7 +395,6 @@ createApp({
         ]);
         task.attachments = attachments;
         task.comentarios = comments;
-        task.comentarios_count = comments.length;
       } catch (err) {
         console.error('Error al cargar detalles:', err);
         task.attachments = [];
@@ -307,14 +403,11 @@ createApp({
       tareaSeleccionada.value = task;
     };
 
-    const commentAttachment = ref(null);
-
     const handleCommentAttachment = (event) => {
       const file = event.target.files[0];
       if (file) {
-        if (file.size > 10 * 1024 * 1024) { // Límite de 10MB
-          showError('El archivo no debe exceder 10MB');
-          return;
+        if (file.size > 10 * 1024 * 1024) {
+          return showError('El archivo no debe exceder 10MB');
         }
         commentAttachment.value = file;
       }
@@ -325,41 +418,27 @@ createApp({
       document.getElementById('comment-attachment-input').value = '';
     };
 
+
+
     const agregarComentario = async () => {
-      // Condición para enviar: debe haber un texto o un archivo adjunto.
       if ((!nuevoComentario.value.trim() && !commentAttachment.value) || !tareaSeleccionada.value) {
         return;
       }
-
       try {
-        // 1. Creamos un objeto FormData. Este es el formato para enviar archivos.
         const formData = new FormData();
-
-        // 2. Añadimos los datos de texto al formulario.
         formData.append('task_id', tareaSeleccionada.value.id);
         formData.append('contenido', nuevoComentario.value.trim());
-
-        // 3. Si hay un archivo seleccionado, lo añadimos también.
-        // El nombre 'attachment' debe coincidir con el del backend: upload.single('attachment')
         if (commentAttachment.value) {
           formData.append('attachment', commentAttachment.value);
         }
-
-        // 4. Usamos el método API.upload, que está diseñado para enviar FormData.
-        // Esto es crucial, ya que NO establece el 'Content-Type' y deja que el navegador lo haga.
         await API.upload('/api/tasks/comments', formData);
-
-        // 5. Limpiamos el formulario en el frontend.
         nuevoComentario.value = '';
-        removeCommentAttachment(); // Esta función ya la teníamos, la usamos para limpiar el archivo.
+        removeCommentAttachment();
         showSuccess('💬 Comentario agregado');
-
-        // 6. Volvemos a cargar los detalles de la tarea para ver el nuevo comentario con su adjunto.
         const taskActual = tasks.value.find(t => t.id === tareaSeleccionada.value.id);
         if (taskActual) {
           await verDetalles(taskActual);
         }
-
       } catch (err) {
         showError('❌ Error al agregar comentario: ' + err.message);
       }
@@ -370,25 +449,6 @@ createApp({
       return task.label_names.split(',').map(label => label.trim()).filter(Boolean);
     };
 
-    const tareasFiltradas = computed(() => {
-      if (!Array.isArray(tasks.value)) return [];
-      return tasks.value.filter(t => {
-        let match = true;
-        if (misTareas.value && user.value) {
-          match = (t.assigned_names?.includes(user.value.name)) || t.created_by === user.value.id;
-        }
-        if (filtroFecha.value) {
-          match = match && t.due_date?.startsWith(filtroFecha.value);
-        }
-        return match;
-      });
-    });
-
-    const tareasPendientes = computed(() => tareasFiltradas.value.filter(t => t.status === 'pendiente'));
-    const tareasEnCamino = computed(() => tareasFiltradas.value.filter(t => t.status === 'en_camino'));
-    const tareasCompletadas = computed(() => tareasFiltradas.value.filter(t => t.status === 'completada'));
-
-    // === Funciones de Notificaciones ===
     const toggleNotifications = () => {
       mostrarNotificaciones.value = !mostrarNotificaciones.value;
     };
@@ -423,7 +483,15 @@ createApp({
       }
     };
 
-    // === Utilidades de formato ===
+    const esTareaParaHoy = (isoDate) => {
+      if (!isoDate) return false;
+      const hoy = new Date();
+      const fechaTarea = new Date(isoDate);
+      return hoy.getFullYear() === fechaTarea.getFullYear() &&
+        hoy.getMonth() === fechaTarea.getMonth() &&
+        hoy.getDate() === fechaTarea.getDate();
+    };
+
     const formatDate = (isoDate) => {
       if (!isoDate) return 'No especificada';
       try {
@@ -431,9 +499,7 @@ createApp({
           day: 'numeric', month: 'long', year: 'numeric',
           hour: '2-digit', minute: '2-digit'
         });
-      } catch {
-        return isoDate;
-      }
+      } catch { return isoDate; }
     };
 
     const getColor = (labelName) => {
@@ -442,9 +508,7 @@ createApp({
         'Valparaíso': '#F39C12', 'Viña del Mar': '#E67E22', 'Quilpué': '#16A085',
         'Prioritaria': '#E74C3C', 'Urgente': '#C0392B'
       };
-      if (predefinedColors[labelName]) {
-        return predefinedColors[labelName];
-      }
+      if (predefinedColors[labelName]) return predefinedColors[labelName];
       const defaultColors = ['#2980B9', '#27AE60', '#8E44AD', '#2C3E50', '#7F8C8D'];
       let hash = 0;
       for (let i = 0; i < labelName.length; i++) {
@@ -453,10 +517,7 @@ createApp({
       return defaultColors[Math.abs(hash) % defaultColors.length];
     };
 
-    const getPriorityText = (priority) => {
-      const priorities = { 'alta': 'Alta', 'media': 'Media', 'baja': 'Baja' };
-      return priorities[priority] || priority;
-    };
+    const getPriorityText = (priority) => ({ 'alta': 'Alta', 'media': 'Media', 'baja': 'Baja' }[priority] || priority);
 
     const getFileSize = (bytes) => {
       if (!bytes || bytes === 0) return '0 Bytes';
@@ -487,41 +548,77 @@ createApp({
       }
     };
 
-    // === Carga inicial de datos al montar el componente ===
+    // ======================================================
+    // 5. Carga Inicial (Lifecycle Hook)
+    // ======================================================
     onMounted(() => {
       cargarDatos();
+
+      // Inicializar Flatpickr después de que el DOM esté completamente renderizado
+      setTimeout(() => {
+        // Calendario para "Crear Tarea"
+        const newDatepicker = document.getElementById("new-task-datepicker");
+        if (newDatepicker && !newDatepicker._flatpickr) {
+          newTaskFp.value = flatpickr(newDatepicker, {
+            enableTime: true,
+            dateFormat: "Y-m-d H:i",
+            altInput: true,
+            altFormat: "d/m/Y H:i",
+            minuteIncrement: 30,
+            minDate: "today",
+            locale: "es",
+            static: true,
+            time_24hr: false,
+            onChange: function (selectedDates, dateStr, instance) {
+              newTask.value.due_date = dateStr;
+            }
+          });
+        }
+
+        // Calendario para "Editar Tarea"
+        const editDatepicker = document.getElementById("edit-task-datepicker");
+        if (editDatepicker && !editDatepicker._flatpickr) {
+          editTaskFp.value = flatpickr(editDatepicker, {
+            enableTime: true,
+            dateFormat: "Y-m-d H:i",
+            altInput: true,
+            altFormat: "d/m/Y H:i",
+            minuteIncrement: 30,
+            minDate: "today",
+            locale: "es",
+            static: true,
+            time_24hr: false,
+            onChange: function (selectedDates, dateStr, instance) {
+              editTask.value.due_date = dateStr;
+            }
+          });
+        }
+      }, 100);
     });
 
-    // === Exponer todo a la plantilla HTML ===
+    // ======================================================
+    // 6. EXPOSICIÓN A LA PLANTILLA (return)
+    // ======================================================
     return {
-      user, tasks, users, labels, resumen,
-      misTareas, filtroFecha, showModal, tareaSeleccionada,
-      creandoTarea, newTask, nuevaEtiqueta, nuevoComentario,
-      archivoAdjunto, notificaciones, mostrarNotificaciones,
-      notificacionesPendientes, loading, error,
-      showDropdown,
-      toggleDropdown,
-      logout, cargarDatos, crearTarea, crearEtiqueta,
-      agregarComentario, handleFileUpload, removeFile,
-      verDetalles, downloadFile, toggleNotifications,
+      user, tasks, users, labels, resumen, misTareas, filtroFecha, showModal,
+      tareaSeleccionada, creandoTarea, loading, error, showEditModal, editTask,
+      showDeleteConfirm, suggestedLabels, showDropdown, toggleDropdown, newTask,
+      nuevaEtiqueta, nuevoComentario, archivoAdjunto, notificaciones,
+      mostrarNotificaciones, commentAttachment, showNewLabelDropdown, showLabelDropdown,
+      notificacionesPendientes, selectedLabelsInNew, availableLabelsInNew,
+      selectedLabelsInEdit, availableLabelsInEdit, tareasFiltradas,
+      tareasPendientes, tareasEnCamino, tareasCompletadas,
+      logout, cargarDatos, abrirModalEditar, guardarCambiosTarea,
+      abrirConfirmarEliminar, eliminarTarea, esTareaParaHoy, crearTarea,
+      toggleLabelInNew, resetForm, handleFileUpload, removeFile, crearEtiqueta,
+      toggleLabelInEdit, cambiarEstadoTarea, verDetalles, handleCommentAttachment,
+      removeCommentAttachment, agregarComentario, getLabelsArray, toggleNotifications,
+      marcarComoLeida, marcarTodasComoLeidas, eliminarNotificacion, formatDate,
+      getColor, getPriorityText, getFileSize, downloadFile,
+      setQuickDate, setQuickEditDate,
       moverACamino: (id) => cambiarEstadoTarea(id, 'en_camino'),
       completar: (id) => cambiarEstadoTarea(id, 'completada'),
-      tareasPendientes, tareasEnCamino, tareasCompletadas,
-      formatDate, getColor, getPriorityText, getLabelsArray, getFileSize,
-      commentAttachment,
-      handleCommentAttachment,
-      removeCommentAttachment,
-      esTareaParaHoy,
-      marcarComoLeida,
-      marcarTodasComoLeidas,
-      eliminarNotificacion,
-      showEditModal,
-      editTask,
-      showDeleteConfirm,
-      abrirModalEditar,
-      guardarCambiosTarea,
-      abrirConfirmarEliminar,
-      eliminarTarea
+      puedeEditarTarea
     };
   }
 }).mount('#app');
