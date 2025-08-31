@@ -3,10 +3,14 @@ const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
-// Verificar que la base de datos existe
-const dbPath = path.join(__dirname, 'backend', 'database.sqlite');
+// Se usa la variable de entorno de Render si existe, si no, se usa la carpeta local 'backend'.
+// Esto asegura que la verificación se haga en el disco persistente en producción.
+const dataDir = process.env.RENDER_DISK_MOUNT_PATH || path.join(__dirname, 'backend');
+const dbPath = path.join(dataDir, 'database.sqlite');
+
+// Verificar que la base de datos existe en la ubicación correcta
 if (!fs.existsSync(dbPath)) {
-  console.log('⚠️  Creando base de datos inicial...');
+  console.log(`⚠️  Base de datos no encontrada en ${dbPath}. Creando base de datos inicial...`);
   // Ejecutar el script de inicialización de la base de datos
   require('./backend/db.js');
 }
@@ -17,7 +21,8 @@ process.env.HOST = '0.0.0.0';
 process.env.PORT = process.env.PORT || 3000;
 
 console.log('🚀 Iniciando BiocareTask en modo producción...');
-console.log(`📂 Directorio: ${__dirname}`);
+console.log(`📂 Directorio de trabajo: ${__dirname}`);
+console.log(`💾 Directorio de datos: ${dataDir}`);
 console.log(`🌐 Host: ${process.env.HOST}`);
 console.log(`🔄 Puerto: ${process.env.PORT}`);
 

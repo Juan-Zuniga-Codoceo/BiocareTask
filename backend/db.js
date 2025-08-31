@@ -2,15 +2,29 @@
 const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require('bcrypt');
 const path = require('path');
+const fs = require('fs'); // Módulo para interactuar con el sistema de archivos
 
 // === CONFIGURACIÓN DE LA BASE DE DATOS ===
-const dbPath = path.join(__dirname, 'database.sqlite');
+
+// Esta variable de entorno es creada por Render y contiene la ruta de tu disco (ej: '/data/db')
+const dbDir = process.env.RENDER_DISK_MOUNT_PATH || __dirname;
+
+// Nos aseguramos de que el directorio del disco persistente exista antes de usarlo.
+if (!fs.existsSync(dbDir)) {
+  fs.mkdirSync(dbDir, { recursive: true });
+}
+
+// La ruta final ahora apuntará a '/data/db/database.sqlite' en Render,
+// o a la carpeta 'backend/' en tu entorno local.
+const dbPath = path.join(dbDir, 'database.sqlite');
+
 let db = new sqlite3.Database(dbPath, (err) => {
   if (err) {
     console.error('❌ Error al conectar con la base de datos:', err.message);
     process.exit(1);
   } else {
-    console.log('✅ Conexión a la base de datos establecida');
+    // Logueamos la ruta para saber siempre dónde se está guardando la BD.
+    console.log(`✅ Conexión a la base de datos establecida en: ${dbPath}`);
   }
 });
 
@@ -113,27 +127,27 @@ db.serialize(() => {
     }
   });
 
-  // Tabla attachments (MODIFICADA)
-db.run(`CREATE TABLE IF NOT EXISTS attachments (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  task_id INTEGER,
-  comment_id INTEGER, -- <<< NUEVA COLUMNA
-  file_path TEXT NOT NULL,
-  file_name TEXT NOT NULL,
-  file_type TEXT,
-  file_size INTEGER DEFAULT 0,
-  uploaded_by INTEGER,
-  uploaded_at TEXT DEFAULT (datetime('now', 'localtime')),
-  FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
-  FOREIGN KEY (comment_id) REFERENCES comments(id) ON DELETE CASCADE, -- <<< NUEVA FOREIGN KEY
-  FOREIGN KEY (uploaded_by) REFERENCES users(id)
-)`, (err) => {
-  if (err) {
-    console.error('❌ Error al crear tabla attachments:', err.message);
-  } else {
-    console.log('✅ Tabla attachments lista');
-  }
-});
+  // Tabla attachments
+  db.run(`CREATE TABLE IF NOT EXISTS attachments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER,
+    comment_id INTEGER,
+    file_path TEXT NOT NULL,
+    file_name TEXT NOT NULL,
+    file_type TEXT,
+    file_size INTEGER DEFAULT 0,
+    uploaded_by INTEGER,
+    uploaded_at TEXT DEFAULT (datetime('now', 'localtime')),
+    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+    FOREIGN KEY (comment_id) REFERENCES comments(id) ON DELETE CASCADE,
+    FOREIGN KEY (uploaded_by) REFERENCES users(id)
+  )`, (err) => {
+    if (err) {
+      console.error('❌ Error al crear tabla attachments:', err.message);
+    } else {
+      console.log('✅ Tabla attachments lista');
+    }
+  });
 
   // Tabla comments
   db.run(`CREATE TABLE IF NOT EXISTS comments (

@@ -463,15 +463,16 @@ router.get('/download/:filename', authenticateToken, (req, res) => {
 
 // 🗓️ RESUMEN DE TAREAS
 router.get('/tasks/resumen', authenticateToken, (req, res) => {
-  const now = new Date().toISOString();
-  const threeDays = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString();
+  // La lógica de fechas ahora se maneja directamente en SQL para mayor precisión.
   const sql = `
     SELECT 
-      (SELECT COUNT(*) FROM tasks WHERE status = 'pendiente' AND due_date < ?) as vencidas,
-      (SELECT COUNT(*) FROM tasks WHERE status = 'pendiente' AND due_date >= ? AND due_date <= ?) as proximas,
+      (SELECT COUNT(*) FROM tasks WHERE status = 'pendiente' AND due_date < datetime('now', 'localtime')) as vencidas,
+      (SELECT COUNT(*) FROM tasks WHERE status = 'pendiente' AND due_date >= datetime('now', 'localtime') AND due_date <= datetime('now', 'localtime', '+3 days')) as proximas,
       (SELECT COUNT(*) FROM tasks WHERE status = 'pendiente') as total_pendientes
   `;
-  db.get(sql, [now, now, threeDays], (err, row) => {
+
+  // Ya no se necesitan parámetros, SQLite calcula la fecha actual por sí mismo.
+  db.get(sql, [], (err, row) => {
       if(err) return res.status(500).json({ error: 'Error al generar el resumen '});
       res.json(row || { vencidas: 0, proximas: 0, total_pendientes: 0 })
   });
