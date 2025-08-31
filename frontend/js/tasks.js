@@ -74,6 +74,11 @@ createApp({
     const tareasPendientes = computed(() => tareasFiltradas.value.filter(t => t.status === 'pendiente'));
     const tareasEnCamino = computed(() => tareasFiltradas.value.filter(t => t.status === 'en_camino'));
     const tareasCompletadas = computed(() => tareasFiltradas.value.filter(t => t.status === 'completada'));
+    const selectedUsersInNew = computed(() => users.value.filter(u => newTask.value.assigned_to.includes(u.id)));
+    const availableUsersInNew = computed(() => users.value.filter(u => !newTask.value.assigned_to.includes(u.id)));
+
+    const selectedUsersInEdit = computed(() => users.value.filter(u => editTask.value.assigned_to.includes(u.id)));
+    const availableUsersInEdit = computed(() => users.value.filter(u => !editTask.value.assigned_to.includes(u.id)));
 
 
     const puedeEditarTarea = computed(() => {
@@ -332,6 +337,31 @@ createApp({
       } else {
         editTask.value.label_ids.push(labelId);
       }
+    };
+
+    const addUserToNewTask = (userId) => {
+      const id = parseInt(userId);
+      if (id && !newTask.value.assigned_to.includes(id)) {
+        newTask.value.assigned_to.push(id);
+      }
+      // Resetea el select para poder seleccionar otro
+      event.target.value = '';
+    };
+
+    const removeUserFromNewTask = (userId) => {
+      newTask.value.assigned_to = newTask.value.assigned_to.filter(id => id !== userId);
+    };
+
+    const addUserToEditTask = (userId) => {
+      const id = parseInt(userId);
+      if (id && !editTask.value.assigned_to.includes(id)) {
+        editTask.value.assigned_to.push(id);
+      }
+      event.target.value = '';
+    };
+
+    const removeUserFromEditTask = (userId) => {
+      editTask.value.assigned_to = editTask.value.assigned_to.filter(id => id !== userId);
     };
 
     const resetForm = () => {
@@ -607,7 +637,10 @@ createApp({
       mostrarNotificaciones, commentAttachment, showNewLabelDropdown, showLabelDropdown,
       notificacionesPendientes, selectedLabelsInNew, availableLabelsInNew,
       selectedLabelsInEdit, availableLabelsInEdit, tareasFiltradas,
-      tareasPendientes, tareasEnCamino, tareasCompletadas,
+      tareasPendientes, tareasEnCamino, tareasCompletadas, selectedUsersInNew,
+      availableUsersInNew,
+      selectedUsersInEdit,
+      availableUsersInEdit,
       logout, cargarDatos, abrirModalEditar, guardarCambiosTarea,
       abrirConfirmarEliminar, eliminarTarea, esTareaParaHoy, crearTarea,
       toggleLabelInNew, resetForm, handleFileUpload, removeFile, crearEtiqueta,
@@ -617,7 +650,10 @@ createApp({
       getColor, getPriorityText, getFileSize, downloadFile,
       setQuickDate, setQuickEditDate,
       moverACamino: (id) => cambiarEstadoTarea(id, 'en_camino'),
-      completar: (id) => cambiarEstadoTarea(id, 'completada'),
+      completar: (id) => cambiarEstadoTarea(id, 'completada'), addUserToNewTask,
+      removeUserFromNewTask,
+      addUserToEditTask,
+      removeUserFromEditTask,
       puedeEditarTarea
     };
   }

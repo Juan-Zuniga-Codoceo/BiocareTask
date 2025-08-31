@@ -241,10 +241,20 @@
           </div>
           <div class="form-group">
             <label for="assigned_to">Asignar a</label>
-            <select id="assigned_to" v-model="newTask.assigned_to" multiple>
-              <option v-for="u in users" :key="u.id" :value="u.id">{{ u.name }}</option>
+            <div class="pills-container user-pills">
+              <span v-for="user in selectedUsersInNew" :key="user.id" class="pill user-pill">
+                {{ user.name }}
+                <button @click="removeUserFromNewTask(user.id)" class="remove-pill">&times;</button>
+              </span>
+              <span v-if="selectedUsersInNew.length === 0" class="empty-pills">Nadie asignado</span>
+            </div>
+
+            <select @change="addUserToNewTask($event.target.value)" class="user-select-add">
+              <option value="" disabled selected>Añadir usuario...</option>
+              <option v-for="user in availableUsersInNew" :key="user.id" :value="user.id">
+                {{ user.name }}
+              </option>
             </select>
-            <small>Mantén Ctrl/Cmd presionado para seleccionar varios.</small>
           </div>
           <div class="form-group">
             <label>Etiquetas</label>
@@ -397,13 +407,14 @@
             <button @click="abrirModalEditar" class="btn-edit">
               <i class="fa-solid fa-pencil"></i> Editar
             </button>
-            <button @click="abrirConfirmarEliminar" class="btn-delete" v-if="user && tareaSeleccionada && user.id === tareaSeleccionada.created_by">
+            <button @click="abrirConfirmarEliminar" class="btn-delete"
+              v-if="user && tareaSeleccionada && user.id === tareaSeleccionada.created_by">
               <i class="fa-solid fa-trash-can"></i> Eliminar
             </button>
           </div>
           <button @click="tareaSeleccionada = null" class="btn-cancel">Cerrar</button>
         </div>
-        </div>
+      </div>
     </div>
 
     <div class="modal" v-if="showEditModal" @click.self="showEditModal = false">
@@ -451,8 +462,19 @@
 
           <div class="form-group">
             <label>Asignar a</label>
-            <select v-model="editTask.assigned_to" multiple>
-              <option v-for="u in users" :key="u.id" :value="u.id">{{ u.name }}</option>
+            <div class="pills-container user-pills">
+              <span v-for="user in selectedUsersInEdit" :key="user.id" class="pill user-pill">
+                {{ user.name }}
+                <button @click="removeUserFromEditTask(user.id)" class="remove-pill">&times;</button>
+              </span>
+              <span v-if="selectedUsersInEdit.length === 0" class="empty-pills">Nadie asignado</span>
+            </div>
+
+            <select @change="addUserToEditTask($event.target.value)" class="user-select-add">
+              <option value="" disabled selected>Añadir usuario...</option>
+              <option v-for="user in availableUsersInEdit" :key="user.id" :value="user.id">
+                {{ user.name }}
+              </option>
             </select>
           </div>
 
