@@ -75,21 +75,22 @@
                 <p v-if="notificaciones.length === 0" class="empty">No hay notificaciones</p>
               </div>
             </div>
-            <div class="user-menu">
-              <div class="dropdown">
-                <button class="btn-icon" @click="toggleDropdown" title="Mi Perfil">
-                  <i class="fa-solid fa-user-gear"></i>
-                </button>
-                <div class="dropdown-menu" v-if="showDropdown">
-                  <a href="/perfil"><i class="fa-solid fa-user"></i> Mi Perfil</a>
-                  <a href="javascript:void(0)" @click="logout()"><i class="fa-solid fa-right-from-bracket"></i> Cerrar
-                    sesión</a>
-                </div>
+          </div>
+          <div class="user-menu">
+            <div class="dropdown">
+              <button class="btn-icon" @click="toggleDropdown" title="Mi Perfil">
+                <i class="fa-solid fa-user-gear"></i>
+              </button>
+              <div class="dropdown-menu" v-if="showDropdown">
+                <a href="/perfil"><i class="fa-solid fa-user"></i> Mi Perfil</a>
+                <a href="javascript:void(0)" @click="logout()"><i class="fa-solid fa-right-from-bracket"></i> Cerrar
+                  sesión</a>
               </div>
-              <span class="user-name">{{ user.name }}</span>
             </div>
+            <span class="user-name">{{ user.name }}</span>
           </div>
         </div>
+      </div>
     </header>
 
     <main class="dashboard">

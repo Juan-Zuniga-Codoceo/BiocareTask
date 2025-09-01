@@ -53,7 +53,7 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 32px;
+  padding: 16px 60px;
   background-color: var(--c-panel-bg);
   border-bottom: 1px solid var(--c-border);
   position: sticky;
@@ -1053,7 +1053,7 @@ input[type="date"]:focus {
   background-color: #c0392b;
 }
 
-//* frontend/css/tablero.css */
+/* frontend/css/tablero.css */
 
 /* ================================================================== */
 /* 8. Notificaciones (Versión Corregida y Aislada)                     */
@@ -1066,8 +1066,8 @@ input[type="date"]:focus {
 
 .notification-badge {
   position: absolute;
-  top: 6px;
-  right: 6px;
+  top: -0px;   /* Ajustado para subir la insignia */
+  right: 0px;  /* Ajustado para moverla a la izquierda */
   background-color: #e30613;
   color: white;
   font-size: 0.7rem;
@@ -1078,7 +1078,8 @@ input[type="date"]:focus {
   align-items: center;
   justify-content: center;
   font-weight: bold;
-  border: 2px solid var(--c-white);
+  border: 2px solid var(--c-panel-bg); /* Borde del color del header */
+  z-index: 1; /* Para asegurar que esté sobre el icono de la campana */
 }
 
 .notifications-panel {
