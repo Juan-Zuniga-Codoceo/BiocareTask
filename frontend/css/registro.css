@@ -299,28 +299,19 @@ body {
   .register-container {
     flex-direction: column;
     min-height: auto;
-    max-height: 90vh;
+    max-height: none; 
   }
   
-  .brand {
-    padding: 30px 20px;
-    border-radius: var(--radio) var(--radio) 0 0;
+ .brand {
+    display: none; 
   }
   
   .register-form {
     padding: 30px 20px;
-    border-radius: 0 0 var(--radio) var(--radio);
+    border-radius: var(--radio); 
     overflow-y: visible;
   }
   
-  .brand .logo {
-    width: 80px;
-    height: 80px;
-  }
-  
-  .brand h1 {
-    font-size: 28px;
-  }
 }
 
 @media (max-width: 480px) {
@@ -336,13 +327,28 @@ body {
     font-size: 24px;
   }
   
+  .brand {
+    /* Reducimos el espaciado interno */
+    padding: 20px; 
+  }
+
+  .brand .logo {
+    /* Hacemos el logo más pequeño */
+    width: 70px;
+    height: 70px;
+    margin-bottom: 15px; /* Reducimos el margen inferior */
+  }
+
   .brand h1 {
+    /* Reducimos el tamaño del título */
     font-size: 24px;
   }
   
   .brand p {
+    /* Reducimos el tamaño del párrafo */
     font-size: 14px;
   }
+ 
   
   .input-group input,
   .input-group select {

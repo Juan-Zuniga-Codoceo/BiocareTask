@@ -799,26 +799,48 @@ select[multiple] option:checked {
   }
 }
 
+/* frontend/css/tablero.css */
+
 @media (max-width: 480px) {
+
+  /* --- Arreglo para el Header --- */
   .header {
     padding: 12px 16px;
-    flex-wrap: wrap;
+    flex-direction: column; /* Forzamos a que sea una columna */
+    flex-wrap: nowrap;     /* Evitamos el desorden del 'wrap' */
+    gap: 12px;
+  }
+
+  .header-left, .header-right {
+    width: 100%;
+    justify-content: space-between;
   }
   
   .main-controls {
-    order: 3;
+    order: 2; /* El botón de "Nueva Tarea" irá en la segunda fila */
     width: 100%;
-    margin-top: 12px;
-  }
-  
-  .user-actions {
-    order: 2;
+    margin-top: 0;
   }
   
   .header-left {
-    order: 1;
+    order: 1; /* El logo irá en la primera fila a la izquierda */
   }
-  
+
+  .user-actions {
+    order: 1; /* Las acciones de usuario irán en la primera fila a la derecha */
+  }
+
+  /* --- Arreglo para Notificaciones --- */
+  .notifications-panel {
+    position: fixed;   /* Usamos 'fixed' para posicionarlo respecto a la pantalla */
+    top: 80px;         /* Justo debajo del header */
+    left: 16px;        /* Con un margen a la izquierda */
+    right: 16px;       /* Con un margen a la derecha */
+    width: auto;       /* El ancho se ajustará automáticamente */
+    max-width: 400px;  /* Mantenemos el ancho máximo para tablets/escritorio */
+  }
+
+  /* --- Otros ajustes para móviles --- */
   .kanban-board {
     grid-template-columns: 1fr;
   }
