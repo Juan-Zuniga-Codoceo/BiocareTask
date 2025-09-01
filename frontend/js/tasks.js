@@ -32,6 +32,7 @@ createApp({
     const mostrarNotificaciones = ref(false);
     const newTaskFp = ref(null); // Instancia de Flatpickr para "Crear Tarea"
     const editTaskFp = ref(null); // Instancia de Flatpickr para "Editar Tarea"
+    const showStateDropdown = ref(false);
 
     const newTask = ref({
       title: '', description: '', due_date: '', priority: 'media',
@@ -189,6 +190,10 @@ createApp({
     const showError = (message) => { API.showNotification(message, 'error'); };
     const showSuccess = (message) => { API.showNotification(message, 'success'); };
 
+    const toggleStateDropdown = () => {
+      showStateDropdown.value = !showStateDropdown.value;
+    };
+
     const setQuickDate = (daysToAdd) => {
       const date = new Date();
       if (daysToAdd === 'eod') {
@@ -321,6 +326,17 @@ createApp({
       }
     };
 
+    const avanzarEstado = (task) => {
+      const nuevoEstado = task.status === 'pendiente' ? 'en_camino' : 'completada';
+      cambiarEstadoTarea(task.id, nuevoEstado);
+      showStateDropdown.value = false;
+    };
+
+    const retrocederEstado = (task) => {
+      const nuevoEstado = task.status === 'completada' ? 'en_camino' : 'pendiente';
+      cambiarEstadoTarea(task.id, nuevoEstado);
+      showStateDropdown.value = false;
+    };
     const toggleLabelInNew = (labelId) => {
       const index = newTask.value.label_ids.indexOf(labelId);
       if (index > -1) {
@@ -410,8 +426,13 @@ createApp({
     const cambiarEstadoTarea = async (id, nuevoEstado) => {
       try {
         await API.put(`/api/tasks/${id}/status`, { status: nuevoEstado });
-        await cargarDatos();
-        showSuccess(`🔄 Tarea marcada como "${nuevoEstado}"`);
+
+        // Cerramos el modal inmediatamente después de la acción
+        tareaSeleccionada.value = null;
+
+        await cargarDatos(); // Recargamos los datos para que el tablero se actualice
+        showSuccess(`Tarea movida a "${nuevoEstado.replace('_', ' ')}"`);
+
       } catch (err) {
         showError('❌ Error al actualizar la tarea: ' + err.message);
       }
@@ -481,6 +502,11 @@ createApp({
 
     const toggleNotifications = () => {
       mostrarNotificaciones.value = !mostrarNotificaciones.value;
+      if (mostrarNotificaciones.value) {
+        document.body.classList.add('overlay-active');
+      } else {
+        document.body.classList.remove('overlay-active');
+      }
     };
 
     const marcarComoLeida = async (id) => {
@@ -654,7 +680,11 @@ createApp({
       removeUserFromNewTask,
       addUserToEditTask,
       removeUserFromEditTask,
-      puedeEditarTarea
+      puedeEditarTarea,
+      showStateDropdown,
+      toggleStateDropdown,
+      avanzarEstado,
+      retrocederEstado
     };
   }
 }).mount('#app');

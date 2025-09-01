@@ -10,12 +10,13 @@
   <link rel="manifest" href="/manifest.json">
   <link rel="icon" href="/assets/logo.png" type="image/png">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/material_blue.css">
 
 </head>
 
 <body>
   <div id="app">
+    <div class="overlay" v-if="mostrarNotificaciones" @click="toggleNotifications"></div>
     <header class="header">
       <div class="header-left">
         <div class="logo">
@@ -26,10 +27,12 @@
       <div class="header-right">
         <div class="main-controls">
           <div class="filters">
+            <label for="filtro-fecha" class="filter-label">Vencimiento:</label>
+            <input type="date" id="filtro-fecha" v-model="filtroFecha" />
+
             <label class="filter-checkbox">
               <input type="checkbox" v-model="misTareas" /> Mis Tareas
             </label>
-            <input type="date" v-model="filtroFecha" />
           </div>
           <button class="btn-create" @click="showModal = true">
             <i class="fa-solid fa-plus"></i> Nueva Tarea
@@ -407,12 +410,35 @@
             <button @click="abrirModalEditar" class="btn-edit">
               <i class="fa-solid fa-pencil"></i> Editar
             </button>
-            <button @click="abrirConfirmarEliminar" class="btn-delete"
-              v-if="user && tareaSeleccionada && user.id === tareaSeleccionada.created_by">
+            <button @click="abrirConfirmarEliminar" class="btn-delete" v-if="user.id === tareaSeleccionada.created_by">
               <i class="fa-solid fa-trash-can"></i> Eliminar
             </button>
           </div>
-          <button @click="tareaSeleccionada = null" class="btn-cancel">Cerrar</button>
+
+          <div class="modal-actions-right">
+            <div class="split-button-group" v-if="tareaSeleccionada.status !== 'completada'">
+              <button @click="avanzarEstado(tareaSeleccionada)" class="btn-primary-action">
+                {{ tareaSeleccionada.status === 'pendiente' ? 'Iniciar Tarea' : 'Completar' }}
+                <i
+                  :class="tareaSeleccionada.status === 'pendiente' ? 'fa-solid fa-arrow-right' : 'fa-solid fa-check'"></i>
+              </button>
+              <button class="btn-split-trigger" @click.stop="toggleStateDropdown">
+                <i class="fa-solid fa-chevron-down"></i>
+              </button>
+              <div class="split-dropdown-menu" v-if="showStateDropdown">
+                <a href="#" @click.prevent="retrocederEstado(tareaSeleccionada)">
+                  <i class="fa-solid fa-arrow-left"></i> Devolver a "{{ tareaSeleccionada.status === 'en_camino' ?
+                  'Pendiente' : '' }}"
+                </a>
+              </div>
+            </div>
+
+            <div v-if="tareaSeleccionada.status === 'completada'">
+              <button @click="retrocederEstado(tareaSeleccionada)" class="btn-secondary-action">
+                <i class="fa-solid fa-undo"></i> Reabrir Tarea
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
