@@ -249,6 +249,11 @@ createApp({
       }
     };
 
+    const formatDescription = (text) => {
+      if (!text) return '';
+      return text.replace(/\n/g, '<br>');
+    };
+
     const userData = localStorage.getItem('biocare_user');
     if (!userData) { window.location.href = '/login'; }
     else { user.value = JSON.parse(userData); }
@@ -684,6 +689,7 @@ createApp({
       showStateDropdown,
       toggleStateDropdown,
       avanzarEstado,
+      formatDescription,
       retrocederEstado
     };
   }

@@ -1775,7 +1775,7 @@ select[multiple] option:checked {
   border-color: var(--c-primary);
 }
 
-/* frontend/css/tablero.css */
+
 
 @media (max-width: 480px) {
 

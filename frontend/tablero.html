@@ -319,7 +319,7 @@
             <div class="detail-col">
               <div class="detail-section">
                 <h3><i class="fa-solid fa-align-left"></i> Descripción</h3>
-                <p>{{ tareaSeleccionada.description || 'No se proporcionó una descripción.' }}</p>
+                <p v-html="formatDescription(tareaSeleccionada.description) || 'No se proporcionó una descripción.'"></p>
               </div>
               <div class="detail-section">
                 <h3><i class="fa-solid fa-comments"></i> Comentarios</h3>
