@@ -1896,4 +1896,86 @@ select[multiple] option:checked {
     width: 100%;
     justify-content: center;
   }
+
+ /* ================================================================== */
+/* 13. Menú de Usuario como Overlay Modal para Móviles (Mejorado)     */
+/* ================================================================== */
+@media (max-width: 768px) {
+  /* Cuando el menú se abre, el body no debe poder hacerse scroll */
+  body.overlay-active {
+    overflow: hidden;
+  }
+
+  /* El contenedor del menú ahora es una capa semitransparente */
+  .dropdown-menu {
+    position: fixed;
+    /* inset es un atajo para top, right, bottom, left */
+    inset: 0; 
+    width: 100%;
+    height: 100%;
+    
+    /* Estilos del fondo de superposición */
+    background-color: rgba(10, 25, 41, 0.7);
+    backdrop-filter: blur(5px);
+    
+    /* Centramos las opciones del menú en la pantalla */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    
+    /* Reseteamos los estilos de escritorio */
+    border: none;
+    box-shadow: none;
+    padding: 0;
+    border-radius: 0;
+    
+    /* Animación de entrada */
+    animation: fadeIn 0.3s ease;
+  }
+
+  /* Estilos para los enlaces ("Mi Perfil", "Cerrar Sesión") */
+  .dropdown-menu a {
+    color: var(--c-white);
+    font-size: 22px; /* Letra más grande, fácil de leer */
+    font-weight: 600;
+    padding: 16px 24px;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius);
+    width: 80%; /* Ocupa un buen ancho de la pantalla */
+    max-width: 300px;
+    text-align: center;
+    transition: var(--transition);
+  }
+
+  .dropdown-menu a:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+    transform: scale(1.05);
+  }
+  .btn-close-overlay {
+  /* Posicionamiento en la esquina superior derecha */
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  
+  /* Estilos del botón */
+  background: none;
+  border: none;
+  color: var(--c-white);
+  font-size: 40px; /* Tamaño grande para ser fácil de tocar */
+  font-weight: 300;
+  line-height: 1;
+  cursor: pointer;
+  
+  /* Efecto sutil */
+  transition: var(--transition);
+  opacity: 0.8;
+}
+
+.btn-close-overlay:hover {
+  opacity: 1;
+  transform: scale(1.1);
+}
+}
 }

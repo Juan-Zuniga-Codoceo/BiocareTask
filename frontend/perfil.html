@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -19,7 +20,7 @@
           <h1><span class="biocare">Biocare</span><span class="task">Task</span></h1>
         </div>
       </div>
-      
+
       <div class="main-controls">
         <nav class="main-nav">
           <a href="/tablero.html" class="nav-link" title="Tablero">
@@ -38,13 +39,15 @@
           <div class="user-menu">
             <div class="dropdown">
               <button class="btn-icon" @click="toggleDropdown" title="Menú">
-                 <i class="fa-solid fa-user-gear"></i>
+                <i class="fa-solid fa-user-gear"></i>
               </button>
               <div class="dropdown-menu" v-if="showDropdown">
-                <a href="javascript:void(0)" @click="logout()"><i class="fa-solid fa-right-from-bracket"></i> Cerrar sesión</a>
+                <button @click="toggleDropdown" class="btn-close-overlay">&times;</button>
+                <a href="javascript:void(0)" @click="logout()"><i class="fa-solid fa-right-from-bracket"></i> Cerrar
+                  sesión</a>
               </div>
             </div>
-             <span v-if="user" class="user-name">{{ user.name }}</span>
+            <span v-if="user" class="user-name">{{ user.name }}</span>
           </div>
         </div>
       </div>
@@ -52,23 +55,24 @@
 
     <main class="profile-dashboard">
       <div class="profile-grid">
-        
+
         <div class="profile-col-left">
           <div class="profile-card card" v-if="user">
             <div class="avatar-container">
               <div class="avatar" :style="avatarStyle">
-                 <span v-if="!user.avatar_url">{{ user.name ? user.name.charAt(0).toUpperCase() : '' }}</span>
+                <span v-if="!user.avatar_url">{{ user.name ? user.name.charAt(0).toUpperCase() : '' }}</span>
               </div>
               <label for="avatar-upload" class="avatar-upload-btn" title="Cambiar foto">
                 <i class="fa-solid fa-camera"></i>
-                <input type="file" id="avatar-upload" @change="handleAvatarUpload" accept="image/*" style="display: none;" />
+                <input type="file" id="avatar-upload" @change="handleAvatarUpload" accept="image/*"
+                  style="display: none;" />
               </label>
             </div>
             <div class="profile-info">
               <h2>{{ user.name }}</h2>
               <p><i class="fa-solid fa-envelope"></i> {{ user.email }}</p>
               <p><i class="fa-solid fa-briefcase"></i> {{ user.office }}</p>
-               <p><i class="fa-solid fa-user-shield"></i> {{ user.role }}</p>
+              <p><i class="fa-solid fa-user-shield"></i> {{ user.role }}</p>
             </div>
           </div>
 
@@ -87,7 +91,7 @@
               <input type="password" id="confirmPassword" v-model="passwords.confirm" placeholder="••••••••" />
             </div>
             <button @click="changePassword" class="btn-primary">Cambiar Contraseña</button>
-            
+
             <div class="notifications-settings">
               <h4><i class="fa-solid fa-envelope"></i> Notificaciones por Correo</h4>
               <p>Recibir un resumen diario de tareas por la mañana.</p>
@@ -101,9 +105,12 @@
 
         <div class="profile-col-right">
           <div class="stats-grid">
-             <div class="stat-card card"><span class="stat-value">{{ historial.creadas }}</span><span class="stat-label">Tareas Creadas</span></div>
-            <div class="stat-card card"><span class="stat-value">{{ historial.asignadas }}</span><span class="stat-label">Tareas Asignadas</span></div>
-            <div class="stat-card card"><span class="stat-value">{{ historial.completadas }}</span><span class="stat-label">Completadas</span></div>
+            <div class="stat-card card"><span class="stat-value">{{ historial.creadas }}</span><span
+                class="stat-label">Tareas Creadas</span></div>
+            <div class="stat-card card"><span class="stat-value">{{ historial.asignadas }}</span><span
+                class="stat-label">Tareas Asignadas</span></div>
+            <div class="stat-card card"><span class="stat-value">{{ historial.completadas }}</span><span
+                class="stat-label">Completadas</span></div>
           </div>
 
           <div class="history-card card">
@@ -111,7 +118,7 @@
             <div class="task-list">
               <div v-if="tareasAsignadas.length === 0" class="empty-history">No tienes tareas asignadas.</div>
               <div v-for="task in tareasAsignadas" :key="task.id" class="task-item">
-                 <span class="task-title">{{ task.title }}</span>
+                <span class="task-title">{{ task.title }}</span>
                 <span :class="'status-' + task.status">{{ task.status }}</span>
               </div>
             </div>
@@ -119,10 +126,11 @@
         </div>
       </div>
     </main>
-  </div> 
-  
+  </div>
+
   <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
   <script src="/js/api.js"></script>
   <script src="/js/perfil.js"></script>
 </body>
+
 </html>
