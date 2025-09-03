@@ -38,8 +38,8 @@ router.post('/login', jsonParser, [
     }
 
     const { email, password } = req.body;
-    const sql = "SELECT id, name, email, office, role, password, avatar_url FROM users WHERE email = ?";
 
+    const sql = "SELECT id, name, email, office, role, password, avatar_url, email_notifications FROM users WHERE email = ?";
     db.get(sql, [email], async (err, user) => {
       if (err) {
         console.error('Error en consulta de login:', err);

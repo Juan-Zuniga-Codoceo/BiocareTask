@@ -92,7 +92,7 @@
               <h4><i class="fa-solid fa-envelope"></i> Notificaciones por Correo</h4>
               <p>Recibir un resumen diario de tareas por la mañana.</p>
               <label class="switch">
-                <input type="checkbox" v-model="user.email_notifications" @change="updatePreferences" :checked="user.email_notifications == 1">
+                <input type="checkbox" v-model="notificationsEnabled">
                 <span class="slider round"></span>
               </label>
             </div>
