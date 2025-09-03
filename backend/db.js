@@ -50,11 +50,14 @@ db.serialize(() => {
     avatar_url TEXT,
     created_at TEXT DEFAULT (datetime('now', 'localtime')),
     reset_token TEXT,  
-    reset_token_expires INTEGER
+    reset_token_expires INTEGER,
+    email_notifications INTEGER DEFAULT 1 -- <<< AÑADIR ESTA LÍNEA
   )`, (err) => {
     if (err) {
       console.error('❌ Error al crear tabla users:', err.message);
     } else {
+      // Para actualizar la tabla si ya existe, sin borrar datos
+      db.run("ALTER TABLE users ADD COLUMN email_notifications INTEGER DEFAULT 1", () => {});
       console.log('✅ Tabla users lista');
     }
   });

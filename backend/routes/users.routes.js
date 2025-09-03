@@ -44,12 +44,35 @@ const uploadAvatar = multer({
 // ===       DEFINICIÓN DE RUTAS DE USUARIOS          ===
 // ======================================================
 
-// 👥 OBTENER LISTA DE USUARIOS
+// 👥 OBTENER LISTA DE USUARIOS (Añadir el nuevo campo)
 router.get('/users', authenticateToken, (req, res) => {
-  db.all("SELECT id, name, email, office, role FROM users ORDER BY name", (err, users) => {
+  
+  db.all("SELECT id, name, email, office, role, email_notifications FROM users ORDER BY name", (err, users) => {
     if (err) return res.status(500).json({ error: 'Error al obtener usuarios' });
     res.json(users || []);
   });
+});
+
+// ⚙️ ACTUALIZAR PREFERENCIAS DEL USUARIO  // 
+router.put('/user/preferences', jsonParser, authenticateToken, async (req, res) => {
+  const { email_notifications } = req.body;
+  const userId = req.userId;
+
+  // Validamos que el valor sea 0 o 1
+  if (email_notifications === undefined || ![0, 1].includes(email_notifications)) {
+    return res.status(400).json({ error: 'Valor para email_notifications inválido.' });
+  }
+
+  db.run(
+    "UPDATE users SET email_notifications = ? WHERE id = ?",
+    [email_notifications, userId],
+    function (err) {
+      if (err) {
+        return res.status(500).json({ error: 'No se pudieron actualizar las preferencias.' });
+      }
+      res.status(200).json({ success: true, message: 'Preferencias actualizadas.' });
+    }
+  );
 });
 
 // 🔐 CAMBIAR CONTRASEÑA DEL USUARIO AUTENTICADO

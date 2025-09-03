@@ -15,7 +15,7 @@ createApp({
       confirm: ''
     });
 
-    // ▼▼▼ INICIO DE LA SOLUCIÓN ▼▼▼
+    
     // Hacemos el inicio de sesión más robusto para evitar errores
     try {
       const userData = localStorage.getItem('biocare_user');
@@ -33,7 +33,6 @@ createApp({
       localStorage.removeItem('auth_token');
       window.location.href = '/login';
     }
-    // ▲▲▲ FIN DE LA SOLUCIÓN ▲▲▲
     
     const toggleDropdown = () => { showDropdown.value = !showDropdown.value; };
     const logout = () => {
@@ -118,6 +117,26 @@ createApp({
         }
     };
     
+    const updatePreferences = async () => {
+      try {
+        const payload = {
+          email_notifications: user.value.email_notifications ? 1 : 0
+        };
+        const response = await API.put('/api/user/preferences', payload);
+        
+        // Actualizamos la copia local en localStorage
+        const localUser = JSON.parse(localStorage.getItem('biocare_user'));
+        localUser.email_notifications = payload.email_notifications;
+        localStorage.setItem('biocare_user', JSON.stringify(localUser));
+
+        API.showNotification('Preferencias guardadas.', 'success');
+      } catch (error) {
+        API.showNotification('No se pudieron guardar las preferencias.', 'error');
+        // Revertimos el cambio visual si falla la API
+        user.value.email_notifications = !user.value.email_notifications;
+      }
+    };
+
     onMounted(() => {
       cargarTareas();
     });
@@ -133,7 +152,8 @@ createApp({
       logout,
       passwords,
       changePassword,
-      handleAvatarUpload
+      handleAvatarUpload,
+      updatePreferences
     };
   }
 }).mount('#app');
