@@ -56,18 +56,21 @@
               </div>
               <div class="notifications-list">
                 <div v-for="notificacion in notificaciones" :key="notificacion.id" class="notification-item"
-                  :class="{'unread': !notificacion.leida}">
+                  :class="{'unread': !notificacion.leida}"
+                  @click="handleNotificationClick(notificacion)"
+                  style="cursor: pointer;"> 
+                  
                   <div class="notification-content">
-                    <p>{{ notificacion.mensaje }}</p>
-                    <small>{{ formatDate(notificacion.fecha_creacion) }}</small>
+                     <p>{{ notificacion.mensaje }}</p>
+                     <small>{{ formatDate(notificacion.fecha_creacion) }}</small>
                   </div>
                   <div class="notification-actions">
                     <button v-if="!notificacion.leida" @click.stop="marcarComoLeida(notificacion.id)"
-                      class="btn-icon-action" title="Marcar como leída">
+                           class="btn-icon-action" title="Marcar como leída">
                       <i class="fa-solid fa-check"></i>
                     </button>
                     <button @click.stop="eliminarNotificacion(notificacion.id)" class="btn-icon-action danger"
-                      title="Eliminar">
+                           title="Eliminar">
                       <i class="fa-solid fa-trash-can"></i>
                     </button>
                   </div>

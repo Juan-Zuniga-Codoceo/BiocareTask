@@ -176,12 +176,15 @@ db.serialize(() => {
     mensaje TEXT NOT NULL,
     leida INTEGER DEFAULT 0,
     tipo TEXT DEFAULT 'info',
+    task_id INTEGER, -- <<< AÑADIR ESTA LÍNEA
     fecha_creacion TEXT DEFAULT (datetime('now', 'localtime')),
     FOREIGN KEY (usuario_id) REFERENCES users(id)
   )`, (err) => {
     if (err) {
       console.error('❌ Error al crear tabla notifications:', err.message);
     } else {
+      // Para actualizar la tabla si ya existe, sin borrar datos
+      db.run("ALTER TABLE notifications ADD COLUMN task_id INTEGER", () => {});
       console.log('✅ Tabla notifications lista');
     }
   });

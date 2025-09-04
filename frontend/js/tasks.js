@@ -30,15 +30,13 @@ createApp({
     const commentAttachment = ref(null);
     const notificaciones = ref([]);
     const mostrarNotificaciones = ref(false);
-    const newTaskFp = ref(null); // Instancia de Flatpickr para "Crear Tarea"
-    const editTaskFp = ref(null); // Instancia de Flatpickr para "Editar Tarea"
+    const newTaskFp = ref(null);
+    const editTaskFp = ref(null);
     const showStateDropdown = ref(false);
-
     const newTask = ref({
       title: '', description: '', due_date: '', priority: 'media',
       assigned_to: [], label_ids: [], comentario_inicial: ''
     });
-
     const keywordToLabelMap = {
       'factura': 'Factura', 'facturas': 'Factura', 'boleta': 'Factura',
       'enviar': 'Entrega', 'entrega': 'Entrega', 'despacho': 'Entrega',
@@ -64,7 +62,8 @@ createApp({
       return tasks.value.filter(t => {
         let match = true;
         if (misTareas.value && user.value) {
-          match = (t.assigned_names?.includes(user.value.name)) || t.created_by === user.value.id;
+          const assignedIds = t.assigned_ids ? t.assigned_ids.split(',').map(Number) : [];
+          match = assignedIds.includes(user.value.id) || t.created_by === user.value.id;
         }
         if (filtroFecha.value) {
           match = match && t.due_date?.startsWith(filtroFecha.value);
@@ -77,27 +76,18 @@ createApp({
     const tareasCompletadas = computed(() => tareasFiltradas.value.filter(t => t.status === 'completada'));
     const selectedUsersInNew = computed(() => users.value.filter(u => newTask.value.assigned_to.includes(u.id)));
     const availableUsersInNew = computed(() => users.value.filter(u => !newTask.value.assigned_to.includes(u.id)));
-
     const selectedUsersInEdit = computed(() => users.value.filter(u => editTask.value.assigned_to.includes(u.id)));
     const availableUsersInEdit = computed(() => users.value.filter(u => !editTask.value.assigned_to.includes(u.id)));
-
-
     const puedeEditarTarea = computed(() => {
       if (!user.value || !tareaSeleccionada.value) return false;
-
-      // Condición 1: El usuario es el creador de la tarea.
-      if (user.value.id === tareaSeleccionada.value.created_by) {
-        return true;
-      }
-
-      // Condición 2: El usuario está en la lista de asignados.
+      if (user.value.id === tareaSeleccionada.value.created_by) return true;
       const assignedIds = tareaSeleccionada.value.assigned_ids?.split(',') || [];
       return assignedIds.includes(user.value.id.toString());
     });
+
     // ======================================================
     // 3. OBSERVADORES (watch)
     // ======================================================
-    // Watchers para etiquetas inteligentes
     watch(() => [newTask.value.title, newTask.value.description], ([newTitle, newDesc]) => {
       if (labels.value.length === 0) return;
       const text = newTitle + ' ' + newDesc;
@@ -112,7 +102,6 @@ createApp({
         foundLabelNames.has(label.name) && !alreadySelectedNames.has(label.name)
       );
     }, { deep: true });
-
     watch(() => [editTask.value.title, editTask.value.description], ([newTitle, newDesc]) => {
       if (labels.value.length === 0) return;
       if (!showEditModal.value) return;
@@ -128,35 +117,29 @@ createApp({
         foundLabelNames.has(label.name) && !alreadySelectedNames.has(label.name)
       );
     }, { deep: true });
-
-    // Watcher para el modal de CREAR TAREA
     watch(showModal, (isVisible) => {
       if (isVisible) {
         Vue.nextTick(() => {
           newTaskFp.value = flatpickr("#new-task-datepicker", {
             allowInput: true,
-            enableTime: true, altInput: true, altFormat: "d/m/Y H:i", // Cambiado para 24hr
+            enableTime: true, altInput: true, altFormat: "d/m/Y H:i",
             dateFormat: "Y-m-d H:i", minDate: "today", locale: "es", static: true,
-            time_24hr: true,         // <-- AÑADIR ESTA LÍNEA
-            minuteIncrement: 15,     // <-- AÑADIR ESTA LÍNEA
+            time_24hr: false,
             onChange: (selectedDates, dateStr) => { newTask.value.due_date = dateStr; }
           });
         });
-      } else if (newTaskFp.value) {
-        newTaskFp.value.destroy();
-        newTaskFp.value = null;
+      } else {
+        if (newTaskFp.value) {
+          newTaskFp.value.destroy();
+          newTaskFp.value = null;
+        }
+        resetForm();
       }
     });
-
-    // Watcher para el modal de EDITAR TAREA
     watch(showEditModal, (isVisible) => {
-      // Cuando el modal de edición se abre
       if (isVisible) {
-        // Esperamos a que Vue dibuje el modal en el HTML
         Vue.nextTick(() => {
           const datepickerElement = document.getElementById("edit-task-datepicker");
-
-          // Solo inicializamos si encontramos el elemento y no tiene ya un calendario
           if (datepickerElement && !datepickerElement._flatpickr) {
             editTaskFp.value = flatpickr(datepickerElement, {
               enableTime: true,
@@ -166,10 +149,8 @@ createApp({
               minDate: "today",
               locale: "es",
               static: true,
-              time_24hr: true,
-              minuteIncrement: 15,
-              allowInput: true, // Permite escribir directamente
-              // Establece la fecha actual de la tarea al abrir
+              time_24hr: false,
+              allowInput: true,
               defaultDate: editTask.value.due_date,
               onChange: (selectedDates, dateStr) => {
                 editTask.value.due_date = dateStr;
@@ -178,22 +159,46 @@ createApp({
           }
         });
       } else if (editTaskFp.value) {
-        // Cuando el modal se cierra, destruimos la instancia para limpiar
         editTaskFp.value.destroy();
         editTaskFp.value = null;
       }
     });
+
     // ======================================================
     // 4. FUNCIONES
     // ======================================================
     const toggleDropdown = () => { showDropdown.value = !showDropdown.value; };
+    // <-- PEGA ESTA FUNCIÓN AQUÍ
+const handleNotificationClick = async (notificacion) => {
+  // Cierra el panel si está abierto
+  if (mostrarNotificaciones.value) {
+    toggleNotifications();
+  }
+
+  // Si la notificación no está asociada a una tarea, no hace nada
+  if (!notificacion.task_id) return;
+
+  // Busca la tarea en la lista de tareas ya cargada
+  const task = tasks.value.find(t => t.id === notificacion.task_id);
+
+  if (task) {
+    // Si la encuentra, muestra los detalles
+    await verDetalles(task);
+  } else {
+    // Si no la encuentra, informa al usuario
+    showError('La tarea no se encontró en el tablero actual.');
+  }
+
+  // Marca la notificación como leída si no lo estaba
+  if (!notificacion.leida) {
+    marcarComoLeida(notificacion.id);
+  }
+};
     const showError = (message) => { API.showNotification(message, 'error'); };
     const showSuccess = (message) => { API.showNotification(message, 'success'); };
-
     const toggleStateDropdown = () => {
       showStateDropdown.value = !showStateDropdown.value;
     };
-
     const setQuickDate = (daysToAdd) => {
       const date = new Date();
       if (daysToAdd === 'eod') {
@@ -201,16 +206,11 @@ createApp({
       } else {
         date.setDate(date.getDate() + daysToAdd);
       }
-
-      // Actualiza el modelo de Vue directamente con el formato correcto
       newTask.value.due_date = flatpickr.formatDate(date, "Y-m-d H:i");
-
-      // Y también actualiza la instancia del calendario
       if (newTaskFp.value) {
-        newTaskFp.value.setDate(date, false); // 'false' para no disparar onChange
+        newTaskFp.value.setDate(date, false);
       }
     };
-
     const setQuickEditDate = (daysToAdd) => {
       const date = new Date();
       if (daysToAdd === 'eod') {
@@ -218,23 +218,17 @@ createApp({
       } else {
         date.setDate(date.getDate() + daysToAdd);
       }
-
-      // Actualiza el modelo de Vue directamente
       editTask.value.due_date = flatpickr.formatDate(date, "Y-m-d H:i");
-
-      // Y también la instancia del calendario
       if (editTaskFp.value) {
         editTaskFp.value.setDate(date, false);
       }
     };
 
     const setupWebSocket = () => {
-      // Usamos wss:// (WebSocket Seguro) si la página está en https://
       const wsProtocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
       const wsUrl = wsProtocol + window.location.host;
       
       const ws = new WebSocket(wsUrl);
-
       ws.onopen = () => {
         console.log('✅ Conectado al servidor WebSocket en tiempo real.');
       };
@@ -242,10 +236,8 @@ createApp({
       ws.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data);
-          // Si el servidor nos dice que las tareas cambiaron...
           if (message.type === 'TASKS_UPDATED') {
             console.log('🔄 Recibida actualización de tareas, recargando tablero...');
-            // ¡Simplemente volvemos a cargar los datos!
             cargarDatos();
           }
         } catch (e) {
@@ -255,13 +247,11 @@ createApp({
 
       ws.onclose = () => {
         console.log('🔌 Desconectado del servidor WebSocket. Intentando reconectar en 5 segundos...');
-        // Intentamos reconectar después de un breve período
         setTimeout(setupWebSocket, 5000);
       };
-
       ws.onerror = (error) => {
         console.error('❌ Error de WebSocket:', error);
-        ws.close(); // Cerramos la conexión para que onclose intente reconectar
+        ws.close();
       };
     };
 
@@ -317,7 +307,6 @@ createApp({
       try {
         await API.put(`/api/tasks/${editTask.value.id}`, editTask.value);
         showEditModal.value = false;
-        await cargarDatos();
         showSuccess('✅ Tarea actualizada correctamente');
       } catch (err) {
         showError('❌ Error al guardar los cambios: ' + err.message);
@@ -327,13 +316,12 @@ createApp({
     const abrirConfirmarEliminar = () => {
       showDeleteConfirm.value = true;
     };
-
+    
     const eliminarTarea = async () => {
       try {
         await API.delete(`/api/tasks/${tareaSeleccionada.value.id}`);
         showDeleteConfirm.value = false;
         tareaSeleccionada.value = null;
-        await cargarDatos();
         showSuccess('🗑️ Tarea eliminada correctamente');
       } catch (err) {
         showError('❌ Error al eliminar la tarea: ' + err.message);
@@ -358,8 +346,6 @@ createApp({
           await API.upload('/api/upload', formData);
         }
         showModal.value = false;
-        resetForm();
-        await cargarDatos();
         showSuccess('✅ Tarea creada exitosamente');
       } catch (err) {
         showError('❌ Error al crear la tarea: ' + (err.message || ''));
@@ -379,6 +365,7 @@ createApp({
       cambiarEstadoTarea(task.id, nuevoEstado);
       showStateDropdown.value = false;
     };
+
     const toggleLabelInNew = (labelId) => {
       const index = newTask.value.label_ids.indexOf(labelId);
       if (index > -1) {
@@ -387,7 +374,7 @@ createApp({
         newTask.value.label_ids.push(labelId);
       }
     };
-
+    
     const toggleLabelInEdit = (labelId) => {
       const index = editTask.value.label_ids.indexOf(labelId);
       if (index > -1) {
@@ -402,7 +389,6 @@ createApp({
       if (id && !newTask.value.assigned_to.includes(id)) {
         newTask.value.assigned_to.push(id);
       }
-      // Resetea el select para poder seleccionar otro
       event.target.value = '';
     };
 
@@ -458,23 +444,20 @@ createApp({
       try {
         await API.post('/api/labels', { name: nuevaEtiqueta.value.trim() });
         nuevaEtiqueta.value = '';
-        await cargarDatos();
+        
+        
+        await cargarDatos(); // Recargamos todos los datos, incluyendo las nuevas etiquetas
+
         showSuccess('🏷️ Etiqueta creada exitosamente');
       } catch (err) {
         showError('❌ No se pudo crear la etiqueta: ' + (err.message || ''));
       }
     };
-
     const cambiarEstadoTarea = async (id, nuevoEstado) => {
       try {
         await API.put(`/api/tasks/${id}/status`, { status: nuevoEstado });
-
-        // Cerramos el modal inmediatamente después de la acción
         tareaSeleccionada.value = null;
-
-        await cargarDatos(); // Recargamos los datos para que el tablero se actualice
         showSuccess(`Tarea movida a "${nuevoEstado.replace('_', ' ')}"`);
-
       } catch (err) {
         showError('❌ Error al actualizar la tarea: ' + err.message);
       }
@@ -510,8 +493,6 @@ createApp({
       commentAttachment.value = null;
       document.getElementById('comment-attachment-input').value = '';
     };
-
-
 
     const agregarComentario = async () => {
       if ((!nuevoComentario.value.trim() && !commentAttachment.value) || !tareaSeleccionada.value) {
@@ -550,7 +531,7 @@ createApp({
         document.body.classList.remove('overlay-active');
       }
     };
-
+    
     const marcarComoLeida = async (id) => {
       try {
         await API.put(`/api/notifications/${id}/read`);
@@ -599,7 +580,7 @@ createApp({
         });
       } catch { return isoDate; }
     };
-
+    
     const getColor = (labelName) => {
       const predefinedColors = {
         'Entrega': '#049DD9', 'Express': '#3498DB', 'Factura': '#97BF04',
@@ -614,9 +595,9 @@ createApp({
       }
       return defaultColors[Math.abs(hash) % defaultColors.length];
     };
-
+    
     const getPriorityText = (priority) => ({ 'alta': 'Alta', 'media': 'Media', 'baja': 'Baja' }[priority] || priority);
-
+    
     const getFileSize = (bytes) => {
       if (!bytes || bytes === 0) return '0 Bytes';
       const k = 1024;
@@ -624,7 +605,7 @@ createApp({
       const i = Math.floor(Math.log(bytes) / Math.log(k));
       return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     };
-
+    
     const downloadFile = async (attachment) => {
       try {
         const token = localStorage.getItem('auth_token');
@@ -651,48 +632,7 @@ createApp({
     // ======================================================
     onMounted(() => {
       cargarDatos();
-      setupWebSocket(); 
-
-      // Inicializar Flatpickr después de que el DOM esté completamente renderizado
-      setTimeout(() => {
-        // Calendario para "Crear Tarea"
-        const newDatepicker = document.getElementById("new-task-datepicker");
-        if (newDatepicker && !newDatepicker._flatpickr) {
-          newTaskFp.value = flatpickr(newDatepicker, {
-            enableTime: true,
-            dateFormat: "Y-m-d H:i",
-            altInput: true,
-            altFormat: "d/m/Y H:i",
-            minuteIncrement: 30,
-            minDate: "today",
-            locale: "es",
-            static: true,
-            time_24hr: false,
-            onChange: function (selectedDates, dateStr, instance) {
-              newTask.value.due_date = dateStr;
-            }
-          });
-        }
-
-        // Calendario para "Editar Tarea"
-        const editDatepicker = document.getElementById("edit-task-datepicker");
-        if (editDatepicker && !editDatepicker._flatpickr) {
-          editTaskFp.value = flatpickr(editDatepicker, {
-            enableTime: true,
-            dateFormat: "Y-m-d H:i",
-            altInput: true,
-            altFormat: "d/m/Y H:i",
-            minuteIncrement: 30,
-            minDate: "today",
-            locale: "es",
-            static: true,
-            time_24hr: false,
-            onChange: function (selectedDates, dateStr, instance) {
-              editTask.value.due_date = dateStr;
-            }
-          });
-        }
-      }, 100);
+      setupWebSocket();
     });
 
     // ======================================================
@@ -728,7 +668,8 @@ createApp({
       toggleStateDropdown,
       avanzarEstado,
       formatDescription,
-      retrocederEstado
+      retrocederEstado,
+      handleNotificationClick
     };
   }
 }).mount('#app');

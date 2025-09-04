@@ -11,7 +11,7 @@ const db = require('../db');
 const { authenticateToken } = require('../middleware/auth');
 // Importamos nuestro nuevo servicio de correo electrónico
 const { sendEmail } = require('../services/email.service');
-// <-- NUEVO: Importamos la función broadcast desde server.js
+// Importamos la función broadcast desde el servicio de WebSocket
 const { broadcast } = require('../services/websocket.service');
 
 // --- Middlewares específicos para este router ---
@@ -68,7 +68,7 @@ const upload = multer({
 // ===          DEFINICIÓN DE RUTAS DE TAREAS         ===
 // ======================================================
 
-// 📋 LISTAR TAREAS (CORREGIDO PARA INCLUIR ADJUNTOS)
+// 📋 LISTAR TAREAS (CON ADJUNTOS)
 router.get('/tasks', authenticateToken, (req, res) => {
   const { assigned_to, created_by, status, due_date, search } = req.query;
   
@@ -148,7 +148,7 @@ router.post('/tasks/check-due-today', authenticateToken, async (req, res) => {
       AND NOT EXISTS (
         SELECT 1 FROM notifications 
         WHERE tipo = 'due_today' 
-        AND mensaje LIKE '%' || t.title || '%'
+        AND task_id = t.id
         AND DATE(fecha_creacion) = ?
       )
     GROUP BY t.id
@@ -161,8 +161,9 @@ router.post('/tasks/check-due-today', authenticateToken, async (req, res) => {
         task.assigned_ids.split(',').forEach(id => allInvolved.add(parseInt(id)));
       }
       const mensaje = `La tarea "${task.title.substring(0, 30)}..." vence hoy.`;
-      const stmt = db.prepare(`INSERT INTO notifications (usuario_id, mensaje, tipo) VALUES (?, ?, ?)`);
-      allInvolved.forEach(userId => stmt.run(userId, mensaje, 'due_today'));
+      // <-- MODIFICADO: Añadimos task.id para que la notificación sea interactiva
+      const stmt = db.prepare(`INSERT INTO notifications (usuario_id, mensaje, tipo, task_id) VALUES (?, ?, ?, ?)`);
+      allInvolved.forEach(userId => stmt.run(userId, mensaje, 'due_today', task.id));
       stmt.finalize();
     });
     res.status(200).json({ checked: tasks.length });
@@ -204,7 +205,8 @@ router.post('/tasks', jsonParser, authenticateToken, [body('title').notEmpty().t
           stmt.run(taskId, userId);
           if (userId !== creator.id) {
             const mensaje = `${creator.name} te ha asignado una nueva tarea: "${taskTitle}..."`;
-            db.run(`INSERT INTO notifications (usuario_id, mensaje, tipo) VALUES (?, ?, ?)`, [userId, mensaje, 'assignment']);
+            // <-- MODIFICADO: Añadimos taskId para que la notificación sea interactiva
+            db.run(`INSERT INTO notifications (usuario_id, mensaje, tipo, task_id) VALUES (?, ?, ?, ?)`, [userId, mensaje, 'assignment', taskId]);
             
             db.get("SELECT name, email FROM users WHERE id = ?", [userId], (err, assignedUser) => {
               if (assignedUser) {
@@ -231,8 +233,6 @@ router.post('/tasks', jsonParser, authenticateToken, [body('title').notEmpty().t
       }
 
       res.status(201).json({ id: taskId, success: true });
-      
-      // <-- NUEVO: Avisamos a todos los clientes que las tareas han cambiado
       broadcast({ type: 'TASKS_UPDATED' });
     }
   );
@@ -275,8 +275,6 @@ router.put('/tasks/:id', jsonParser, authenticateToken, (req, res) => {
           return res.status(500).json({ error: 'Error al guardar los cambios en la base de datos' });
         }
         res.status(200).json({ success: true, message: 'Tarea actualizada' });
-        
-        // <-- NUEVO: Avisamos a todos los clientes que las tareas han cambiado
         broadcast({ type: 'TASKS_UPDATED' });
       });
     });
@@ -295,8 +293,6 @@ router.delete('/tasks/:id', authenticateToken, (req, res) => {
     db.run("DELETE FROM tasks WHERE id = ?", [taskId], function(err) {
       if (err) return res.status(500).json({ error: 'Error al eliminar la tarea' });
       res.status(200).json({ success: true, message: 'Tarea eliminada' });
-      
-      // <-- NUEVO: Avisamos a todos los clientes que las tareas han cambiado
       broadcast({ type: 'TASKS_UPDATED' });
     });
   });
@@ -314,8 +310,6 @@ router.put('/tasks/:id/status', jsonParser, authenticateToken, [body('status').i
       db.run("UPDATE tasks SET status = ?, completed_at = ? WHERE id = ?", [status, completed_at, id], function (err) {
         if (err) return res.status(500).json({ error: 'Error al actualizar' });
         res.json({ success: true, changed: this.changes });
-
-        // <-- NUEVO: Avisamos a todos los clientes que las tareas han cambiado
         broadcast({ type: 'TASKS_UPDATED' });
       });
     });
@@ -380,15 +374,15 @@ router.post('/tasks/comments', authenticateToken, upload.single('attachment'), a
             const usersToNotify = [...new Set([taskInfo.created_by, ...assignedUserIds])].filter(id => id !== autor_id);
             if (usersToNotify.length > 0) {
               const mensaje = `${req.user.name} comentó en la tarea: "${taskInfo.title.substring(0, 30)}..."`;
-              const stmt = db.prepare(`INSERT INTO notifications (usuario_id, mensaje, tipo) VALUES (?, ?, ?)`);
-              usersToNotify.forEach(userId => stmt.run(userId, mensaje, 'comment'));
+              // <-- MODIFICADO: Añadimos task_id para que la notificación sea interactiva
+              const stmt = db.prepare(`INSERT INTO notifications (usuario_id, mensaje, tipo, task_id) VALUES (?, ?, ?, ?)`);
+              usersToNotify.forEach(userId => stmt.run(userId, mensaje, 'comment', task_id));
               stmt.finalize();
             }
           });
         }
       });
       res.status(201).json({ id: commentId, success: true });
-      // <-- NUEVO: Avisamos a todos los clientes que las tareas han cambiado (un nuevo comentario es un cambio)
       broadcast({ type: 'TASKS_UPDATED' });
     }
   );
@@ -431,7 +425,6 @@ router.post('/upload', authenticateToken, upload.single('file'), async (req, res
             return res.status(500).json({ error: 'No se pudo guardar la información del archivo' });
           }
           res.status(201).json({ id: this.lastID, file_path: req.file.filename });
-          // <-- NUEVO: Avisamos a todos los clientes que las tareas han cambiado (un nuevo adjunto es un cambio)
           broadcast({ type: 'TASKS_UPDATED' });
         }
       );
