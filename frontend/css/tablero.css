@@ -1023,7 +1023,8 @@ input[type="date"]:focus {
 }
 
 .btn-edit,
-.btn-delete {
+.btn-delete,
+.btn-archive {
   border: none;
   padding: 10px 20px;
   border-radius: var(--radius);
@@ -1033,6 +1034,15 @@ input[type="date"]:focus {
   align-items: center;
   gap: 8px;
   transition: var(--transition);
+}
+
+.btn-archive { /* <-- AÑADIR ESTA NUEVA REGLA */
+  background-color: #7F8C8D; /* Un color neutro (gris) */
+  color: white;
+}
+
+.btn-archive:hover {
+  background-color: #34495E; /* Un gris más oscuro */
 }
 
 .btn-edit {

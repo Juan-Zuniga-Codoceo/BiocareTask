@@ -432,6 +432,17 @@ const handleNotificationClick = async (notificacion) => {
       }
     };
 
+     const archivarTarea = async (taskId) => {
+      try {
+        await API.post(`/api/tasks/${taskId}/archive`);
+        tareaSeleccionada.value = null; // Cierra el modal
+        showSuccess('✅ Tarea archivada correctamente');
+        // La actualización del tablero será automática gracias al broadcast
+      } catch (err) {
+        showError('❌ Error al archivar la tarea: ' + err.message);
+      }
+    };
+
     const removeFile = () => {
       archivoAdjunto.value = null;
       document.getElementById('fileInput').value = '';
@@ -669,7 +680,8 @@ const handleNotificationClick = async (notificacion) => {
       avanzarEstado,
       formatDescription,
       retrocederEstado,
-      handleNotificationClick
+      handleNotificationClick,
+      archivarTarea
     };
   }
 }).mount('#app');

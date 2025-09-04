@@ -62,7 +62,7 @@ db.serialize(() => {
     }
   });
 
-  // Tabla tasks
+   // Tabla tasks
   db.run(`CREATE TABLE IF NOT EXISTS tasks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     title TEXT NOT NULL,
@@ -73,11 +73,14 @@ db.serialize(() => {
     created_by INTEGER,
     created_at TEXT DEFAULT (datetime('now', 'localtime')),
     completed_at TEXT,
+    is_archived INTEGER DEFAULT 0, -- <<< AÑADIR ESTA LÍNEA
     FOREIGN KEY (created_by) REFERENCES users(id)
   )`, (err) => {
     if (err) {
       console.error('❌ Error al crear tabla tasks:', err.message);
     } else {
+      // Para actualizar la tabla si ya existe, sin borrar datos
+      db.run("ALTER TABLE tasks ADD COLUMN is_archived INTEGER DEFAULT 0", () => {});
       console.log('✅ Tabla tasks lista');
     }
   });

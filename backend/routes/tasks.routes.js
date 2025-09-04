@@ -1,5 +1,5 @@
 // backend/routes/tasks.routes.js
-const express = require('express'); 
+const express = require('express');
 const router = express.Router();
 const path = require('path');
 const fs = require('fs');
@@ -71,7 +71,7 @@ const upload = multer({
 // 📋 LISTAR TAREAS (CON ADJUNTOS)
 router.get('/tasks', authenticateToken, (req, res) => {
   const { assigned_to, created_by, status, due_date, search } = req.query;
-  
+
   let sql = `
     SELECT 
       t.*, 
@@ -94,7 +94,7 @@ router.get('/tasks', authenticateToken, (req, res) => {
     LEFT JOIN task_labels tl ON t.id = tl.task_id
     LEFT JOIN labels l ON tl.label_id = l.id
     LEFT JOIN attachments att ON t.id = att.task_id AND att.comment_id IS NULL
-    WHERE 1=1
+    WHERE t.is_archived = 0 
   `;
 
   const params = [];
@@ -116,7 +116,7 @@ router.get('/tasks', authenticateToken, (req, res) => {
       END ASC, 
       t.due_date ASC
   `;
-  
+
   db.all(sql, params, (err, tasks) => {
     if (err) return res.status(500).json({ error: 'Error al obtener tareas' });
 
@@ -131,7 +131,7 @@ router.get('/tasks', authenticateToken, (req, res) => {
       }
       delete task.attachments_data;
     });
-    
+
     res.json(tasks || []);
   });
 });
@@ -174,9 +174,9 @@ router.post('/tasks/check-due-today', authenticateToken, async (req, res) => {
 router.post('/tasks', jsonParser, authenticateToken, [body('title').notEmpty().trim().escape()], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+    return res.status(400).json({ errors: errors.array() });
   }
-    
+
   const { title, description, due_date, priority, assigned_to, label_ids } = req.body;
   const creator = req.user;
 
@@ -188,7 +188,7 @@ router.post('/tasks', jsonParser, authenticateToken, [body('title').notEmpty().t
       const taskId = this.lastID;
       const taskTitle = title.substring(0, 30);
       const taskUrl = `${process.env.APP_URL || 'http://localhost:3000'}/tablero.html`;
-      const formattedDueDate = new Date(due_date).toLocaleDateString('es-CL', {day: '2-digit', month: 'long', year: 'numeric'});
+      const formattedDueDate = new Date(due_date).toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' });
 
       const creatorHtml = `
         <h2>¡Tarea Creada Exitosamente!</h2>
@@ -207,7 +207,7 @@ router.post('/tasks', jsonParser, authenticateToken, [body('title').notEmpty().t
             const mensaje = `${creator.name} te ha asignado una nueva tarea: "${taskTitle}..."`;
             // <-- MODIFICADO: Añadimos taskId para que la notificación sea interactiva
             db.run(`INSERT INTO notifications (usuario_id, mensaje, tipo, task_id) VALUES (?, ?, ?, ?)`, [userId, mensaje, 'assignment', taskId]);
-            
+
             db.get("SELECT name, email FROM users WHERE id = ?", [userId], (err, assignedUser) => {
               if (assignedUser) {
                 const assigneeHtml = `
@@ -242,7 +242,7 @@ router.post('/tasks', jsonParser, authenticateToken, [body('title').notEmpty().t
 router.put('/tasks/:id', jsonParser, authenticateToken, (req, res) => {
   const taskId = req.params.id;
   const { title, description, due_date, priority, assigned_to, label_ids } = req.body;
-  
+
   const permissionSql = `
     SELECT t.id FROM tasks t
     LEFT JOIN task_assignments ta ON t.id = ta.task_id
@@ -290,7 +290,7 @@ router.delete('/tasks/:id', authenticateToken, (req, res) => {
     if (task.created_by !== req.userId) {
       return res.status(403).json({ error: 'No tienes permiso para eliminar esta tarea' });
     }
-    db.run("DELETE FROM tasks WHERE id = ?", [taskId], function(err) {
+    db.run("DELETE FROM tasks WHERE id = ?", [taskId], function (err) {
       if (err) return res.status(500).json({ error: 'Error al eliminar la tarea' });
       res.status(200).json({ success: true, message: 'Tarea eliminada' });
       broadcast({ type: 'TASKS_UPDATED' });
@@ -396,8 +396,8 @@ router.get('/attachments/task/:taskId', authenticateToken, (req, res) => {
       if (!task) return res.status(404).json({ error: 'Sin permisos o tarea no encontrada' });
       db.all(`SELECT a.*, u.name as uploaded_by_name FROM attachments a JOIN users u ON a.uploaded_by = u.id WHERE a.task_id = ? AND a.comment_id IS NULL`, [taskId],
         (err, attachments) => {
-            if (err) return res.status(500).json({ error: 'Error al obtener adjuntos' });
-            res.json(attachments || []);
+          if (err) return res.status(500).json({ error: 'Error al obtener adjuntos' });
+          res.json(attachments || []);
         }
       );
     });
@@ -454,8 +454,8 @@ router.get('/tasks/resumen', authenticateToken, (req, res) => {
       (SELECT COUNT(*) FROM tasks WHERE status = 'pendiente') as total_pendientes
   `;
   db.get(sql, [], (err, row) => {
-      if(err) return res.status(500).json({ error: 'Error al generar el resumen '});
-      res.json(row || { vencidas: 0, proximas: 0, total_pendientes: 0 });
+    if (err) return res.status(500).json({ error: 'Error al generar el resumen ' });
+    res.json(row || { vencidas: 0, proximas: 0, total_pendientes: 0 });
   });
 });
 
@@ -488,6 +488,44 @@ router.post('/labels', jsonParser, [
       });
     }
   );
+});
+
+// 🗄️ ARCHIVAR UNA TAREA
+router.post('/tasks/:id/archive', authenticateToken, (req, res) => {
+  const taskId = req.params.id;
+  const userId = req.userId;
+
+  // Solo el creador o un admin puede archivar
+  db.get("SELECT created_by FROM tasks WHERE id = ?", [taskId], (err, task) => {
+    if (err) return res.status(500).json({ error: 'Error al verificar la tarea' });
+    if (!task) return res.status(404).json({ error: 'Tarea no encontrada' });
+
+    if (task.created_by !== userId && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'No tienes permiso para archivar esta tarea' });
+    }
+
+    db.run("UPDATE tasks SET is_archived = 1 WHERE id = ?", [taskId], function(err) {
+      if (err) return res.status(500).json({ error: 'Error al archivar la tarea' });
+      res.status(200).json({ success: true, message: 'Tarea archivada' });
+
+      // Enviamos una actualización a todos los clientes
+      broadcast({ type: 'TASKS_UPDATED' });
+    });
+  });
+});
+
+// 🗄️ OBTENER TAREAS ARCHIVADAS
+router.get('/tasks/archived', authenticateToken, (req, res) => {
+  const sql = `
+    SELECT id, title, completed_at
+    FROM tasks
+    WHERE is_archived = 1
+    ORDER BY completed_at DESC
+  `;
+  db.all(sql, (err, tasks) => {
+    if (err) return res.status(500).json({ error: 'Error al obtener tareas archivadas' });
+    res.json(tasks || []);
+  });
 });
 
 module.exports = router;

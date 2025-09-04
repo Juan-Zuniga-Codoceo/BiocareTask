@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BiocareTask - Tareas Archivadas</title>
+  <link rel="stylesheet" href="/css/perfil.css" /> <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/assets/logo.png" type="image/png">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+</head>
+<body>
+  <div id="app">
+    <header class="header">
+        </header>
+
+    <main class="profile-dashboard">
+      <div class="history-card card">
+        <h3><i class="fa-solid fa-box-archive"></i> Historial de Tareas Archivadas</h3>
+        <p class="card-subtitle">Tareas completadas hace más de 2 días. Este listado se actualiza automáticamente.</p>
+        <div class="task-list">
+          <div v-if="loading" class="empty-history">Cargando historial...</div>
+          <div v-else-if="archivedTasks.length === 0" class="empty-history">No hay tareas archivadas.</div>
+          <div v-for="task in archivedTasks" :key="task.id" class="task-item">
+            <span class="task-title">{{ task.title }}</span>
+            <small>Completada el: {{ formatDate(task.completed_at) }}</small>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/archivadas.js"></script> </body>
+</html>

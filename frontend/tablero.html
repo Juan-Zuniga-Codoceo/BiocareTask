@@ -56,21 +56,20 @@
               </div>
               <div class="notifications-list">
                 <div v-for="notificacion in notificaciones" :key="notificacion.id" class="notification-item"
-                  :class="{'unread': !notificacion.leida}"
-                  @click="handleNotificationClick(notificacion)"
-                  style="cursor: pointer;"> 
-                  
+                  :class="{'unread': !notificacion.leida}" @click="handleNotificationClick(notificacion)"
+                  style="cursor: pointer;">
+
                   <div class="notification-content">
-                     <p>{{ notificacion.mensaje }}</p>
-                     <small>{{ formatDate(notificacion.fecha_creacion) }}</small>
+                    <p>{{ notificacion.mensaje }}</p>
+                    <small>{{ formatDate(notificacion.fecha_creacion) }}</small>
                   </div>
                   <div class="notification-actions">
                     <button v-if="!notificacion.leida" @click.stop="marcarComoLeida(notificacion.id)"
-                           class="btn-icon-action" title="Marcar como leída">
+                      class="btn-icon-action" title="Marcar como leída">
                       <i class="fa-solid fa-check"></i>
                     </button>
                     <button @click.stop="eliminarNotificacion(notificacion.id)" class="btn-icon-action danger"
-                           title="Eliminar">
+                      title="Eliminar">
                       <i class="fa-solid fa-trash-can"></i>
                     </button>
                   </div>
@@ -87,6 +86,7 @@
               <div class="dropdown-menu" v-if="showDropdown">
                 <button @click="toggleDropdown" class="btn-close-overlay">&times;</button>
                 <a href="/perfil.html"><i class="fa-solid fa-user"></i> Mi Perfil</a>
+                <a href="/archivadas.html"><i class="fa-solid fa-box-archive"></i> Tareas Archivadas</a>
                 <a href="javascript:void(0)" @click="logout()"><i class="fa-solid fa-right-from-bracket"></i> Cerrar
                   sesión</a>
               </div>
@@ -176,7 +176,7 @@
         </div>
         <div class="kanban-column column-done">
           <h2 class="column-title">
-            <i class="fa-solid fa-flag-checkered"></i> Completadas
+            <i class="fa-solid fa-flag-checkered"></i> Completadas ({{ tareasCompletadas.length }})
           </h2>
           <div class="task-list">
             <div v-for="task in tareasCompletadas" :key="task.id" class="task-card completed"
@@ -418,6 +418,11 @@
             </button>
             <button @click="abrirConfirmarEliminar" class="btn-delete" v-if="user.id === tareaSeleccionada.created_by">
               <i class="fa-solid fa-trash-can"></i> Eliminar
+            </button>
+
+            <button @click="archivarTarea(tareaSeleccionada.id)" class="btn-archive"
+              v-if="tareaSeleccionada.status === 'completada'">
+              <i class="fa-solid fa-box-archive"></i> Archivar
             </button>
           </div>
 
