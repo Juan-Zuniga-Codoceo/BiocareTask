@@ -5,7 +5,7 @@ const { createApp, ref } = Vue;
 if (document.getElementById('login-app')) {
   // Si ya está logueado, redirigir
   if (localStorage.getItem('auth_token')) {
-    window.location.href = '/tablero';
+    window.location.href = '/tablero.html';
   }
 
   createApp({
@@ -43,7 +43,7 @@ if (document.getElementById('login-app')) {
           localStorage.setItem('auth_token', data.id.toString());
 
           // Redirigir
-          window.location.href = '/tablero';
+          window.location.href = '/tablero.html';
         } catch (err) {
           error.value = err.message || 'Error de conexión. Intenta nuevamente.';
           console.error('Error en login:', err);
@@ -132,7 +132,7 @@ if (document.getElementById('register-app')) {
             office.value = '';
             
             setTimeout(() => {
-              window.location.href = '/login';
+              window.location.href = '/login.html';
             }, 2000);
           } else {
             error.value = data.error || 'No se pudo crear la cuenta. Intenta con otro correo.';

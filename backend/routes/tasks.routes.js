@@ -1,21 +1,25 @@
 // backend/routes/tasks.routes.js
-const express = require('express'); 
+const express = require('express');
 const router = express.Router();
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const { body, validationResult } = require('express-validator');
 
-// Importaciones
+// Importamos la conexión a la base de datos y el middleware de autenticación
 const db = require('../db');
 const { authenticateToken } = require('../middleware/auth');
+// Importamos nuestro nuevo servicio de correo electrónico
 const { sendEmail } = require('../services/email.service');
+// Importamos la función broadcast desde el servicio de WebSocket
 const { broadcast } = require('../services/websocket.service');
+
+// --- Middlewares específicos para este router ---
 
 // Middleware para parsear JSON
 const jsonParser = express.json({ limit: '10mb' });
 
-// Configuración de Multer para la subida de archivos
+// --- Configuración de Multer para la subida de archivos ---
 const uploadsDir = path.join(__dirname, '..', '..', 'uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
@@ -67,7 +71,7 @@ const upload = multer({
 // 📋 LISTAR TAREAS (CON ADJUNTOS)
 router.get('/tasks', authenticateToken, (req, res) => {
   const { assigned_to, created_by, status, due_date, search } = req.query;
-  
+
   let sql = `
     SELECT 
       t.*, 
@@ -92,6 +96,7 @@ router.get('/tasks', authenticateToken, (req, res) => {
     LEFT JOIN attachments att ON t.id = att.task_id AND att.comment_id IS NULL
     WHERE t.is_archived = 0 
   `;
+
   const params = [];
 
   if (assigned_to) { sql += " AND ta.user_id = ?"; params.push(assigned_to); }
@@ -111,7 +116,7 @@ router.get('/tasks', authenticateToken, (req, res) => {
       END ASC, 
       t.due_date ASC
   `;
-  
+
   db.all(sql, params, (err, tasks) => {
     if (err) return res.status(500).json({ error: 'Error al obtener tareas' });
 
@@ -126,60 +131,8 @@ router.get('/tasks', authenticateToken, (req, res) => {
       }
       delete task.attachments_data;
     });
-    
+
     res.json(tasks || []);
-  });
-});
-
-// 📜 OBTENER DETALLES DE UNA ÚNICA TAREA
-router.get('/tasks/:id', authenticateToken, (req, res) => {
-  const taskId = req.params.id;
-  const sql = `
-    SELECT 
-      t.*, 
-      u.name as created_by_name,
-      GROUP_CONCAT(DISTINCT ua.name) as assigned_names,
-      GROUP_CONCAT(DISTINCT ta.user_id) as assigned_ids,
-      GROUP_CONCAT(DISTINCT l.name) as label_names,
-      GROUP_CONCAT(
-        CASE
-          WHEN att.id IS NOT NULL THEN
-            att.id || ':' || att.file_name || ':' || att.file_path
-          ELSE
-            NULL
-        END
-      ) as attachments_data
-    FROM tasks t
-    LEFT JOIN users u ON t.created_by = u.id
-    LEFT JOIN task_assignments ta ON t.id = ta.task_id
-    LEFT JOIN users ua ON ta.user_id = ua.id
-    LEFT JOIN task_labels tl ON t.id = tl.task_id
-    LEFT JOIN labels l ON tl.label_id = l.id
-    LEFT JOIN attachments att ON t.id = att.task_id AND att.comment_id IS NULL
-    WHERE t.id = ?
-    GROUP BY t.id
-  `;
-  db.get(sql, [taskId], async (err, task) => {
-    if (err) return res.status(500).json({ error: 'Error al obtener la tarea' });
-    if (!task) return res.status(404).json({ error: 'Tarea no encontrada' });
-
-    if (task.attachments_data) {
-      task.attachments = task.attachments_data.split(',').map(attString => {
-        const [id, file_name, file_path] = attString.split(':');
-        return { id: parseInt(id), file_name, file_path };
-      });
-    } else {
-      task.attachments = [];
-    }
-    delete task.attachments_data;
-
-    db.all(`SELECT c.*, u.name as autor_nombre, u.avatar_url as autor_avatar_url FROM comments c JOIN users u ON c.autor_id = u.id WHERE c.task_id = ? ORDER BY c.fecha_creacion ASC`, [taskId], (commentErr, comments) => {
-        if(commentErr) {
-            return res.status(500).json({ error: 'Error al obtener comentarios' });
-        }
-        task.comentarios = comments || [];
-        res.json(task);
-    });
   });
 });
 
@@ -208,6 +161,7 @@ router.post('/tasks/check-due-today', authenticateToken, async (req, res) => {
         task.assigned_ids.split(',').forEach(id => allInvolved.add(parseInt(id)));
       }
       const mensaje = `La tarea "${task.title.substring(0, 30)}..." vence hoy.`;
+      // <-- MODIFICADO: Añadimos task.id para que la notificación sea interactiva
       const stmt = db.prepare(`INSERT INTO notifications (usuario_id, mensaje, tipo, task_id) VALUES (?, ?, ?, ?)`);
       allInvolved.forEach(userId => stmt.run(userId, mensaje, 'due_today', task.id));
       stmt.finalize();
@@ -251,6 +205,7 @@ router.post('/tasks', jsonParser, authenticateToken, [body('title').notEmpty().t
           stmt.run(taskId, userId);
           if (userId !== creator.id) {
             const mensaje = `${creator.name} te ha asignado una nueva tarea: "${taskTitle}..."`;
+            // <-- MODIFICADO: Añadimos taskId para que la notificación sea interactiva
             db.run(`INSERT INTO notifications (usuario_id, mensaje, tipo, task_id) VALUES (?, ?, ?, ?)`, [userId, mensaje, 'assignment', taskId]);
 
             db.get("SELECT name, email FROM users WHERE id = ?", [userId], (err, assignedUser) => {
@@ -419,6 +374,7 @@ router.post('/tasks/comments', authenticateToken, upload.single('attachment'), a
             const usersToNotify = [...new Set([taskInfo.created_by, ...assignedUserIds])].filter(id => id !== autor_id);
             if (usersToNotify.length > 0) {
               const mensaje = `${req.user.name} comentó en la tarea: "${taskInfo.title.substring(0, 30)}..."`;
+              // <-- MODIFICADO: Añadimos task_id para que la notificación sea interactiva
               const stmt = db.prepare(`INSERT INTO notifications (usuario_id, mensaje, tipo, task_id) VALUES (?, ?, ?, ?)`);
               usersToNotify.forEach(userId => stmt.run(userId, mensaje, 'comment', task_id));
               stmt.finalize();
@@ -493,13 +449,13 @@ router.get('/download/:filename', authenticateToken, (req, res) => {
 router.get('/tasks/resumen', authenticateToken, (req, res) => {
   const sql = `
     SELECT 
-      (SELECT COUNT(*) FROM tasks WHERE status = 'pendiente' AND is_archived = 0 AND due_date < datetime('now', '-4 hours')) as vencidas,
-      (SELECT COUNT(*) FROM tasks WHERE status = 'pendiente' AND is_archived = 0 AND due_date >= datetime('now', '-4 hours') AND due_date <= datetime('now', '-4 hours', '+3 days')) as proximas,
-      (SELECT COUNT(*) FROM tasks WHERE status = 'pendiente' AND is_archived = 0) as total_pendientes
+      (SELECT COUNT(*) FROM tasks WHERE status = 'pendiente' AND due_date < datetime('now', '-4 hours')) as vencidas,
+      (SELECT COUNT(*) FROM tasks WHERE status = 'pendiente' AND due_date >= datetime('now', '-4 hours') AND due_date <= datetime('now', '-4 hours', '+3 days')) as proximas,
+      (SELECT COUNT(*) FROM tasks WHERE status = 'pendiente') as total_pendientes
   `;
   db.get(sql, [], (err, row) => {
-      if(err) return res.status(500).json({ error: 'Error al generar el resumen '});
-      res.json(row || { vencidas: 0, proximas: 0, total_pendientes: 0 });
+    if (err) return res.status(500).json({ error: 'Error al generar el resumen ' });
+    res.json(row || { vencidas: 0, proximas: 0, total_pendientes: 0 });
   });
 });
 
@@ -538,15 +494,21 @@ router.post('/labels', jsonParser, [
 router.post('/tasks/:id/archive', authenticateToken, (req, res) => {
   const taskId = req.params.id;
   const userId = req.userId;
+
+  // Solo el creador o un admin puede archivar
   db.get("SELECT created_by FROM tasks WHERE id = ?", [taskId], (err, task) => {
     if (err) return res.status(500).json({ error: 'Error al verificar la tarea' });
     if (!task) return res.status(404).json({ error: 'Tarea no encontrada' });
+
     if (task.created_by !== userId && req.user.role !== 'admin') {
       return res.status(403).json({ error: 'No tienes permiso para archivar esta tarea' });
     }
+
     db.run("UPDATE tasks SET is_archived = 1 WHERE id = ?", [taskId], function(err) {
       if (err) return res.status(500).json({ error: 'Error al archivar la tarea' });
       res.status(200).json({ success: true, message: 'Tarea archivada' });
+
+      // Enviamos una actualización a todos los clientes
       broadcast({ type: 'TASKS_UPDATED' });
     });
   });
@@ -555,17 +517,10 @@ router.post('/tasks/:id/archive', authenticateToken, (req, res) => {
 // 🗄️ OBTENER TAREAS ARCHIVADAS
 router.get('/tasks/archived', authenticateToken, (req, res) => {
   const sql = `
-    SELECT 
-      t.id, 
-      t.title, 
-      t.completed_at,
-      GROUP_CONCAT(DISTINCT ua.name) as assigned_names
-    FROM tasks t
-    LEFT JOIN task_assignments ta ON t.id = ta.task_id
-    LEFT JOIN users ua ON ta.user_id = ua.id
-    WHERE t.is_archived = 1
-    GROUP BY t.id
-    ORDER BY t.completed_at DESC
+    SELECT id, title, completed_at
+    FROM tasks
+    WHERE is_archived = 1
+    ORDER BY completed_at DESC
   `;
   db.all(sql, (err, tasks) => {
     if (err) return res.status(500).json({ error: 'Error al obtener tareas archivadas' });

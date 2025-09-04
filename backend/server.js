@@ -6,7 +6,6 @@ const fs = require('fs');
 
 // <-- NUEVO: Importamos nuestro servicio de WebSocket
 const { initializeWebSocket } = require('./services/websocket.service');
-const { startScheduledJobs } = require('./jobs/scheduler');
 
 // --- Importar Routers ---
 const authRoutes = require('./routes/auth.routes');
@@ -24,7 +23,14 @@ app.use('/api', authRoutes);
 app.use('/api', tasksRoutes);
 app.use('/api', usersRoutes);
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, '..', 'frontend', 'login.html')));
-// ... y las otras rutas amigables
+
+// Rutas amigables para servir los archivos HTML principales
+app.get('/login', (req, res) => res.sendFile(path.join(__dirname, '..', 'frontend', 'login.html')));
+app.get('/tablero', (req, res) => res.sendFile(path.join(__dirname, '..', 'frontend', 'tablero.html')));
+app.get('/perfil', (req, res) => res.sendFile(path.join(__dirname, '..', 'frontend', 'perfil.html')));
+app.get('/archivadas', (req, res) => res.sendFile(path.join(__dirname, '..', 'frontend', 'archivadas.html')));
+app.get('/registro', (req, res) => res.sendFile(path.join(__dirname, '..', 'frontend', 'registro.html')));
+// ===== FIN DE LA MEJORA =====
 
 app.use((err, req, res, next) => {
     console.error('Error no controlado:', err.stack);
@@ -38,4 +44,3 @@ const server = app.listen(PORT, HOST, () => {
 
 // <-- NUEVO: Inicializamos el WebSocket server pasándole nuestro servidor HTTP
 initializeWebSocket(server);
-startScheduledJobs(); 
