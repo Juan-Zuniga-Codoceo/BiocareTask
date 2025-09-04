@@ -291,6 +291,34 @@ input:checked + .slider:before {
 .status-pendiente { color: var(--c-col-pending-title); font-weight: 600; }
 .empty-history { text-align: center; color: var(--c-text-light); padding: 20px; }
 
+.card-subtitle {
+  font-size: 14px;
+  color: var(--c-text-light);
+  margin-top: -12px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--c-border);
+}
+
+.task-item-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.task-assignees {
+  font-size: 12px;
+  color: var(--c-text-light);
+  font-style: italic;
+}
+
+.task-date {
+  color: var(--c-text-light);
+  font-size: 14px;
+  white-space: nowrap;
+  margin-left: 16px;
+}
+
 
 @media (max-width: 900px) {
   .profile-grid {

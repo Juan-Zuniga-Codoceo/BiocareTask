@@ -1,35 +1,244 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BiocareTask - Tareas Archivadas</title>
-  <link rel="stylesheet" href="/css/perfil.css" /> <link rel="manifest" href="/manifest.json">
-  <link rel="icon" href="/assets/logo.png" type="image/png">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BiocareTask - Tareas Archivadas</title>
+    <link rel="stylesheet" href="/css/perfil.css" />
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" href="/assets/logo.png" type="image/png">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
 </head>
+
 <body>
-  <div id="app">
-    <header class="header">
+    <div id="app">
+        <header class="header">
+            <div class="header-left">
+                <div class="logo">
+                    <img src="/assets/logo.png" alt="Biocare Logo" />
+                    <h1><span class="biocare">Biocare</span><span class="task">Task</span></h1>
+                </div>
+            </div>
+            <div class="main-controls">
+                <nav class="main-nav">
+                    <a href="/tablero.html" class="nav-link" title="Tablero">
+                        <i class="fa-solid fa-table-columns"></i>
+                        <span>Tablero</span>
+                    </a>
+                    <a href="/perfil.html" class="nav-link" title="Mi Perfil">
+                        <i class="fa-solid fa-user"></i>
+                        <span>Perfil</span>
+                    </a>
+                </nav>
+            </div>
+            <div class="header-right">
+                <div class="user-actions">
+                    <div class="user-menu">
+                        <div class="dropdown">
+                            <button class="btn-icon" @click="toggleDropdown" title="Menú">
+                                <i class="fa-solid fa-user-gear"></i>
+                            </button>
+                            <div class="dropdown-menu" v-if="showDropdown">
+                                <button @click="toggleDropdown" class="btn-close-overlay">&times;</button>
+                                <a href="/perfil.html"><i class="fa-solid fa-user"></i> Mi Perfil</a>
+                                <a href="/archivadas.html"><i class="fa-solid fa-box-archive"></i> Tareas Archivadas</a>
+                                <a href="javascript:void(0)" @click="logout()"><i
+                                        class="fa-solid fa-right-from-bracket"></i> Cerrar sesión</a>
+                            </div>
+                        </div>
+                        <span v-if="user" class="user-name">{{ user.name }}</span>
+                    </div>
+                </div>
+            </div>
         </header>
 
-    <main class="profile-dashboard">
-      <div class="history-card card">
-        <h3><i class="fa-solid fa-box-archive"></i> Historial de Tareas Archivadas</h3>
-        <p class="card-subtitle">Tareas completadas hace más de 2 días. Este listado se actualiza automáticamente.</p>
-        <div class="task-list">
-          <div v-if="loading" class="empty-history">Cargando historial...</div>
-          <div v-else-if="archivedTasks.length === 0" class="empty-history">No hay tareas archivadas.</div>
-          <div v-for="task in archivedTasks" :key="task.id" class="task-item">
-            <span class="task-title">{{ task.title }}</span>
-            <small>Completada el: {{ formatDate(task.completed_at) }}</small>
-          </div>
-        </div>
-      </div>
-    </main>
-  </div>
+        <main class="profile-dashboard">
+            <div class="history-card card">
+                <h3><i class="fa-solid fa-box-archive"></i> Historial de Tareas Archivadas</h3>
+                <p class="card-subtitle">Tareas completadas hace más de 2 días. Este listado se actualiza
+                    automáticamente.</p>
+                <div class="task-list">
+                    <div v-for="task in archivedTasks" :key="task.id" class="task-item" @click="verDetalles(task)"
+                        style="cursor: pointer;">
+                        <div class="task-item-content">
+                            <span class="task-title">{{ task.title }}</span>
+                            <small class="task-assignees" v-if="task.assigned_names">Asignada a: {{ task.assigned_names
+                                }}</small>
+                        </div>
+                        <small class="task-date">Completada el: {{ formatDate(task.completed_at) }}</small>
+                    </div>
+                </div>
+            </div>
+            <div class="modal" v-if="tareaSeleccionada" @click.self="tareaSeleccionada = null">
+                <div class="modal-content large" :class="{ 'vence-hoy': esTareaParaHoy(tareaSeleccionada.due_date) }">
+                    <div class="modal-header">
+                        <h2>
+                            <span>{{ tareaSeleccionada.title }}</span>
+                            <span v-if="esTareaParaHoy(tareaSeleccionada.due_date)" class="due-today-badge">
+                                <i class="fa-solid fa-fire"></i> VENCE HOY
+                            </span>
+                        </h2>
+                        <button @click="tareaSeleccionada = null" class="btn-close-modal">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="detail-grid">
+                            <div class="detail-col">
+                                <div class="detail-section">
+                                    <h3><i class="fa-solid fa-align-left"></i> Descripción</h3>
+                                    <p
+                                        v-html="formatDescription(tareaSeleccionada.description) || 'No se proporcionó una descripción.'">
+                                    </p>
+                                </div>
+                                <div class="detail-section">
+                                    <h3><i class="fa-solid fa-comments"></i> Comentarios</h3>
+                                    <div class="comments-list">
+                                        <div v-if="!tareaSeleccionada.comentarios || tareaSeleccionada.comentarios.length === 0"
+                                            class="empty-comments">
+                                            Aún no hay comentarios.
+                                        </div>
+                                        <div v-for="comentario in tareaSeleccionada.comentarios" :key="comentario.id"
+                                            class="comment-item">
+                                            <div class="comment-avatar"
+                                                :style="comentario.autor_avatar_url ? { backgroundImage: `url(${comentario.autor_avatar_url})` } : {}">
+                                                <span v-if="!comentario.autor_avatar_url">{{
+                                                    comentario.autor_nombre.charAt(0).toUpperCase()
+                                                    }}</span>
+                                            </div>
+                                            <div class="comment-body">
+                                                <div class="comment-header">
+                                                    <span class="comment-author">{{ comentario.autor_nombre }}</span>
+                                                    <span class="comment-date">{{ formatDate(comentario.fecha_creacion)
+                                                        }}</span>
+                                                </div>
+                                                <div class="comment-content">
+                                                    <p>{{ comentario.contenido }}</p>
+                                                    <div v-if="comentario.attachments && comentario.attachments.length > 0"
+                                                        class="comment-attachment-list">
+                                                        <div v-for="att in comentario.attachments" :key="att.id"
+                                                            class="comment-attachment">
+                                                            <a href="javascript:void(0)"
+                                                                @click.stop="downloadFile(att)">
+                                                                <i class="fa-solid fa-paperclip"></i>
+                                                                <span>{{ att.file_name }}</span>
+                                                            </a>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="comment-form">
+                                        <textarea v-model="nuevoComentario"
+                                            placeholder="Escribe un comentario..."></textarea>
+                                        <div v-if="commentAttachment" class="attachment-preview">
+                                            <i class="fa-solid fa-file"></i>
+                                            <span>{{ commentAttachment.name }}</span>
+                                            <button @click="removeCommentAttachment"
+                                                class="btn-remove-attachment">&times;</button>
+                                        </div>
+                                        <div class="comment-form-actions">
+                                            <label for="comment-attachment-input" class="btn-attach"
+                                                title="Adjuntar archivo">
+                                                <i class="fa-solid fa-paperclip"></i>
+                                                <input type="file" id="comment-attachment-input"
+                                                    @change="handleCommentAttachment" style="display: none;" />
+                                            </label>
+                                            <button @click="agregarComentario"
+                                                :disabled="!nuevoComentario.trim() && !commentAttachment">Enviar</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="detail-col">
+                                <div class="detail-section">
+                                    <h3><i class="fa-solid fa-circle-info"></i> Detalles</h3>
+                                    <ul class="detail-list">
+                                        <li><strong>Asignado a:</strong> <span>{{ tareaSeleccionada.assigned_names ||
+                                                'Nadie' }}</span></li>
+                                        <li><strong>Fecha Límite:</strong> <span>{{
+                                                formatDate(tareaSeleccionada.due_date) }}</span></li>
+                                        <li><strong>Prioridad:</strong> <span
+                                                :class="'badge-' + tareaSeleccionada.priority">{{
+                                                getPriorityText(tareaSeleccionada.priority) }}</span></li>
+                                        <li><strong>Creado por:</strong> <span>{{ tareaSeleccionada.created_by_name
+                                                }}</span></li>
+                                        <li v-if="getLabelsArray(tareaSeleccionada).length > 0">
+                                            <strong>Etiquetas:</strong>
+                                            <div class="labels">
+                                                <span v-for="label in getLabelsArray(tareaSeleccionada)" :key="label"
+                                                    class="label-tag" :style="{ backgroundColor: getColor(label) }">{{
+                                                    label }}</span>
+                                            </div>
+                                        </li>
+                                    </ul>
+                                </div>
+                                <div class="detail-section"
+                                    v-if="tareaSeleccionada.attachments && tareaSeleccionada.attachments.length > 0">
+                                    <h3><i class="fa-solid fa-paperclip"></i> Archivos Adjuntos</h3>
+                                    <div class="attachments-list">
+                                        <div v-for="attachment in tareaSeleccionada.attachments" :key="attachment.id"
+                                            class="attachment-item">
+                                            <i class="fa-solid fa-file"></i>
+                                            <span class="attachment-name">{{ attachment.file_name }}</span>
+                                            <button @click="downloadFile(attachment)" class="btn-download"
+                                                title="Descargar"><i class="fa-solid fa-download"></i></button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <div class="modal-actions-left" v-if="puedeEditarTarea">
+                            <button @click="abrirModalEditar" class="btn-edit">
+                                <i class="fa-solid fa-pencil"></i> Editar
+                            </button>
+                            <button @click="abrirConfirmarEliminar" class="btn-delete"
+                                v-if="user.id === tareaSeleccionada.created_by">
+                                <i class="fa-solid fa-trash-can"></i> Eliminar
+                            </button>
 
-  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-  <script src="/js/api.js"></script>
-  <script src="/js/archivadas.js"></script> </body>
+                            <button @click="archivarTarea(tareaSeleccionada.id)" class="btn-archive"
+                                v-if="tareaSeleccionada.status === 'completada'">
+                                <i class="fa-solid fa-box-archive"></i> Archivar
+                            </button>
+                        </div>
+
+                        <div class="modal-actions-right">
+                            <div class="split-button-group" v-if="tareaSeleccionada.status !== 'completada'">
+                                <button @click="avanzarEstado(tareaSeleccionada)" class="btn-primary-action">
+                                    {{ tareaSeleccionada.status === 'pendiente' ? 'Iniciar Tarea' : 'Completar' }}
+                                    <i
+                                        :class="tareaSeleccionada.status === 'pendiente' ? 'fa-solid fa-arrow-right' : 'fa-solid fa-check'"></i>
+                                </button>
+                                <button class="btn-split-trigger" @click.stop="toggleStateDropdown">
+                                    <i class="fa-solid fa-chevron-down"></i>
+                                </button>
+                                <div class="split-dropdown-menu" v-if="showStateDropdown">
+                                    <a href="#" @click.prevent="retrocederEstado(tareaSeleccionada)">
+                                        <i class="fa-solid fa-arrow-left"></i> Devolver a "{{ tareaSeleccionada.status
+                                        === 'en_camino' ?
+                                        'Pendiente' : '' }}"
+                                    </a>
+                                </div>
+                            </div>
+
+                            <div v-if="tareaSeleccionada.status === 'completada'">
+                                <button @click="retrocederEstado(tareaSeleccionada)" class="btn-secondary-action">
+                                    <i class="fa-solid fa-undo"></i> Reabrir Tarea
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <script src="/js/api.js"></script>
+    <script src="/js/archivadas.js"></script>
+</body>
+
 </html>

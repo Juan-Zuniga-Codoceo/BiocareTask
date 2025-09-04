@@ -442,7 +442,6 @@ const handleNotificationClick = async (notificacion) => {
         showError('❌ Error al archivar la tarea: ' + err.message);
       }
     };
-
     const removeFile = () => {
       archivoAdjunto.value = null;
       document.getElementById('fileInput').value = '';
@@ -680,8 +679,7 @@ const handleNotificationClick = async (notificacion) => {
       avanzarEstado,
       formatDescription,
       retrocederEstado,
-      handleNotificationClick,
-      archivarTarea
+      handleNotificationClick
     };
   }
 }).mount('#app');

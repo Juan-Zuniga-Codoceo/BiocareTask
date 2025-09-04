@@ -6,6 +6,7 @@ const fs = require('fs');
 
 // <-- NUEVO: Importamos nuestro servicio de WebSocket
 const { initializeWebSocket } = require('./services/websocket.service');
+const { startScheduledJobs } = require('./jobs/scheduler');
 
 // --- Importar Routers ---
 const authRoutes = require('./routes/auth.routes');
@@ -37,5 +38,4 @@ const server = app.listen(PORT, HOST, () => {
 
 // <-- NUEVO: Inicializamos el WebSocket server pasándole nuestro servidor HTTP
 initializeWebSocket(server);
-
-// Ya no necesitamos exportar nada desde aquí
+startScheduledJobs(); 

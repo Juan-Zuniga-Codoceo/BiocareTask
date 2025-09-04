@@ -43,7 +43,7 @@ if (document.getElementById('login-app')) {
           localStorage.setItem('auth_token', data.id.toString());
 
           // Redirigir
-          window.location.href = '/tablero.html';
+          window.location.href = '/tablero';
         } catch (err) {
           error.value = err.message || 'Error de conexión. Intenta nuevamente.';
           console.error('Error en login:', err);
