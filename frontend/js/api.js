@@ -1,50 +1,56 @@
 // frontend/js/api.js
+
+// <-- INICIO DE LA CORRECCIÓN
+// Detectamos si estamos en desarrollo local o en producción.
+const IS_LOCAL = window.location.hostname.includes('localhost') || window.location.hostname === '127.0.0.1';
+const API_BASE_URL = IS_LOCAL ? 'http://localhost:3000' : '';
+// En local, usará 'http://localhost:3000'. En producción, será '' para usar rutas relativas.
+// <-- FIN DE LA CORRECCIÓN
+
 class API {
   static async request(url, options = {}) {
-  const token = localStorage.getItem('auth_token');
-  
-  const defaultOptions = {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token && { 'Authorization': `Bearer ${token}` })
+    const token = localStorage.getItem('auth_token');
+    const defaultOptions = {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` })
+      }
+    };
+    const mergedOptions = {
+      ...defaultOptions,
+      ...options,
+      headers: {
+        ...defaultOptions.headers,
+        ...options.headers
+      }
+    };
+
+    try {
+      // <-- CORRECCIÓN: Anteponemos la URL base a la petición.
+      const response = await fetch(API_BASE_URL + url, mergedOptions);
+      
+      if (response.status === 401) {
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('biocare_user');
+        window.location.href = '/login';
+        throw new Error('Sesión expirada');
+      }
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Error ${response.status}`);
+      }
+      
+      if (response.status === 204 || response.headers.get('content-length') === '0') {
+        return {};
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('API request failed:', error);
+      throw error;
     }
-  };
-  
-  const mergedOptions = {
-    ...defaultOptions,
-    ...options,
-    headers: {
-      ...defaultOptions.headers,
-      ...options.headers
-    }
-  };
-  
-  try {
-    const response = await fetch(url, mergedOptions);
-    
-    if (response.status === 401) {
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('biocare_user');
-      window.location.href = '/login';
-      throw new Error('Sesión expirada');
-    }
-    
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `Error ${response.status}`);
-    }
-    
-    // ✅ Manejar respuestas sin contenido
-    if (response.status === 204 || response.headers.get('content-length') === '0') {
-      return {};
-    }
-    
-    return await response.json();
-  } catch (error) {
-    console.error('API request failed:', error);
-    throw error;
   }
-}
 
   static async get(url) {
     return this.request(url);
@@ -70,41 +76,36 @@ class API {
     });
   }
 
-  // ✅ CORREGIDO: Usa API.request, no this.request
   static async upload(url, formData) {
-  const token = localStorage.getItem('auth_token');
-  
-  // ✅ NO establecer Content-Type, el navegador lo hará automáticamente
-  return fetch(url, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`
-      // ⚠️ Dejar que el navegador establezca el Content-Type con boundary
-    },
-    body: formData
-  }).then(async response => {
-    if (response.status === 401) {
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('biocare_user');
-      window.location.href = '/login';
-      throw new Error('Sesión expirada');
-    }
+    const token = localStorage.getItem('auth_token');
     
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `Error ${response.status}`);
-    }
-    
-    return await response.json();
-  });
-}
+    // <-- CORRECCIÓN: Anteponemos la URL base también a la subida de archivos.
+    return fetch(API_BASE_URL + url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+        // Dejamos que el navegador establezca el Content-Type automáticamente para FormData
+      },
+      body: formData
+    }).then(async response => {
+      if (response.status === 401) {
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('biocare_user');
+        window.location.href = '/login';
+        throw new Error('Sesión expirada');
+      }
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Error ${response.status}`);
+      }
+      return await response.json();
+    });
+  }
 
-  // ✅ NOTIFICACIONES: Mejorada con anti-duplicado y animaciones
   static showNotification(message, type = 'info') {
-    // Evitar múltiples notificaciones idénticas
+    // ... (El resto de la función de notificación no cambia)
     const existing = Array.from(document.querySelectorAll('.api-notification'))
       .find(el => el.textContent === message);
-    
     if (existing) return;
 
     const notification = document.createElement('div');
@@ -131,14 +132,11 @@ class API {
     `;
     notification.textContent = message;
 
-    // Animación de entrada
     document.body.appendChild(notification);
     setTimeout(() => {
       notification.style.opacity = '1';
       notification.style.transform = 'translateX(0)';
     }, 100);
-
-    // Eliminar con fade-out
     const remove = () => {
       if (!notification.parentNode) return;
       notification.style.opacity = '0';
@@ -150,10 +148,7 @@ class API {
       }, 300);
     };
 
-    // Auto-eliminar después de 4 segundos
     const timeout = setTimeout(remove, 4000);
-
-    // Permitir cerrar al hacer clic
     notification.addEventListener('click', () => {
       clearTimeout(timeout);
       remove();

@@ -9,8 +9,10 @@ const { body, validationResult } = require('express-validator');
 // Importamos la conexión a la base de datos y el middleware de autenticación
 const db = require('../db');
 const { authenticateToken } = require('../middleware/auth');
-// <-- CAMBIO: Importamos nuestro nuevo servicio de correo electrónico
+// Importamos nuestro nuevo servicio de correo electrónico
 const { sendEmail } = require('../services/email.service');
+// <-- NUEVO: Importamos la función broadcast desde server.js
+const { broadcast } = require('../services/websocket.service');
 
 // --- Middlewares específicos para este router ---
 
@@ -66,22 +68,35 @@ const upload = multer({
 // ===          DEFINICIÓN DE RUTAS DE TAREAS         ===
 // ======================================================
 
-// 📋 LISTAR TAREAS
+// 📋 LISTAR TAREAS (CORREGIDO PARA INCLUIR ADJUNTOS)
 router.get('/tasks', authenticateToken, (req, res) => {
   const { assigned_to, created_by, status, due_date, search } = req.query;
+  
   let sql = `
-    SELECT t.*, u.name as created_by_name,
-           GROUP_CONCAT(DISTINCT ua.name) as assigned_names,
-           GROUP_CONCAT(DISTINCT ta.user_id) as assigned_ids,
-           GROUP_CONCAT(DISTINCT l.name) as label_names
+    SELECT 
+      t.*, 
+      u.name as created_by_name,
+      GROUP_CONCAT(DISTINCT ua.name) as assigned_names,
+      GROUP_CONCAT(DISTINCT ta.user_id) as assigned_ids,
+      GROUP_CONCAT(DISTINCT l.name) as label_names,
+      GROUP_CONCAT(
+        CASE
+          WHEN att.id IS NOT NULL THEN
+            att.id || ':' || att.file_name || ':' || att.file_path
+          ELSE
+            NULL
+        END
+      ) as attachments_data
     FROM tasks t
     LEFT JOIN users u ON t.created_by = u.id
     LEFT JOIN task_assignments ta ON t.id = ta.task_id
     LEFT JOIN users ua ON ta.user_id = ua.id
     LEFT JOIN task_labels tl ON t.id = tl.task_id
     LEFT JOIN labels l ON tl.label_id = l.id
+    LEFT JOIN attachments att ON t.id = att.task_id AND att.comment_id IS NULL
     WHERE 1=1
   `;
+
   const params = [];
 
   if (assigned_to) { sql += " AND ta.user_id = ?"; params.push(assigned_to); }
@@ -90,7 +105,6 @@ router.get('/tasks', authenticateToken, (req, res) => {
   if (due_date) { sql += " AND DATE(t.due_date) = DATE(?)"; params.push(due_date); }
   if (search) { sql += " AND (t.title LIKE ? OR t.description LIKE ?)"; params.push(`%${search}%`, `%${search}%`); }
 
-  // <-- CAMBIO: Actualizamos el orden para priorizar por urgencia y luego por fecha
   sql += `
     GROUP BY t.id 
     ORDER BY 
@@ -105,25 +119,65 @@ router.get('/tasks', authenticateToken, (req, res) => {
   
   db.all(sql, params, (err, tasks) => {
     if (err) return res.status(500).json({ error: 'Error al obtener tareas' });
+
+    tasks.forEach(task => {
+      if (task.attachments_data) {
+        task.attachments = task.attachments_data.split(',').map(attString => {
+          const [id, file_name, file_path] = attString.split(':');
+          return { id: parseInt(id), file_name, file_path };
+        });
+      } else {
+        task.attachments = [];
+      }
+      delete task.attachments_data;
+    });
+    
     res.json(tasks || []);
   });
 });
 
 // 💡 VERIFICAR Y CREAR NOTIFICACIONES DE VENCIMIENTO
 router.post('/tasks/check-due-today', authenticateToken, async (req, res) => {
-    // ... (código sin cambios)
+  const hoy = new Date().toISOString().slice(0, 10);
+  const sql = `
+    SELECT t.id, t.title, t.created_by, GROUP_CONCAT(ta.user_id) as assigned_ids
+    FROM tasks t
+    LEFT JOIN task_assignments ta ON t.id = ta.task_id
+    WHERE DATE(t.due_date) = ? 
+      AND t.status = 'pendiente'
+      AND NOT EXISTS (
+        SELECT 1 FROM notifications 
+        WHERE tipo = 'due_today' 
+        AND mensaje LIKE '%' || t.title || '%'
+        AND DATE(fecha_creacion) = ?
+      )
+    GROUP BY t.id
+  `;
+  db.all(sql, [hoy, hoy], (err, tasks) => {
+    if (err || !tasks) return res.status(500).json({ error: 'Error al verificar tareas' });
+    tasks.forEach(task => {
+      const allInvolved = new Set([task.created_by]);
+      if (task.assigned_ids) {
+        task.assigned_ids.split(',').forEach(id => allInvolved.add(parseInt(id)));
+      }
+      const mensaje = `La tarea "${task.title.substring(0, 30)}..." vence hoy.`;
+      const stmt = db.prepare(`INSERT INTO notifications (usuario_id, mensaje, tipo) VALUES (?, ?, ?)`);
+      allInvolved.forEach(userId => stmt.run(userId, mensaje, 'due_today'));
+      stmt.finalize();
+    });
+    res.status(200).json({ checked: tasks.length });
+  });
 });
 
 // 🆕 CREAR TAREA
 router.post('/tasks', jsonParser, authenticateToken, [body('title').notEmpty().trim().escape()], async (req, res) => {
-  // <-- CAMBIO: Lógica de correos añadida aquí
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
   }
     
   const { title, description, due_date, priority, assigned_to, label_ids } = req.body;
-  const creator = req.user; // Obtenemos el objeto completo del usuario creador
+  const creator = req.user;
 
   db.run(`INSERT INTO tasks (title, description, due_date, priority, created_by) VALUES (?, ?, ?, ?, ?)`,
     [title, description || '', due_date, priority || 'media', creator.id],
@@ -135,7 +189,6 @@ router.post('/tasks', jsonParser, authenticateToken, [body('title').notEmpty().t
       const taskUrl = `${process.env.APP_URL || 'http://localhost:3000'}/tablero.html`;
       const formattedDueDate = new Date(due_date).toLocaleDateString('es-CL', {day: '2-digit', month: 'long', year: 'numeric'});
 
-      // Notificación por correo para el creador
       const creatorHtml = `
         <h2>¡Tarea Creada Exitosamente!</h2>
         <p>Hola ${creator.name},</p>
@@ -145,17 +198,14 @@ router.post('/tasks', jsonParser, authenticateToken, [body('title').notEmpty().t
       `;
       sendEmail(creator.email, `✅ Tarea Creada: ${taskTitle}`, creatorHtml);
 
-      // Notificaciones para los usuarios asignados
       if (assigned_to && Array.isArray(assigned_to)) {
         const stmt = db.prepare("INSERT INTO task_assignments (task_id, user_id) VALUES (?, ?)");
         assigned_to.forEach(userId => {
           stmt.run(taskId, userId);
           if (userId !== creator.id) {
-            // 1. Notificación interna (como ya estaba)
             const mensaje = `${creator.name} te ha asignado una nueva tarea: "${taskTitle}..."`;
             db.run(`INSERT INTO notifications (usuario_id, mensaje, tipo) VALUES (?, ?, ?)`, [userId, mensaje, 'assignment']);
             
-            // 2. Notificación por correo
             db.get("SELECT name, email FROM users WHERE id = ?", [userId], (err, assignedUser) => {
               if (assignedUser) {
                 const assigneeHtml = `
@@ -181,6 +231,9 @@ router.post('/tasks', jsonParser, authenticateToken, [body('title').notEmpty().t
       }
 
       res.status(201).json({ id: taskId, success: true });
+      
+      // <-- NUEVO: Avisamos a todos los clientes que las tareas han cambiado
+      broadcast({ type: 'TASKS_UPDATED' });
     }
   );
 });
@@ -189,11 +242,9 @@ router.post('/tasks', jsonParser, authenticateToken, [body('title').notEmpty().t
 router.put('/tasks/:id', jsonParser, authenticateToken, (req, res) => {
   const taskId = req.params.id;
   const { title, description, due_date, priority, assigned_to, label_ids } = req.body;
-
-  // Consulta que busca una tarea si el usuario es el creador O está asignado a ella.
+  
   const permissionSql = `
-    SELECT t.id
-    FROM tasks t
+    SELECT t.id FROM tasks t
     LEFT JOIN task_assignments ta ON t.id = ta.task_id
     WHERE t.id = ? AND (t.created_by = ? OR ta.user_id = ?)
     GROUP BY t.id
@@ -201,46 +252,32 @@ router.put('/tasks/:id', jsonParser, authenticateToken, (req, res) => {
 
   db.get(permissionSql, [taskId, req.userId, req.userId], (err, task) => {
     if (err) return res.status(500).json({ error: 'Error al verificar permisos de la tarea' });
-    
-    // Si la consulta no devuelve nada, es porque la tarea no existe o el usuario no tiene permisos.
-    if (!task) {
-      return res.status(403).json({ error: 'No tienes permiso para editar esta tarea o la tarea no existe' });
-    }
+    if (!task) return res.status(403).json({ error: 'No tienes permiso para editar esta tarea o la tarea no existe' });
 
-    // Si se encontró la tarea y el usuario tiene permiso, procedemos con la actualización.
-    // Usamos una transacción para asegurar que todas las operaciones se completen.
     db.serialize(() => {
       db.run("BEGIN TRANSACTION");
-
-      // 1. Actualizar la tarea principal
-      const taskSql = `UPDATE tasks SET title = ?, description = ?, due_date = ?, priority = ? WHERE id = ?`;
-      db.run(taskSql, [title, description, due_date, priority, taskId]);
-
-      // 2. Actualizar asignaciones
+      db.run(`UPDATE tasks SET title = ?, description = ?, due_date = ?, priority = ? WHERE id = ?`, [title, description, due_date, priority, taskId]);
       db.run("DELETE FROM task_assignments WHERE task_id = ?", [taskId]);
       if (assigned_to && Array.isArray(assigned_to) && assigned_to.length > 0) {
         const assignStmt = db.prepare("INSERT INTO task_assignments (task_id, user_id) VALUES (?, ?)");
         assigned_to.forEach(userId => assignStmt.run(taskId, userId));
         assignStmt.finalize();
       }
-
-      // 3. Actualizar etiquetas
       db.run("DELETE FROM task_labels WHERE task_id = ?", [taskId]);
       if (label_ids && Array.isArray(label_ids) && label_ids.length > 0) {
         const labelStmt = db.prepare("INSERT INTO task_labels (task_id, label_id) VALUES (?, ?)");
         label_ids.forEach(labelId => labelStmt.run(taskId, labelId));
         labelStmt.finalize();
       }
-
-      // 4. Confirmar la transacción y solo entonces enviar la respuesta
       db.run("COMMIT", (commitErr) => {
         if (commitErr) {
-          console.error("Error al hacer COMMIT:", commitErr);
-          // Si algo falla, revertimos los cambios
           db.run("ROLLBACK");
           return res.status(500).json({ error: 'Error al guardar los cambios en la base de datos' });
         }
         res.status(200).json({ success: true, message: 'Tarea actualizada' });
+        
+        // <-- NUEVO: Avisamos a todos los clientes que las tareas han cambiado
+        broadcast({ type: 'TASKS_UPDATED' });
       });
     });
   });
@@ -249,17 +286,18 @@ router.put('/tasks/:id', jsonParser, authenticateToken, (req, res) => {
 // 🗑️ ELIMINAR TAREA
 router.delete('/tasks/:id', authenticateToken, (req, res) => {
   const taskId = req.params.id;
-
   db.get("SELECT created_by FROM tasks WHERE id = ?", [taskId], (err, task) => {
     if (err) return res.status(500).json({ error: 'Error al verificar la tarea' });
     if (!task) return res.status(404).json({ error: 'Tarea no encontrada' });
     if (task.created_by !== req.userId) {
       return res.status(403).json({ error: 'No tienes permiso para eliminar esta tarea' });
     }
-
     db.run("DELETE FROM tasks WHERE id = ?", [taskId], function(err) {
       if (err) return res.status(500).json({ error: 'Error al eliminar la tarea' });
       res.status(200).json({ success: true, message: 'Tarea eliminada' });
+      
+      // <-- NUEVO: Avisamos a todos los clientes que las tareas han cambiado
+      broadcast({ type: 'TASKS_UPDATED' });
     });
   });
 });
@@ -269,16 +307,16 @@ router.put('/tasks/:id/status', jsonParser, authenticateToken, [body('status').i
   const { id } = req.params;
   const { status } = req.body;
   const completed_at = status === 'completada' ? new Date().toISOString() : null;
-
   db.get("SELECT id FROM tasks WHERE id = ? AND (created_by = ? OR id IN (SELECT task_id FROM task_assignments WHERE user_id = ?))",
     [id, req.userId, req.userId], (err, task) => {
-      
       if (err) return res.status(500).json({ error: 'Error interno' });
       if (!task) return res.status(404).json({ error: 'Tarea no encontrada o sin permisos' });
-
       db.run("UPDATE tasks SET status = ?, completed_at = ? WHERE id = ?", [status, completed_at, id], function (err) {
         if (err) return res.status(500).json({ error: 'Error al actualizar' });
         res.json({ success: true, changed: this.changes });
+
+        // <-- NUEVO: Avisamos a todos los clientes que las tareas han cambiado
+        broadcast({ type: 'TASKS_UPDATED' });
       });
     });
 });
@@ -287,37 +325,23 @@ router.put('/tasks/:id/status', jsonParser, authenticateToken, [body('status').i
 router.get('/tasks/:id/comments', authenticateToken, (req, res) => {
   const taskId = req.params.id;
   const sql = `
-    SELECT 
-      c.id, c.contenido, c.autor_id, c.fecha_creacion,
-      u.name as autor_nombre, 
-      u.avatar_url as autor_avatar_url,
-      a.id as attachment_id,
-      a.file_path as attachment_path,
-      a.file_name as attachment_name
+    SELECT c.*, u.name as autor_nombre, u.avatar_url as autor_avatar_url,
+           a.id as attachment_id, a.file_path as attachment_path, a.file_name as attachment_name
     FROM comments c 
     JOIN users u ON c.autor_id = u.id 
     LEFT JOIN attachments a ON a.comment_id = c.id
     WHERE c.task_id = ? 
     ORDER BY c.fecha_creacion ASC
   `;
-
   db.all(sql, [taskId], (err, rows) => {
-    if (err) {
-      console.error("Error fetching comments:", err);
-      return res.status(500).json({ error: "Error al obtener comentarios" });
-    }
+    if (err) return res.status(500).json({ error: "Error al obtener comentarios" });
     const commentsMap = {};
     rows.forEach(row => {
       if (!commentsMap[row.id]) {
-        commentsMap[row.id] = {
-          id: row.id,
-          contenido: row.contenido,
-          autor_id: row.autor_id,
-          fecha_creacion: row.fecha_creacion,
-          autor_nombre: row.autor_nombre,
-          autor_avatar_url: row.autor_avatar_url,
-          attachments: []
-        };
+        commentsMap[row.id] = { ...row, attachments: [] };
+        delete commentsMap[row.id].attachment_id;
+        delete commentsMap[row.id].attachment_path;
+        delete commentsMap[row.id].attachment_name;
       }
       if (row.attachment_id) {
         commentsMap[row.id].attachments.push({
@@ -327,8 +351,7 @@ router.get('/tasks/:id/comments', authenticateToken, (req, res) => {
         });
       }
     });
-    const structuredComments = Object.values(commentsMap);
-    res.json(structuredComments);
+    res.json(Object.values(commentsMap));
   });
 });
 
@@ -336,35 +359,27 @@ router.get('/tasks/:id/comments', authenticateToken, (req, res) => {
 router.post('/tasks/comments', authenticateToken, upload.single('attachment'), async (req, res) => {
   const { task_id, contenido } = req.body;
   const autor_id = req.userId;
-
   if ((!contenido || !contenido.trim()) && !req.file) {
     return res.status(400).json({ error: 'El comentario no puede estar vacío si no se adjunta un archivo.' });
   }
-
   db.run(`INSERT INTO comments (task_id, contenido, autor_id) VALUES (?, ?, ?)`,
     [task_id, contenido || '', autor_id],
     function (err) {
       if (err) return res.status(500).json({ error: 'Error al crear comentario' });
-      
       const commentId = this.lastID;
-      
       if (req.file) {
         db.run(
           `INSERT INTO attachments (task_id, comment_id, file_path, file_name, file_type, file_size, uploaded_by) VALUES (?, ?, ?, ?, ?, ?, ?)`,
           [task_id, commentId, req.file.filename, req.file.originalname, req.file.mimetype, req.file.size, autor_id]
         );
       }
-      
       db.get("SELECT title, created_by FROM tasks WHERE id = ?", [task_id], (err, taskInfo) => {
         if (taskInfo) {
           db.all("SELECT user_id FROM task_assignments WHERE task_id = ?", [task_id], (err, assignments) => {
             const assignedUserIds = assignments.map(a => a.user_id);
-            const allInvolvedIds = [...new Set([taskInfo.created_by, ...assignedUserIds])];
-            const usersToNotify = allInvolvedIds.filter(id => id !== autor_id);
-
+            const usersToNotify = [...new Set([taskInfo.created_by, ...assignedUserIds])].filter(id => id !== autor_id);
             if (usersToNotify.length > 0) {
-              const taskTitle = taskInfo.title.substring(0, 30);
-              const mensaje = `${req.user.name} comentó en la tarea: "${taskTitle}..."`;
+              const mensaje = `${req.user.name} comentó en la tarea: "${taskInfo.title.substring(0, 30)}..."`;
               const stmt = db.prepare(`INSERT INTO notifications (usuario_id, mensaje, tipo) VALUES (?, ?, ?)`);
               usersToNotify.forEach(userId => stmt.run(userId, mensaje, 'comment'));
               stmt.finalize();
@@ -372,20 +387,19 @@ router.post('/tasks/comments', authenticateToken, upload.single('attachment'), a
           });
         }
       });
-      
       res.status(201).json({ id: commentId, success: true });
+      // <-- NUEVO: Avisamos a todos los clientes que las tareas han cambiado (un nuevo comentario es un cambio)
+      broadcast({ type: 'TASKS_UPDATED' });
     }
   );
 });
 
-
-// 📎 OBTENER ADJUNTOS DE UNA TAREA
+// 📎 OBTENER ADJUNTOS DE UNA TAREA (DIRECTOS)
 router.get('/attachments/task/:taskId', authenticateToken, (req, res) => {
   const { taskId } = req.params;
   db.get("SELECT id FROM tasks WHERE id = ? AND (created_by = ? OR id IN (SELECT task_id FROM task_assignments WHERE user_id = ?))",
     [taskId, req.userId, req.userId], (err, task) => {
       if (!task) return res.status(404).json({ error: 'Sin permisos o tarea no encontrada' });
-
       db.all(`SELECT a.*, u.name as uploaded_by_name FROM attachments a JOIN users u ON a.uploaded_by = u.id WHERE a.task_id = ? AND a.comment_id IS NULL`, [taskId],
         (err, attachments) => {
             if (err) return res.status(500).json({ error: 'Error al obtener adjuntos' });
@@ -395,37 +409,30 @@ router.get('/attachments/task/:taskId', authenticateToken, (req, res) => {
     });
 });
 
-// 📤 SUBIR ARCHIVO A UNA TAREA
+// 📤 SUBIR ARCHIVO A UNA TAREA (DIRECTO)
 router.post('/upload', authenticateToken, upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No se subió ningún archivo' });
-
   const { task_id, file_name } = req.body;
   if (!task_id) {
     fs.unlinkSync(req.file.path);
     return res.status(400).json({ error: 'ID de tarea requerido' });
   }
-
   db.get("SELECT id FROM tasks WHERE id = ? AND (created_by = ? OR id IN (SELECT task_id FROM task_assignments WHERE user_id = ?))",
     [task_id, req.userId, req.userId], (err, task) => {
-      if (err) {
+      if (err || !task) {
         fs.unlinkSync(req.file.path);
-        return res.status(500).json({ error: 'Error al verificar la tarea' });
+        return res.status(err ? 500 : 404).json({ error: err ? 'Error al verificar la tarea' : 'Tarea no encontrada o sin permisos' });
       }
-      if (!task) {
-        fs.unlinkSync(req.file.path);
-        return res.status(404).json({ error: 'Tarea no encontrada o sin permisos' });
-      }
-
-      db.run(
-        `INSERT INTO attachments (task_id, file_path, file_name, file_type, file_size, uploaded_by) VALUES (?, ?, ?, ?, ?, ?)`,
+      db.run(`INSERT INTO attachments (task_id, file_path, file_name, file_type, file_size, uploaded_by) VALUES (?, ?, ?, ?, ?, ?)`,
         [task_id, req.file.filename, file_name || req.file.originalname, req.file.mimetype, req.file.size, req.userId],
         function (err) {
           if (err) {
             fs.unlinkSync(req.file.path);
-            console.error('Error al guardar adjunto en la BD:', err.message);
             return res.status(500).json({ error: 'No se pudo guardar la información del archivo' });
           }
           res.status(201).json({ id: this.lastID, file_path: req.file.filename });
+          // <-- NUEVO: Avisamos a todos los clientes que las tareas han cambiado (un nuevo adjunto es un cambio)
+          broadcast({ type: 'TASKS_UPDATED' });
         }
       );
     });
@@ -435,13 +442,10 @@ router.post('/upload', authenticateToken, upload.single('file'), async (req, res
 router.get('/download/:filename', authenticateToken, (req, res) => {
   const { filename } = req.params;
   const filePath = path.join(uploadsDir, filename);
-
   if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Archivo no encontrado' });
-
   db.get(`SELECT a.*, t.id as task_id FROM attachments a JOIN tasks t ON a.task_id = t.id WHERE a.file_path = ? AND (t.created_by = ? OR t.id IN (SELECT task_id FROM task_assignments WHERE user_id = ?))`,
     [filename, req.userId, req.userId], (err, attachment) => {
-      if (err || !attachment) return res.status(404).json({ error: 'Sin permisos para descargar este archivo' });
-
+      if (err || !attachment) return res.status(403).json({ error: 'Sin permisos para descargar este archivo' });
       res.setHeader('Content-Disposition', `attachment; filename="${attachment.file_name}"`);
       res.setHeader('Content-Type', attachment.file_type || 'application/octet-stream');
       fs.createReadStream(filePath).pipe(res);
@@ -450,18 +454,15 @@ router.get('/download/:filename', authenticateToken, (req, res) => {
 
 // 🗓️ RESUMEN DE TAREAS
 router.get('/tasks/resumen', authenticateToken, (req, res) => {
-  // La lógica de fechas ahora se maneja directamente en SQL para mayor precisión.
   const sql = `
-  SELECT 
-    (SELECT COUNT(*) FROM tasks WHERE status = 'pendiente' AND due_date < datetime('now', '-4 hours')) as vencidas,
-    (SELECT COUNT(*) FROM tasks WHERE status = 'pendiente' AND due_date >= datetime('now', '-4 hours') AND due_date <= datetime('now', '-4 hours', '+3 days')) as proximas,
-    (SELECT COUNT(*) FROM tasks WHERE status = 'pendiente') as total_pendientes
-`;
-
-  // Ya no se necesitan parámetros, SQLite calcula la fecha actual por sí mismo.
+    SELECT 
+      (SELECT COUNT(*) FROM tasks WHERE status = 'pendiente' AND due_date < datetime('now', '-4 hours')) as vencidas,
+      (SELECT COUNT(*) FROM tasks WHERE status = 'pendiente' AND due_date >= datetime('now', '-4 hours') AND due_date <= datetime('now', '-4 hours', '+3 days')) as proximas,
+      (SELECT COUNT(*) FROM tasks WHERE status = 'pendiente') as total_pendientes
+  `;
   db.get(sql, [], (err, row) => {
       if(err) return res.status(500).json({ error: 'Error al generar el resumen '});
-      res.json(row || { vencidas: 0, proximas: 0, total_pendientes: 0 })
+      res.json(row || { vencidas: 0, proximas: 0, total_pendientes: 0 });
   });
 });
 
@@ -482,30 +483,18 @@ router.post('/labels', jsonParser, [
   if (!errors.isEmpty()) {
     return res.status(400).json({ errors: errors.array() });
   }
-
   const { name, color } = req.body;
   const created_by = req.userId;
-
-  db.run(
-    "INSERT OR IGNORE INTO labels (name, color, created_by) VALUES (?, ?, ?)",
+  db.run("INSERT OR IGNORE INTO labels (name, color, created_by) VALUES (?, ?, ?)",
     [name, color || '#00A651', created_by],
     function (err) {
-      if (err) {
-        return res.status(500).json({ error: 'No se pudo crear la etiqueta' });
-      }
-      if (this.changes === 0) {
-        return res.status(409).json({ error: 'La etiqueta ya existe' });
-      }
+      if (err) return res.status(500).json({ error: 'No se pudo crear la etiqueta' });
+      if (this.changes === 0) return res.status(409).json({ error: 'La etiqueta ya existe' });
       res.status(201).json({
-        id: this.lastID,
-        name,
-        color: color || '#00A651',
-        created_by,
-        success: true
+        id: this.lastID, name, color: color || '#00A651', created_by, success: true
       });
     }
   );
 });
-
 
 module.exports = router;

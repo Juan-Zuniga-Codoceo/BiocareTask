@@ -228,6 +228,43 @@ createApp({
       }
     };
 
+    const setupWebSocket = () => {
+      // Usamos wss:// (WebSocket Seguro) si la página está en https://
+      const wsProtocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+      const wsUrl = wsProtocol + window.location.host;
+      
+      const ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        console.log('✅ Conectado al servidor WebSocket en tiempo real.');
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          // Si el servidor nos dice que las tareas cambiaron...
+          if (message.type === 'TASKS_UPDATED') {
+            console.log('🔄 Recibida actualización de tareas, recargando tablero...');
+            // ¡Simplemente volvemos a cargar los datos!
+            cargarDatos();
+          }
+        } catch (e) {
+          console.error('Error al procesar mensaje de WebSocket:', e);
+        }
+      };
+
+      ws.onclose = () => {
+        console.log('🔌 Desconectado del servidor WebSocket. Intentando reconectar en 5 segundos...');
+        // Intentamos reconectar después de un breve período
+        setTimeout(setupWebSocket, 5000);
+      };
+
+      ws.onerror = (error) => {
+        console.error('❌ Error de WebSocket:', error);
+        ws.close(); // Cerramos la conexión para que onclose intente reconectar
+      };
+    };
+
     const cargarDatos = async () => {
       try {
         loading.value = true;
@@ -614,6 +651,7 @@ createApp({
     // ======================================================
     onMounted(() => {
       cargarDatos();
+      setupWebSocket(); 
 
       // Inicializar Flatpickr después de que el DOM esté completamente renderizado
       setTimeout(() => {
