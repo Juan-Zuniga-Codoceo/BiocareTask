@@ -26,8 +26,8 @@ createApp({
     const showLabelDropdown = ref(false);
     const nuevaEtiqueta = ref('');
     const nuevoComentario = ref('');
-    const archivoAdjunto = ref(null);
-    const commentAttachment = ref(null);
+    const archivosAdjuntos = ref([]);
+    const commentAttachments = ref([]);
     const notificaciones = ref([]);
     const mostrarNotificaciones = ref(false);
     const newTaskFp = ref(null);
@@ -169,31 +169,31 @@ createApp({
     // ======================================================
     const toggleDropdown = () => { showDropdown.value = !showDropdown.value; };
     // <-- PEGA ESTA FUNCIÓN AQUÍ
-const handleNotificationClick = async (notificacion) => {
-  // Cierra el panel si está abierto
-  if (mostrarNotificaciones.value) {
-    toggleNotifications();
-  }
+    const handleNotificationClick = async (notificacion) => {
+      // Cierra el panel si está abierto
+      if (mostrarNotificaciones.value) {
+        toggleNotifications();
+      }
 
-  // Si la notificación no está asociada a una tarea, no hace nada
-  if (!notificacion.task_id) return;
+      // Si la notificación no está asociada a una tarea, no hace nada
+      if (!notificacion.task_id) return;
 
-  // Busca la tarea en la lista de tareas ya cargada
-  const task = tasks.value.find(t => t.id === notificacion.task_id);
+      // Busca la tarea en la lista de tareas ya cargada
+      const task = tasks.value.find(t => t.id === notificacion.task_id);
 
-  if (task) {
-    // Si la encuentra, muestra los detalles
-    await verDetalles(task);
-  } else {
-    // Si no la encuentra, informa al usuario
-    showError('La tarea no se encontró en el tablero actual.');
-  }
+      if (task) {
+        // Si la encuentra, muestra los detalles
+        await verDetalles(task);
+      } else {
+        // Si no la encuentra, informa al usuario
+        showError('La tarea no se encontró en el tablero actual.');
+      }
 
-  // Marca la notificación como leída si no lo estaba
-  if (!notificacion.leida) {
-    marcarComoLeida(notificacion.id);
-  }
-};
+      // Marca la notificación como leída si no lo estaba
+      if (!notificacion.leida) {
+        marcarComoLeida(notificacion.id);
+      }
+    };
     const showError = (message) => { API.showNotification(message, 'error'); };
     const showSuccess = (message) => { API.showNotification(message, 'success'); };
     const toggleStateDropdown = () => {
@@ -227,7 +227,7 @@ const handleNotificationClick = async (notificacion) => {
     const setupWebSocket = () => {
       const wsProtocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
       const wsUrl = wsProtocol + window.location.host;
-      
+
       const ws = new WebSocket(wsUrl);
       ws.onopen = () => {
         console.log('✅ Conectado al servidor WebSocket en tiempo real.');
@@ -316,7 +316,7 @@ const handleNotificationClick = async (notificacion) => {
     const abrirConfirmarEliminar = () => {
       showDeleteConfirm.value = true;
     };
-    
+
     const eliminarTarea = async () => {
       try {
         await API.delete(`/api/tasks/${tareaSeleccionada.value.id}`);
@@ -338,11 +338,13 @@ const handleNotificationClick = async (notificacion) => {
       creandoTarea.value = true;
       try {
         const result = await API.post('/api/tasks', newTask.value);
-        if (archivoAdjunto.value && result.id) {
+        if (archivosAdjuntos.value.length > 0 && result.id) {
           const formData = new FormData();
-          formData.append('file', archivoAdjunto.value);
           formData.append('task_id', result.id.toString());
-          formData.append('file_name', archivoAdjunto.value.name);
+          // Usamos 'files' (plural) que coincide con el backend
+          for (const file of archivosAdjuntos.value) {
+            formData.append('files', file);
+          }
           await API.upload('/api/upload', formData);
         }
         showModal.value = false;
@@ -374,7 +376,7 @@ const handleNotificationClick = async (notificacion) => {
         newTask.value.label_ids.push(labelId);
       }
     };
-    
+
     const toggleLabelInEdit = (labelId) => {
       const index = editTask.value.label_ids.indexOf(labelId);
       if (index > -1) {
@@ -415,24 +417,30 @@ const handleNotificationClick = async (notificacion) => {
       };
       nuevaEtiqueta.value = '';
       nuevoComentario.value = '';
-      archivoAdjunto.value = null;
+      archivosAdjuntos.value = [];
       const fileInput = document.getElementById('fileInput');
       if (fileInput) fileInput.value = '';
     };
 
     const handleFileUpload = (event) => {
-      const file = event.target.files[0];
-      if (file) {
-        if (file.size > 10 * 1024 * 1024) {
-          showError('El archivo no debe exceder 10MB');
-          event.target.value = '';
+      const files = Array.from(event.target.files);
+      if (files.length > 0) {
+        // Comprobamos que no se exceda el límite total
+        if ((archivosAdjuntos.value.length + files.length) > 5) {
+          showError('Puedes subir un máximo de 5 archivos.');
           return;
         }
-        archivoAdjunto.value = file;
+        // Comprobamos el tamaño de cada archivo
+        for (const file of files) {
+          if (file.size > 10 * 1024 * 1024) { // 10MB
+            showError(`El archivo "${file.name}" excede los 10MB.`);
+            continue; // Salta este archivo y continúa con los demás
+          }
+          archivosAdjuntos.value.push(file);
+        }
       }
     };
-
-     const archivarTarea = async (taskId) => {
+    const archivarTarea = async (taskId) => {
       try {
         await API.post(`/api/tasks/${taskId}/archive`);
         tareaSeleccionada.value = null; // Cierra el modal
@@ -443,7 +451,7 @@ const handleNotificationClick = async (notificacion) => {
       }
     };
     const removeFile = () => {
-      archivoAdjunto.value = null;
+      archivosAdjuntos.value = []; // CORREGIDO: se limpia el array
       document.getElementById('fileInput').value = '';
     };
 
@@ -454,8 +462,8 @@ const handleNotificationClick = async (notificacion) => {
       try {
         await API.post('/api/labels', { name: nuevaEtiqueta.value.trim() });
         nuevaEtiqueta.value = '';
-        
-        
+
+
         await cargarDatos(); // Recargamos todos los datos, incluyendo las nuevas etiquetas
 
         showSuccess('🏷️ Etiqueta creada exitosamente');
@@ -490,30 +498,47 @@ const handleNotificationClick = async (notificacion) => {
     };
 
     const handleCommentAttachment = (event) => {
-      const file = event.target.files[0];
-      if (file) {
-        if (file.size > 10 * 1024 * 1024) {
-          return showError('El archivo no debe exceder 10MB');
+      const files = Array.from(event.target.files);
+      // Lógica similar a handleFileUpload para commentAttachments.value
+      if ((commentAttachments.value.length + files.length) > 5) {
+        showError('Puedes adjuntar un máximo de 5 archivos por comentario.');
+        return;
+      }
+      for (const file of files) {
+        if (file.size > 10 * 1024 * 1024) { // 10MB
+          showError(`El archivo "${file.name}" excede los 10MB.`);
+          continue;
         }
-        commentAttachment.value = file;
+        commentAttachments.value.push(file);
       }
     };
 
     const removeCommentAttachment = () => {
-      commentAttachment.value = null;
+      commentAttachments.value = [];
       document.getElementById('comment-attachment-input').value = '';
     };
 
+    const removeCommentAttachmentFile = (index) => {
+  // Elimina el archivo de la lista por su índice
+  commentAttachments.value.splice(index, 1);
+  // Resetea el input para poder volver a seleccionar los mismos archivos si es necesario
+  document.getElementById('comment-attachment-input').value = '';
+};
+
     const agregarComentario = async () => {
-      if ((!nuevoComentario.value.trim() && !commentAttachment.value) || !tareaSeleccionada.value) {
+      // CORREGIDO: se comprueba si el array de adjuntos está vacío
+      if ((!nuevoComentario.value.trim() && commentAttachments.value.length === 0) || !tareaSeleccionada.value) {
         return;
       }
       try {
         const formData = new FormData();
         formData.append('task_id', tareaSeleccionada.value.id);
         formData.append('contenido', nuevoComentario.value.trim());
-        if (commentAttachment.value) {
-          formData.append('attachment', commentAttachment.value);
+        if (commentAttachments.value.length > 0) {
+          // Usamos 'attachments' (plural) que coincide con el backend
+          for (const file of commentAttachments.value) {
+            formData.append('attachments', file);
+          }
         }
         await API.upload('/api/tasks/comments', formData);
         nuevoComentario.value = '';
@@ -541,7 +566,7 @@ const handleNotificationClick = async (notificacion) => {
         document.body.classList.remove('overlay-active');
       }
     };
-    
+
     const marcarComoLeida = async (id) => {
       try {
         await API.put(`/api/notifications/${id}/read`);
@@ -590,7 +615,7 @@ const handleNotificationClick = async (notificacion) => {
         });
       } catch { return isoDate; }
     };
-    
+
     const getColor = (labelName) => {
       const predefinedColors = {
         'Entrega': '#049DD9', 'Express': '#3498DB', 'Factura': '#97BF04',
@@ -605,9 +630,9 @@ const handleNotificationClick = async (notificacion) => {
       }
       return defaultColors[Math.abs(hash) % defaultColors.length];
     };
-    
+
     const getPriorityText = (priority) => ({ 'alta': 'Alta', 'media': 'Media', 'baja': 'Baja' }[priority] || priority);
-    
+
     const getFileSize = (bytes) => {
       if (!bytes || bytes === 0) return '0 Bytes';
       const k = 1024;
@@ -615,7 +640,7 @@ const handleNotificationClick = async (notificacion) => {
       const i = Math.floor(Math.log(bytes) / Math.log(k));
       return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     };
-    
+
     const downloadFile = async (attachment) => {
       try {
         const token = localStorage.getItem('auth_token');
@@ -652,8 +677,8 @@ const handleNotificationClick = async (notificacion) => {
       user, tasks, users, labels, resumen, misTareas, filtroFecha, showModal,
       tareaSeleccionada, creandoTarea, loading, error, showEditModal, editTask,
       showDeleteConfirm, suggestedLabels, showDropdown, toggleDropdown, newTask,
-      nuevaEtiqueta, nuevoComentario, archivoAdjunto, notificaciones,
-      mostrarNotificaciones, commentAttachment, showNewLabelDropdown, showLabelDropdown,
+      nuevaEtiqueta, nuevoComentario, archivosAdjuntos, notificaciones,
+      mostrarNotificaciones, commentAttachments, showNewLabelDropdown, showLabelDropdown,
       notificacionesPendientes, selectedLabelsInNew, availableLabelsInNew,
       selectedLabelsInEdit, availableLabelsInEdit, tareasFiltradas,
       tareasPendientes, tareasEnCamino, tareasCompletadas, selectedUsersInNew,
@@ -664,7 +689,7 @@ const handleNotificationClick = async (notificacion) => {
       abrirConfirmarEliminar, eliminarTarea, esTareaParaHoy, crearTarea,
       toggleLabelInNew, resetForm, handleFileUpload, removeFile, crearEtiqueta,
       toggleLabelInEdit, cambiarEstadoTarea, verDetalles, handleCommentAttachment,
-      removeCommentAttachment, agregarComentario, getLabelsArray, toggleNotifications,
+      removeCommentAttachment,removeCommentAttachmentFile, agregarComentario, getLabelsArray, toggleNotifications,
       marcarComoLeida, marcarTodasComoLeidas, eliminarNotificacion, formatDate,
       getColor, getPriorityText, getFileSize, downloadFile,
       setQuickDate, setQuickEditDate,

@@ -773,46 +773,6 @@ input[type="date"]:focus {
   background-color: #2ECC71;
 }
 
-.attachments-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.attachment-item {
-  display: flex;
-  align-items: center;
-  background-color: var(--c-bg);
-  padding: 8px 12px;
-  border-radius: var(--radius);
-  transition: var(--transition);
-}
-
-.attachment-item:hover {
-  background-color: #e8e8e8;
-}
-
-.attachment-name {
-  flex-grow: 1;
-  margin: 0 12px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-size: 14px;
-}
-
-.btn-download {
-  background: none;
-  border: none;
-  color: var(--c-primary);
-  font-size: 16px;
-  cursor: pointer;
-  transition: var(--transition);
-}
-
-.btn-download:hover {
-  color: var(--c-primary-light);
-}
 
 .modal-content.large.vence-hoy {
   border-top: 4px solid var(--c-danger);
@@ -1785,6 +1745,92 @@ select[multiple] option:checked {
   border-color: var(--c-primary);
 }
 
+/* ================================================================== */
+/* 14. Estilos para Adjuntos de Comentarios (UI/UX Mejorado)      */
+/* ================================================================== */
+
+/* Contenedor principal para los adjuntos (usado tanto en publicados como en previsualización) */
+.comment-attachments-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--c-border);
+}
+
+/* Estilo base de la píldora de archivo */
+.attachment-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background-color: var(--c-bg);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--c-text);
+  text-decoration: none;
+  transition: var(--transition);
+  overflow: hidden; /* Para que el texto no se salga */
+}
+
+/* Efecto al pasar el mouse sobre una píldora descargable */
+.attachment-pill:hover {
+  border-color: var(--c-primary);
+  background-color: #eaf5fb;
+  color: var(--c-primary);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+
+.attachment-pill i {
+  flex-shrink: 0;
+  color: var(--c-primary);
+}
+
+/* Nombre del archivo dentro de la píldora */
+.attachment-pill-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis; /* Añade "..." si el nombre es muy largo */
+}
+
+/* Estilo específico para la píldora en modo previsualización */
+.attachment-pill.preview {
+  background-color: #e9f7ef;
+  border-color: #a3d9b1;
+  color: #28a745;
+}
+
+.attachment-pill.preview i {
+  color: #28a745;
+}
+
+/* Botón para quitar un archivo de la previsualización */
+.remove-pill-btn {
+  background: none;
+  border: none;
+  color: var(--c-text-light);
+  font-size: 18px;
+  font-weight: bold;
+  margin-left: auto; /* Empuja el botón a la derecha */
+  padding: 0 0 0 8px;
+  cursor: pointer;
+  line-height: 1;
+  transition: var(--transition);
+}
+
+.remove-pill-btn:hover {
+  color: var(--c-danger);
+  transform: scale(1.2);
+}
+
+/* Eliminamos los estilos antiguos para evitar conflictos */
+.comment-attachment-list, .attachment-preview-list {
+  display: none;
+}
 
 
 @media (max-width: 480px) {

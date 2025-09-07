@@ -349,43 +349,79 @@ router.get('/tasks/:id/comments', authenticateToken, (req, res) => {
   });
 });
 
-// 📝 AGREGAR COMENTARIO A TAREA (CON ADJUNTO)
-router.post('/tasks/comments', authenticateToken, upload.single('attachment'), async (req, res) => {
+// 📝 AGREGAR COMENTARIO A TAREA (CON ADJUNTO MÚLTIPLE)
+router.post('/tasks/comments', authenticateToken, upload.array('attachments', 5), async (req, res) => {
   const { task_id, contenido } = req.body;
   const autor_id = req.userId;
-  if ((!contenido || !contenido.trim()) && !req.file) {
+  
+  // Verificamos si hay contenido de texto O si se subieron archivos
+  if ((!contenido || !contenido.trim()) && (!req.files || req.files.length === 0)) {
     return res.status(400).json({ error: 'El comentario no puede estar vacío si no se adjunta un archivo.' });
   }
-  db.run(`INSERT INTO comments (task_id, contenido, autor_id) VALUES (?, ?, ?)`,
-    [task_id, contenido || '', autor_id],
-    function (err) {
-      if (err) return res.status(500).json({ error: 'Error al crear comentario' });
-      const commentId = this.lastID;
-      if (req.file) {
-        db.run(
-          `INSERT INTO attachments (task_id, comment_id, file_path, file_name, file_type, file_size, uploaded_by) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [task_id, commentId, req.file.filename, req.file.originalname, req.file.mimetype, req.file.size, autor_id]
-        );
-      }
-      db.get("SELECT title, created_by FROM tasks WHERE id = ?", [task_id], (err, taskInfo) => {
-        if (taskInfo) {
-          db.all("SELECT user_id FROM task_assignments WHERE task_id = ?", [task_id], (err, assignments) => {
-            const assignedUserIds = assignments.map(a => a.user_id);
-            const usersToNotify = [...new Set([taskInfo.created_by, ...assignedUserIds])].filter(id => id !== autor_id);
-            if (usersToNotify.length > 0) {
-              const mensaje = `${req.user.name} comentó en la tarea: "${taskInfo.title.substring(0, 30)}..."`;
-              // <-- MODIFICADO: Añadimos task_id para que la notificación sea interactiva
-              const stmt = db.prepare(`INSERT INTO notifications (usuario_id, mensaje, tipo, task_id) VALUES (?, ?, ?, ?)`);
-              usersToNotify.forEach(userId => stmt.run(userId, mensaje, 'comment', task_id));
-              stmt.finalize();
+
+  // Usamos una transacción para asegurar que la inserción del comentario y sus adjuntos sean atómicas
+  db.serialize(() => {
+    db.run("BEGIN TRANSACTION");
+    
+    // 1. Insertar el comentario primero para obtener su ID
+    db.run(`INSERT INTO comments (task_id, contenido, autor_id) VALUES (?, ?, ?)`,
+      [task_id, contenido || '', autor_id],
+      function (err) {
+        if (err) {
+          db.run("ROLLBACK");
+          return res.status(500).json({ error: 'Error al crear comentario' });
+        }
+        
+        const commentId = this.lastID;
+        let filesInserted = true;
+
+        // 2. Insertar cada archivo adjunto si existen
+        if (req.files && req.files.length > 0) {
+          const stmt = db.prepare(
+            `INSERT INTO attachments (task_id, comment_id, file_path, file_name, file_type, file_size, uploaded_by) VALUES (?, ?, ?, ?, ?, ?, ?)`
+          );
+          
+          for (const file of req.files) {
+            stmt.run(task_id, commentId, file.filename, file.originalname, file.mimetype, file.size, autor_id, (err) => {
+              if (err) {
+                console.error('Error al insertar adjunto:', err);
+                filesInserted = false;
+              }
+            });
+          }
+          stmt.finalize();
+        }
+
+        // 3. Confirmar la transacción
+        db.run("COMMIT", (commitErr) => {
+          if (commitErr || !filesInserted) {
+            db.run("ROLLBACK");
+            // Adicionalmente, podrías limpiar los archivos del disco aquí.
+            return res.status(500).json({ error: 'Error al guardar los adjuntos del comentario' });
+          }
+
+          // 4. Si todo es exitoso, enviar notificaciones y respuesta
+          db.get("SELECT title, created_by FROM tasks WHERE id = ?", [task_id], (err, taskInfo) => {
+            if (taskInfo) {
+              db.all("SELECT user_id FROM task_assignments WHERE task_id = ?", [task_id], (err, assignments) => {
+                const assignedUserIds = assignments.map(a => a.user_id);
+                const usersToNotify = [...new Set([taskInfo.created_by, ...assignedUserIds])].filter(id => id !== autor_id);
+                if (usersToNotify.length > 0) {
+                  const mensaje = `${req.user.name} comentó en la tarea: "${taskInfo.title.substring(0, 30)}..."`;
+                  const stmtNotif = db.prepare(`INSERT INTO notifications (usuario_id, mensaje, tipo, task_id) VALUES (?, ?, ?, ?)`);
+                  usersToNotify.forEach(userId => stmtNotif.run(userId, mensaje, 'comment', task_id));
+                  stmtNotif.finalize();
+                }
+              });
             }
           });
-        }
-      });
-      res.status(201).json({ id: commentId, success: true });
-      broadcast({ type: 'TASKS_UPDATED' });
-    }
-  );
+          
+          res.status(201).json({ id: commentId, success: true });
+          broadcast({ type: 'TASKS_UPDATED' });
+        });
+      }
+    );
+  });
 });
 
 // 📎 OBTENER ADJUNTOS DE UNA TAREA (DIRECTOS)
@@ -403,32 +439,69 @@ router.get('/attachments/task/:taskId', authenticateToken, (req, res) => {
     });
 });
 
-// 📤 SUBIR ARCHIVO A UNA TAREA (DIRECTO)
-router.post('/upload', authenticateToken, upload.single('file'), async (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'No se subió ningún archivo' });
-  const { task_id, file_name } = req.body;
+// 📤 SUBIR ARCHIVOS A UNA TAREA (DIRECTO, MÚLTIPLE)
+router.post('/upload', authenticateToken, upload.array('files', 5), async (req, res) => {
+  // 1. Verificamos que se hayan subido archivos
+  if (!req.files || req.files.length === 0) {
+    return res.status(400).json({ error: 'No se subieron archivos' });
+  }
+
+  const { task_id } = req.body;
+
+  // Función para limpiar los archivos subidos en caso de error
+  const cleanupFiles = () => {
+    for (const file of req.files) {
+      try {
+        fs.unlinkSync(file.path);
+      } catch (e) {
+        console.error(`Error al limpiar el archivo: ${file.path}`, e);
+      }
+    }
+  };
+
+  // 2. Verificamos que se haya proporcionado un ID de tarea
   if (!task_id) {
-    fs.unlinkSync(req.file.path);
+    cleanupFiles();
     return res.status(400).json({ error: 'ID de tarea requerido' });
   }
+
+  // 3. Verificamos que el usuario tenga permisos sobre la tarea
   db.get("SELECT id FROM tasks WHERE id = ? AND (created_by = ? OR id IN (SELECT task_id FROM task_assignments WHERE user_id = ?))",
     [task_id, req.userId, req.userId], (err, task) => {
       if (err || !task) {
-        fs.unlinkSync(req.file.path);
+        cleanupFiles();
         return res.status(err ? 500 : 404).json({ error: err ? 'Error al verificar la tarea' : 'Tarea no encontrada o sin permisos' });
       }
-      db.run(`INSERT INTO attachments (task_id, file_path, file_name, file_type, file_size, uploaded_by) VALUES (?, ?, ?, ?, ?, ?)`,
-        [task_id, req.file.filename, file_name || req.file.originalname, req.file.mimetype, req.file.size, req.userId],
-        function (err) {
-          if (err) {
-            fs.unlinkSync(req.file.path);
-            return res.status(500).json({ error: 'No se pudo guardar la información del archivo' });
-          }
-          res.status(201).json({ id: this.lastID, file_path: req.file.filename });
-          broadcast({ type: 'TASKS_UPDATED' });
+
+      // 4. Preparamos la inserción en la base de datos
+      const stmt = db.prepare(`INSERT INTO attachments (task_id, file_path, file_name, file_type, file_size, uploaded_by) VALUES (?, ?, ?, ?, ?, ?)`);
+      const insertedFiles = [];
+
+      // 5. Usamos una transacción para insertar todos los archivos de forma atómica
+      db.serialize(() => {
+        db.run("BEGIN TRANSACTION");
+
+        for (const file of req.files) {
+          stmt.run(task_id, file.filename, file.originalname, file.mimetype, file.size, req.userId);
+          insertedFiles.push({ file_path: file.filename, file_name: file.originalname });
         }
-      );
-    });
+
+        db.run("COMMIT", (commitErr) => {
+          stmt.finalize(); // Cerramos el statement preparado
+
+          if (commitErr) {
+            db.run("ROLLBACK");
+            cleanupFiles(); // Limpiamos archivos si la transacción falla
+            return res.status(500).json({ error: 'No se pudo guardar la información de los archivos' });
+          }
+
+          // 6. Si todo sale bien, enviamos la respuesta y notificamos a los clientes
+          res.status(201).json({ success: true, files: insertedFiles });
+          broadcast({ type: 'TASKS_UPDATED' });
+        });
+      });
+    }
+  );
 });
 
 // 📥 DESCARGAR ARCHIVO
@@ -504,7 +577,7 @@ router.post('/tasks/:id/archive', authenticateToken, (req, res) => {
       return res.status(403).json({ error: 'No tienes permiso para archivar esta tarea' });
     }
 
-    db.run("UPDATE tasks SET is_archived = 1 WHERE id = ?", [taskId], function(err) {
+    db.run("UPDATE tasks SET is_archived = 1 WHERE id = ?", [taskId], function (err) {
       if (err) return res.status(500).json({ error: 'Error al archivar la tarea' });
       res.status(200).json({ success: true, message: 'Tarea archivada' });
 
