@@ -9,10 +9,6 @@ const fs = require('fs'); // Módulo para interactuar con el sistema de archivos
 // Esta variable de entorno es creada por Render y contiene la ruta de tu disco (ej: '/data/db')
 const dbDir = process.env.RENDER_DISK_MOUNT_PATH || __dirname;
 
-// Nos aseguramos de que el directorio del disco persistente exista antes de usarlo.
-if (!fs.existsSync(dbDir)) {
-  fs.mkdirSync(dbDir, { recursive: true });
-}
 
 // La ruta final ahora apuntará a '/data/db/database.sqlite' en Render,
 // o a la carpeta 'backend/' en tu entorno local.
