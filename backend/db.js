@@ -28,6 +28,8 @@ let db = new sqlite3.Database(dbPath, (err) => {
   }
 });
 
+db.configure('busyTimeout', 5000); 
+
 // === HABILITAR FOREIGN KEYS ===
 db.run("PRAGMA foreign_keys = ON", (err) => {
   if (err) {
