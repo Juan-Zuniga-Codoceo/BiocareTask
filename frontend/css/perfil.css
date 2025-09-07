@@ -394,3 +394,84 @@ input:checked + .slider:before {
     padding: 16px;
   }
 }
+
+/* --- ESTILOS PARA MENÚ MÓVIL (AÑADIR AL FINAL) --- */
+
+/* Evita el scroll del fondo cuando el menú está abierto */
+body.overlay-active {
+  overflow: hidden;
+}
+
+/* Ocultamos el botón de cerrar en la versión de escritorio por defecto */
+.btn-close-overlay {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  /* El contenedor del menú ahora es una capa semitransparente */
+  .dropdown-menu {
+    position: fixed;
+    inset: 0; 
+    width: 100%;
+    height: 100%;
+    background-color: rgba(10, 25, 41, 0.7);
+    backdrop-filter: blur(5px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+    border-radius: 0;
+    animation: fadeIn 0.3s ease;
+  }
+
+  /* Estilos para los enlaces */
+  .dropdown-menu a {
+    color: var(--c-white);
+    font-size: 22px;
+    font-weight: 600;
+    padding: 16px 24px;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius);
+    width: 80%;
+    max-width: 300px;
+    text-align: center;
+    transition: var(--transition);
+  }
+
+  .dropdown-menu a:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+    transform: scale(1.05);
+  }
+
+  /* Botón para cerrar el menú en la esquina */
+  .btn-close-overlay {
+    display: block; /* Hacemos visible el botón en móvil */
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: none;
+    border: none;
+    color: var(--c-white);
+    font-size: 40px;
+    font-weight: 300;
+    line-height: 1;
+    cursor: pointer;
+    transition: var(--transition);
+    opacity: 0.8;
+  }
+
+  .btn-close-overlay:hover {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+}
+
+/* Animación de entrada para el menú */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

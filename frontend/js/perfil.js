@@ -65,7 +65,16 @@ createApp({
     
 
     // OTRAS FUNCIONES (sin cambios en su lógica interna)
-    const toggleDropdown = () => { showDropdown.value = !showDropdown.value; };
+    
+    const toggleDropdown = () => {
+      showDropdown.value = !showDropdown.value;
+      // Lógica para bloquear/desbloquear el scroll
+      if (showDropdown.value) {
+        document.body.classList.add('overlay-active');
+      } else {
+        document.body.classList.remove('overlay-active');
+      }
+    };
     const logout = () => {
       localStorage.removeItem('biocare_user');
       localStorage.removeItem('auth_token');

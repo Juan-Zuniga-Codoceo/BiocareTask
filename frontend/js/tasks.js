@@ -169,8 +169,15 @@ createApp({
     // ======================================================
     // 4. FUNCIONES
     // ======================================================
-    const toggleDropdown = () => { showDropdown.value = !showDropdown.value; };
-    // <-- PEGA ESTA FUNCIÓN AQUÍ
+    const toggleDropdown = () => {
+      showDropdown.value = !showDropdown.value;
+      // Lógica para bloquear/desbloquear el scroll
+      if (showDropdown.value) {
+        document.body.classList.add('overlay-active');
+      } else {
+        document.body.classList.remove('overlay-active');
+      }
+    };
     const handleNotificationClick = async (notificacion) => {
       // Cierra el panel si está abierto
       if (mostrarNotificaciones.value) {
