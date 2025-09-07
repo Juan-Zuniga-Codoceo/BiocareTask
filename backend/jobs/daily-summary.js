@@ -19,73 +19,64 @@ const dbQuery = (sql, params = []) => {
 
 const sendDailySummaries = async () => {
   console.log('📦 Iniciando trabajo: Envío de resúmenes diarios...');
-  const today = new Date().toISOString().slice(0, 10);
+  const hoy = new Date().toISOString().slice(0, 10);
+  const ayer = new Date();
+  ayer.setDate(ayer.getDate() - 1);
+  const ayerFormateado = ayer.toISOString().slice(0, 10);
 
   try {
-    // Pequeña pausa para asegurar que la conexión esté lista
-    await new Promise(resolve => setTimeout(resolve, 100));
-
-    // 1. Obtener usuarios
     const users = await dbQuery("SELECT id, name, email FROM users WHERE email_notifications = 1");
 
-    if (users.length === 0) {
-      console.log('ℹ️ No hay usuarios suscritos a las notificaciones. Trabajo finalizado.');
-      return;
-    }
-
-    console.log(`📧 Enviando resúmenes a ${users.length} usuario(s)...`);
-
-    // 2. Para cada usuario, buscar sus tareas de hoy
     for (const user of users) {
-      try {
-        const tasks = await dbQuery(`
-          SELECT t.title, t.priority FROM tasks t
-          LEFT JOIN task_assignments ta ON t.id = ta.task_id
-          WHERE (t.created_by = ? OR ta.user_id = ?)
-            AND date(t.due_date) = date(?)
-            AND t.status != 'completada'
-          ORDER BY CASE t.priority 
-            WHEN 'alta' THEN 1 
-            WHEN 'media' THEN 2 
-            WHEN 'baja' THEN 3 
-            ELSE 4 
-          END ASC, t.title ASC
-        `, [user.id, user.id, today]);
+      // 1. Tareas COMPLETADAS AYER
+      const tareasCompletadasAyer = await dbQuery(`
+        SELECT title, priority 
+        FROM tasks 
+        WHERE (created_by = ? OR id IN (SELECT task_id FROM task_assignments WHERE user_id = ?))
+          AND date(completed_at) = date(?)
+          AND status = 'completada'
+      `, [user.id, user.id, ayerFormateado]);
 
-        if (tasks.length > 0) {
-          console.log(`📋 ${user.name} tiene ${tasks.length} tarea(s) para hoy`);
-          
-          // 3. Construir y enviar el correo
-          let taskListHtml = tasks.map(task => 
-            `<li style="margin-bottom: 10px;">
-               <strong style="color: ${task.priority === 'alta' ? '#E74C3C' : '#34495E'};">[${task.priority.toUpperCase()}]</strong> ${task.title}
-             </li>`
-          ).join('');
+      // 2. Tareas PENDIENTES HOY
+      const tareasPendientesHoy = await dbQuery(`
+        SELECT title, priority 
+        FROM tasks 
+        LEFT JOIN task_assignments ta ON tasks.id = ta.task_id
+        WHERE (tasks.created_by = ? OR ta.user_id = ?)
+          AND date(due_date) = date(?)
+          AND status != 'completada'
+      `, [user.id, user.id, hoy]);
 
-          const emailHtml = `
-            <h2>Resumen de Tareas para Hoy</h2>
-            <p>Hola ${user.name}, aquí tienes tus tareas que vencen hoy en BiocareTask:</p>
-            <ul style="padding-left: 20px;">${taskListHtml}</ul>
-            <p>¡Que tengas un día productivo!</p>
-            <a href="${process.env.APP_URL || 'http://localhost:3000'}/tablero" style="color: #049DD9; font-weight: bold;">Ir a mi tablero</a>
-          `;
-          
-          await sendEmail(user.email, `📋 Tu resumen de BiocareTask para hoy`, emailHtml);
-          console.log(`✅ Correo enviado a: ${user.email}`);
-        } else {
-          console.log(`ℹ️ ${user.name} no tiene tareas para hoy`);
+      if (tareasCompletadasAyer.length > 0 || tareasPendientesHoy.length > 0) {
+        let emailHtml = `<h2>📊 Resumen Diario de BiocareTask</h2>`;
+        
+        // Tareas completadas ayer
+        if (tareasCompletadasAyer.length > 0) {
+          emailHtml += `<h3>✅ Completadas Ayer:</h3><ul>`;
+          tareasCompletadasAyer.forEach(task => {
+            emailHtml += `<li><strong>[${task.priority.toUpperCase()}]</strong> ${task.title}</li>`;
+          });
+          emailHtml += `</ul>`;
         }
-      } catch (userError) {
-        console.error(`❌ Error procesando usuario ${user.email}:`, userError.message);
-        // Continuamos con el siguiente usuario
+
+        // Tareas pendientes hoy
+        if (tareasPendientesHoy.length > 0) {
+          emailHtml += `<h3>📅 Pendientes para Hoy:</h3><ul>`;
+          tareasPendientesHoy.forEach(task => {
+            emailHtml += `<li><strong style="color: ${task.priority === 'alta' ? '#E74C3C' : '#34495E'};">[${task.priority.toUpperCase()}]</strong> ${task.title}</li>`;
+          });
+          emailHtml += `</ul>`;
+        }
+
+        emailHtml += `<p><a href="${process.env.APP_URL}/tablero" style="color: #049DD9; font-weight: bold;">➡️ Ir a mi tablero</a></p>`;
+        
+        await sendEmail(user.email, `📋 Tu resumen diario de BiocareTask`, emailHtml);
       }
     }
 
-    console.log('✅ Proceso de resúmenes diarios finalizado.');
-
+    console.log('✅ Resúmenes diarios enviados correctamente');
   } catch (error) {
-    console.error('❌ Error fatal en el trabajo de resúmenes diarios:', error.message);
-    process.exit(1);
+    console.error('❌ Error:', error);
   }
 };
 
