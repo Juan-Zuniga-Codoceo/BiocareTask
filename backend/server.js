@@ -17,6 +17,11 @@ const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
 
 // Middlewares y configuración de rutas (sin cambios)
+// Servir archivos estáticos de forma explícita para evitar conflictos
+app.use('/css', express.static(path.join(__dirname, '..', 'frontend/css')));
+app.use('/js', express.static(path.join(__dirname, '..', 'frontend/js')));
+app.use('/assets', express.static(path.join(__dirname, '..', 'frontend/assets')));
+// Esta línea es un fallback para archivos en la raíz como manifest.json o el favicon
 app.use(express.static(path.join(__dirname, '..', 'frontend')));
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 app.use('/api', authRoutes);

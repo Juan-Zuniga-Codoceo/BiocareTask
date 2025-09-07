@@ -7,7 +7,11 @@ createApp({
     const archivedTasks = ref([]);
     const loading = ref(true);
     const showDropdown = ref(false);
-    
+    const searchTerm = ref('');
+    const sortBy = ref('newest');
+    const restoring = ref(null);
+    const restoredCount = ref(0);
+
     // Estado para el modal de detalles
     const tareaSeleccionada = ref(null);
     const loadingDetails = ref(false);
@@ -20,87 +24,157 @@ createApp({
         const data = await API.get('/api/tasks/archived');
         archivedTasks.value = data || [];
       } catch (error) {
-        API.showNotification('No se pudo cargar el archivo.', 'error');
+        API.showNotification('No se pudo cargar el historial archivado.', 'error');
+        console.error('Error al cargar tareas archivadas:', error);
       } finally {
         loading.value = false;
       }
     };
 
-    // NUEVO: Función para ver los detalles de una tarea archivada
-    const verDetalles = async (task) => {
-        try {
-            loadingDetails.value = true;
-            // Pedimos al servidor todos los datos de esta tarea específica
-            const fullTaskData = await API.get(`/api/tasks/${task.id}`);
-            tareaSeleccionada.value = fullTaskData;
-        } catch (error) {
-            API.showNotification('Error al cargar los detalles de la tarea.', 'error');
-        } finally {
-            loadingDetails.value = false;
+    // Función para restaurar una tarea archivada
+    const restoreTask = async (taskId) => {
+      try {
+        restoring.value = taskId;
+
+        // Llamar a la API para restaurar la tarea
+        const response = await API.post(`/api/tasks/${taskId}/unarchive`);
+
+        if (response.success) {
+          // Eliminar la tarea de la lista local
+          archivedTasks.value = archivedTasks.value.filter(task => task.id !== taskId);
+
+          // Incrementar contador de restauradas
+          restoredCount.value++;
+          // Guardar el nuevo valor en la memoria de la sesión
+          sessionStorage.setItem('restoredCount', restoredCount.value);
+
+          // Cerrar modal si está abierto
+          if (tareaSeleccionada.value && tareaSeleccionada.value.id === taskId) {
+            tareaSeleccionada.value = null;
+          }
+
+          API.showNotification('Tarea restaurada correctamente', 'success');
+        } else {
+          throw new Error('No se pudo restaurar la tarea');
         }
-    };
-    
-    // --- FUNCIONES DE UTILIDAD (Copiadas de tasks.js para el modal) ---
-    
-    const formatDate = (isoDate) => {
-        if (!isoDate) return 'N/A';
-        return new Date(isoDate).toLocaleString('es-CL', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-    };
-
-    const getLabelsArray = (task) => {
-      if (!task?.label_names) return [];
-      return task.label_names.split(',').map(label => label.trim()).filter(Boolean);
-    };
-
-    const getColor = (labelName) => {
-      const predefinedColors = { 'Entrega': '#049DD9', 'Express': '#3498DB', 'Factura': '#97BF04', 'Valparaíso': '#F39C12', 'Viña del Mar': '#E67E22', 'Quilpué': '#16A085', 'Prioritaria': '#E74C3C', 'Urgente': '#C0392B' };
-      if (predefinedColors[labelName]) return predefinedColors[labelName];
-      const defaultColors = ['#2980B9', '#27AE60', '#8E44AD', '#2C3E50', '#7F8C8D'];
-      let hash = 0;
-      for (let i = 0; i < labelName.length; i++) {
-        hash = labelName.charCodeAt(i) + ((hash << 5) - hash);
+      } catch (error) {
+        console.error('Error al restaurar tarea:', error);
+        API.showNotification('Error al restaurar la tarea: ' + (error.message || ''), 'error');
+      } finally {
+        restoring.value = null;
       }
-      return defaultColors[Math.abs(hash) % defaultColors.length];
     };
 
-    const getPriorityText = (priority) => ({ 'alta': 'Alta', 'media': 'Media', 'baja': 'Baja' }[priority] || priority);
-
-    const downloadFile = async (attachment) => {
-      // ... (pega aquí la función downloadFile completa desde tu tasks.js)
+    // Función para ver los detalles de una tarea archivada
+    const verDetalles = async (task) => {
+      try {
+        loadingDetails.value = true;
+        tareaSeleccionada.value = task;
+      } catch (error) {
+        API.showNotification('Error al cargar los detalles de la tarea.', 'error');
+        console.error('Error al cargar detalles:', error);
+      } finally {
+        loadingDetails.value = false;
+      }
     };
-    
+
+    // --- FUNCIONES DE UTILIDAD ---
+
+    const formatDate = (isoDate) => {
+      if (!isoDate) return 'Fecha no disponible';
+      const date = new Date(isoDate);
+      return date.toLocaleDateString('es-CL', {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    };
+
     // --- FUNCIONES DEL HEADER ---
-    const toggleDropdown = () => { showDropdown.value = !showDropdown.value; };
-    const logout = () => {
-        localStorage.removeItem('biocare_user');
-        localStorage.removeItem('auth_token');
-        window.location.href = '/login.html';
+    const toggleDropdown = () => {
+      showDropdown.value = !showDropdown.value;
     };
 
-    // --- CARGA INICIAL ---
-    onMounted(() => {
-        const userData = localStorage.getItem('biocare_user');
-        if (!userData) { window.location.href = '/login.html'; }
-        else { user.value = JSON.parse(userData); }
-        cargarArchivadas();
+    const logout = () => {
+      localStorage.removeItem('biocare_user');
+      localStorage.removeItem('auth_token');
+      sessionStorage.removeItem('restoredCount');
+      window.location.href = '/login.html';
+    };
+    // --- COMPUTED PROPERTIES ---
+    const filteredTasks = computed(() => {
+      let filtered = archivedTasks.value;
+
+      // Filtrar por término de búsqueda
+      if (searchTerm.value) {
+        const term = searchTerm.value.toLowerCase();
+        filtered = filtered.filter(task =>
+          task.title.toLowerCase().includes(term) ||
+          (task.description && task.description.toLowerCase().includes(term))
+        );
+      }
+
+      // Ordenar
+      switch (sortBy.value) {
+        case 'newest':
+          return filtered.sort((a, b) => new Date(b.completed_at) - new Date(a.completed_at));
+        case 'oldest':
+          return filtered.sort((a, b) => new Date(a.completed_at) - new Date(b.completed_at));
+        case 'title':
+          return filtered.sort((a, b) => a.title.localeCompare(b.title));
+        default:
+          return filtered;
+      }
     });
 
-    return { 
-        user, 
-        archivedTasks, 
-        loading, 
-        formatDate, 
-        showDropdown, 
-        toggleDropdown, 
-        logout,
-        // Nuevas variables y funciones para el modal
-        tareaSeleccionada,
-        loadingDetails,
-        verDetalles,
-        getLabelsArray,
-        getColor,
-        getPriorityText,
-        downloadFile
+    const completedThisWeek = computed(() => {
+      const oneWeekAgo = new Date();
+      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+      return archivedTasks.value.filter(task => {
+        if (!task.completed_at) return false;
+        return new Date(task.completed_at) >= oneWeekAgo;
+      }).length;
+    });
+
+    onMounted(() => {
+      const userData = localStorage.getItem('biocare_user');
+      if (!userData) {
+        window.location.href = '/login.html';
+      } else {
+        user.value = JSON.parse(userData);
+      }
+
+      // Leer el contador guardado al cargar la página
+      const savedCount = sessionStorage.getItem('restoredCount');
+      if (savedCount) {
+        restoredCount.value = parseInt(savedCount, 10);
+      }
+
+      cargarArchivadas();
+    });
+
+    return {
+      user,
+      archivedTasks,
+      loading,
+      searchTerm,
+      sortBy,
+      filteredTasks,
+      completedThisWeek,
+      restoredCount,
+      restoring,
+      formatDate,
+      showDropdown,
+      toggleDropdown,
+      logout,
+      // Variables y funciones para el modal
+      tareaSeleccionada,
+      loadingDetails,
+      verDetalles,
+      restoreTask
     };
   }
 }).mount('#app');

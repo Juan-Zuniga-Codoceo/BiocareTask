@@ -761,7 +761,8 @@ createApp({
       adjuntosParaBorrar,
       handleFileUploadEnEdicion,
       quitarDeLaListaDeSubida,
-      marcarParaBorrar
+      marcarParaBorrar,
+      archivarTarea
     };
   }
 }).mount('#app');

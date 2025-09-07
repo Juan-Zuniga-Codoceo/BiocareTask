@@ -319,6 +319,66 @@ input:checked + .slider:before {
   margin-left: 16px;
 }
 
+/* Estilos para la página de Tareas Archivadas */
+
+.archived-tasks-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.task-card.archived {
+  background-color: var(--c-bg);
+  padding: 16px;
+  border-radius: var(--radius);
+  border: 1px solid var(--c-border);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.task-card.archived:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--c-primary);
+}
+
+.task-card.archived h4 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.task-card.archived small {
+  font-size: 13px;
+  color: var(--c-text-light);
+}
+
+.task-card.archived .task-actions {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--c-border);
+  text-align: right;
+}
+
+.btn-restore {
+  background-color: var(--c-action);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: var(--radius);
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: var(--transition);
+}
+
+.btn-restore:hover {
+  background-color: var(--c-action-dark);
+  transform: scale(1.05);
+}
 
 @media (max-width: 900px) {
   .profile-grid {

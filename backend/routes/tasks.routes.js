@@ -638,5 +638,36 @@ router.get('/tasks/archived', authenticateToken, (req, res) => {
   });
 });
 
+// 🗄️ RESTAURAR UNA TAREA ARCHIVADA
+router.post('/tasks/:id/unarchive', authenticateToken, (req, res) => {
+  const taskId = req.params.id;
+  const userId = req.userId;
+
+  // Solo el creador de la tarea o un admin pueden restaurarla
+  db.get("SELECT created_by FROM tasks WHERE id = ?", [taskId], (err, task) => {
+    if (err) {
+      return res.status(500).json({ error: 'Error al verificar la tarea' });
+    }
+    if (!task) {
+      return res.status(404).json({ error: 'Tarea no encontrada' });
+    }
+    if (task.created_by !== userId && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'No tienes permiso para restaurar esta tarea' });
+    }
+
+    // Si tiene permisos, actualiza is_archived a 0
+    db.run("UPDATE tasks SET is_archived = 0 WHERE id = ?", [taskId], function (err) {
+      if (err) {
+        return res.status(500).json({ error: 'Error al restaurar la tarea' });
+      }
+      res.status(200).json({ success: true, message: 'Tarea restaurada correctamente' });
+
+      // Avisamos a todos los clientes para que sus tableros se actualicen
+      broadcast({ type: 'TASKS_UPDATED' });
+    });
+  });
+});
+
+
 
 module.exports = router;
