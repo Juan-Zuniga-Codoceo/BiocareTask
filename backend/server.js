@@ -11,6 +11,7 @@ const { initializeWebSocket } = require('./services/websocket.service');
 const authRoutes = require('./routes/auth.routes');
 const tasksRoutes = require('./routes/tasks.routes');
 const usersRoutes = require('./routes/users.routes');
+const { initScheduledJobs } = require('./jobs/in-app-jobs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -45,7 +46,10 @@ app.use((err, req, res, next) => {
 // === INICIAR SERVIDOR ===
 const server = app.listen(PORT, HOST, () => {
   console.log(`🚀 BiocareTask corriendo en http://${HOST}:${PORT}`);
+  
+  // Inicia el WebSocket Server
+  initializeWebSocket(server);
+  
+  // Inicia nuestras tareas programadas internas
+  initScheduledJobs(); // <-- LÍNEA AÑADIDA
 });
-
-// <-- NUEVO: Inicializamos el WebSocket server pasándole nuestro servidor HTTP
-initializeWebSocket(server);
