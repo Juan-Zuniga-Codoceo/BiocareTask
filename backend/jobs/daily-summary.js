@@ -61,7 +61,7 @@ const sendDailySummaries = async () => {
   } catch (error) {
     console.error('❌ Error fatal en el trabajo de resúmenes diarios:', error);
   } finally {
-    db.close();
+    
   }
 };
 
