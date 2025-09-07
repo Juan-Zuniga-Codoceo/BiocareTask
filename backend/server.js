@@ -11,6 +11,7 @@ const { initializeWebSocket } = require('./services/websocket.service');
 const authRoutes = require('./routes/auth.routes');
 const tasksRoutes = require('./routes/tasks.routes');
 const usersRoutes = require('./routes/users.routes');
+// <-- NUEVO: Importamos el programador de tareas internas
 const { initScheduledJobs } = require('./jobs/in-app-jobs');
 
 const app = express();
@@ -51,5 +52,5 @@ const server = app.listen(PORT, HOST, () => {
   initializeWebSocket(server);
   
   // Inicia nuestras tareas programadas internas
-  initScheduledJobs(); // <-- LÍNEA AÑADIDA
+  initScheduledJobs(); // 
 });
