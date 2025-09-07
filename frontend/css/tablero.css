@@ -1832,6 +1832,15 @@ select[multiple] option:checked {
   display: none;
 }
 
+.attachment-pill.marked-for-deletion {
+  opacity: 0.5;
+  background-color: #fdedec !important;
+  border-color: #f5b7b1 !important;
+  text-decoration: line-through;
+}
+.attachment-pill.marked-for-deletion:hover {
+  opacity: 0.8;
+}
 
 @media (max-width: 480px) {
 

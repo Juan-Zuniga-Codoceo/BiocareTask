@@ -544,6 +544,36 @@
           </div>
         </div>
 
+        <div class="form-group">
+          <label>Archivos Adjuntos</label>
+
+          <div class="comment-attachments-grid" v-if="editTask.attachments && editTask.attachments.length > 0">
+            <div v-for="att in editTask.attachments" :key="att.id" class="attachment-pill"
+              :class="{ 'marked-for-deletion': adjuntosParaBorrar.includes(att.id) }"
+              :title="adjuntosParaBorrar.includes(att.id) ? 'Marcado para eliminar' : att.file_name">
+
+              <i class="fa-solid fa-file-zipper"></i>
+              <span class="attachment-pill-name">{{ att.file_name }}</span>
+              <button @click="marcarParaBorrar(att.id)" class="remove-pill-btn">&times;</button>
+            </div>
+          </div>
+          <p v-else class="empty-pills">Esta tarea no tiene archivos adjuntos.</p>
+        </div>
+
+        <div class="form-group">
+          <label for="editFileInput">Añadir Nuevos Archivos</label>
+          <input type="file" @change="handleFileUploadEnEdicion" class="file-input" id="editFileInput" multiple />
+
+          <div v-if="archivosParaSubirEnEdicion.length > 0" class="comment-attachments-grid" style="margin-top: 12px;">
+            <div v-for="(file, index) in archivosParaSubirEnEdicion" :key="index" class="attachment-pill preview">
+              <i class="fa-solid fa-file-arrow-up"></i>
+              <span class="attachment-pill-name">{{ file.name }}</span>
+              <button @click="quitarDeLaListaDeSubida(index)" class="remove-pill-btn"
+                title="Quitar archivo">&times;</button>
+            </div>
+          </div>
+        </div>
+
         <div class="form-group create-label-group">
           <input type="text" v-model="nuevaEtiqueta" placeholder="O crea una nueva etiqueta..."
             @keyup.enter="crearEtiqueta" />

@@ -33,6 +33,8 @@ createApp({
     const newTaskFp = ref(null);
     const editTaskFp = ref(null);
     const showStateDropdown = ref(false);
+    const archivosParaSubirEnEdicion = ref([]);
+    const adjuntosParaBorrar = ref([]);
     const newTask = ref({
       title: '', description: '', due_date: '', priority: 'media',
       assigned_to: [], label_ids: [], comentario_inicial: ''
@@ -299,15 +301,37 @@ createApp({
       const labelNameArray = labelNames ? labelNames.split(',') : [];
       editTask.value.assigned_to = users.value.filter(u => assignmentNameArray.includes(u.name)).map(u => u.id);
       editTask.value.label_ids = labels.value.filter(l => labelNameArray.includes(l.name)).map(l => l.id);
+      archivosParaSubirEnEdicion.value = [];
+      adjuntosParaBorrar.value = [];
       tareaSeleccionada.value = null;
       showEditModal.value = true;
     };
 
     const guardarCambiosTarea = async () => {
       try {
+        // 1. Guardar los cambios principales de la tarea (título, descripción, etc.)
         await API.put(`/api/tasks/${editTask.value.id}`, editTask.value);
+
+        // 2. Eliminar los adjuntos marcados (se ejecutan en paralelo)
+        if (adjuntosParaBorrar.value.length > 0) {
+          await Promise.all(
+            adjuntosParaBorrar.value.map(id => API.delete(`/api/attachments/${id}`))
+          );
+        }
+
+        // 3. Subir los nuevos archivos si los hay
+        if (archivosParaSubirEnEdicion.value.length > 0) {
+          const formData = new FormData();
+          formData.append('task_id', editTask.value.id.toString());
+          for (const file of archivosParaSubirEnEdicion.value) {
+            formData.append('files', file);
+          }
+          await API.upload('/api/upload', formData);
+        }
+
         showEditModal.value = false;
         showSuccess('✅ Tarea actualizada correctamente');
+        // La vista se actualizará automáticamente gracias al WebSocket
       } catch (err) {
         showError('❌ Error al guardar los cambios: ' + err.message);
       }
@@ -440,6 +464,34 @@ createApp({
         }
       }
     };
+
+    const handleFileUploadEnEdicion = (event) => {
+      // Agrega los archivos seleccionados a la lista de nuevos adjuntos
+      for (const file of event.target.files) {
+        if (file.size > 10 * 1024 * 1024) { // 10MB
+          showError(`El archivo "${file.name}" excede los 10MB.`);
+          continue;
+        }
+        archivosParaSubirEnEdicion.value.push(file);
+      }
+      event.target.value = ''; // Resetea el input
+    };
+
+    const quitarDeLaListaDeSubida = (index) => {
+      // Quita un archivo de la lista de previsualización antes de subirlo
+      archivosParaSubirEnEdicion.value.splice(index, 1);
+    };
+
+    const marcarParaBorrar = (attachmentId) => {
+      // Marca o desmarca un adjunto existente para su eliminación al guardar
+      const index = adjuntosParaBorrar.value.indexOf(attachmentId);
+      if (index > -1) {
+        adjuntosParaBorrar.value.splice(index, 1); // Desmarcar si ya está en la lista
+      } else {
+        adjuntosParaBorrar.value.push(attachmentId); // Marcar para borrar
+      }
+    };
+
     const archivarTarea = async (taskId) => {
       try {
         await API.post(`/api/tasks/${taskId}/archive`);
@@ -519,11 +571,11 @@ createApp({
     };
 
     const removeCommentAttachmentFile = (index) => {
-  // Elimina el archivo de la lista por su índice
-  commentAttachments.value.splice(index, 1);
-  // Resetea el input para poder volver a seleccionar los mismos archivos si es necesario
-  document.getElementById('comment-attachment-input').value = '';
-};
+      // Elimina el archivo de la lista por su índice
+      commentAttachments.value.splice(index, 1);
+      // Resetea el input para poder volver a seleccionar los mismos archivos si es necesario
+      document.getElementById('comment-attachment-input').value = '';
+    };
 
     const agregarComentario = async () => {
       // CORREGIDO: se comprueba si el array de adjuntos está vacío
@@ -689,7 +741,7 @@ createApp({
       abrirConfirmarEliminar, eliminarTarea, esTareaParaHoy, crearTarea,
       toggleLabelInNew, resetForm, handleFileUpload, removeFile, crearEtiqueta,
       toggleLabelInEdit, cambiarEstadoTarea, verDetalles, handleCommentAttachment,
-      removeCommentAttachment,removeCommentAttachmentFile, agregarComentario, getLabelsArray, toggleNotifications,
+      removeCommentAttachment, removeCommentAttachmentFile, agregarComentario, getLabelsArray, toggleNotifications,
       marcarComoLeida, marcarTodasComoLeidas, eliminarNotificacion, formatDate,
       getColor, getPriorityText, getFileSize, downloadFile,
       setQuickDate, setQuickEditDate,
@@ -704,7 +756,12 @@ createApp({
       avanzarEstado,
       formatDescription,
       retrocederEstado,
-      handleNotificationClick
+      handleNotificationClick,
+      archivosParaSubirEnEdicion,
+      adjuntosParaBorrar,
+      handleFileUploadEnEdicion,
+      quitarDeLaListaDeSubida,
+      marcarParaBorrar
     };
   }
 }).mount('#app');

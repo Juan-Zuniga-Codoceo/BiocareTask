@@ -518,6 +518,43 @@ router.get('/download/:filename', authenticateToken, (req, res) => {
     });
 });
 
+// 🗑️ ELIMINAR UN ADJUNTO ESPECÍFICO
+router.delete('/attachments/:id', authenticateToken, (req, res) => {
+  const attachmentId = req.params.id;
+  const userId = req.userId;
+
+  // 1. Primero, obtenemos la información del adjunto, incluyendo el ID de la tarea a la que pertenece
+  db.get("SELECT task_id, file_path FROM attachments WHERE id = ?", [attachmentId], (err, attachment) => {
+    if (err) return res.status(500).json({ error: 'Error al buscar el adjunto' });
+    if (!attachment) return res.status(404).json({ error: 'Adjunto no encontrado' });
+
+    // 2. Verificamos que el usuario tenga permisos sobre la tarea dueña del adjunto
+    db.get("SELECT id FROM tasks WHERE id = ? AND (created_by = ? OR id IN (SELECT task_id FROM task_assignments WHERE user_id = ?))",
+      [attachment.task_id, userId, userId], (err, task) => {
+        if (err || !task) {
+          return res.status(403).json({ error: 'No tienes permiso para eliminar este adjunto' });
+        }
+
+        // 3. Si tiene permisos, procedemos a eliminar
+        const filePath = path.join(uploadsDir, attachment.file_path);
+
+        // Eliminar de la base de datos
+        db.run("DELETE FROM attachments WHERE id = ?", [attachmentId], function(err) {
+          if (err) return res.status(500).json({ error: 'Error al eliminar el adjunto de la base de datos' });
+
+          // Eliminar el archivo físico del disco
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+          }
+          
+          res.status(200).json({ success: true, message: 'Adjunto eliminado' });
+          broadcast({ type: 'TASKS_UPDATED' }); // Notificamos a todos para que actualicen la vista
+        });
+      }
+    );
+  });
+});
+
 // 🗓️ RESUMEN DE TAREAS
 router.get('/tasks/resumen', authenticateToken, (req, res) => {
   const sql = `
@@ -600,5 +637,6 @@ router.get('/tasks/archived', authenticateToken, (req, res) => {
     res.json(tasks || []);
   });
 });
+
 
 module.exports = router;
