@@ -13,6 +13,8 @@ const { authenticateToken } = require('../middleware/auth');
 const { sendEmail } = require('../services/email.service');
 // Importamos la función broadcast desde el servicio de WebSocket
 const { broadcast } = require('../services/websocket.service');
+// Cerca de la línea 12
+const { autoArchiveTasks } = require('../jobs/auto-archive');
 
 // --- Middlewares específicos para este router ---
 
@@ -70,6 +72,7 @@ const upload = multer({
 
 // 📋 LISTAR TAREAS (CON ADJUNTOS)
 router.get('/tasks', authenticateToken, (req, res) => {
+  autoArchiveTasks(); 
   const { assigned_to, created_by, status, due_date, search } = req.query;
 
   let sql = `
