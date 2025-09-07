@@ -37,7 +37,7 @@ body {
   line-height: 1.6;
 }
 
-/* Header mejorado */
+/* INICIO DE LA SECCIÓN MODIFICADA: HEADER CONSISTENTE */
 .header {
   display: flex;
   justify-content: space-between;
@@ -51,22 +51,16 @@ body {
   gap: 24px;
 }
 
-.header-left {
+.header-left, .header-right {
   display: flex;
   align-items: center;
   flex-shrink: 0;
 }
 
-.header-center {
+.main-controls {
   display: flex;
   justify-content: center;
   flex: 1;
-}
-
-.header-right {
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
 }
 
 .logo {
@@ -96,10 +90,7 @@ body {
 
 .main-nav {
   display: flex;
-  gap: 2px;
-  background-color: var(--c-bg);
-  padding: 4px;
-  border-radius: var(--radius);
+  gap: 8px;
 }
 
 .nav-link {
@@ -111,18 +102,19 @@ body {
   border-radius: var(--radius);
   color: var(--c-text-light);
   font-weight: 600;
+  border: 2px solid transparent;
   transition: var(--transition);
 }
 
 .nav-link:hover {
-  background-color: var(--c-panel-bg);
   color: var(--c-primary);
 }
 
 .nav-link.active {
-  background-color: var(--c-primary);
-  color: var(--c-white);
+  color: var(--c-primary);
+  background-color: var(--c-bg);
 }
+/* FIN DE LA SECCIÓN MODIFICADA */
 
 .user-actions {
   display: flex;
@@ -639,12 +631,9 @@ body {
     gap: 16px;
   }
   
-  .header-center {
+  .main-controls {
     order: 3;
     width: 100%;
-  }
-  
-  .main-nav {
     justify-content: center;
   }
 }
@@ -709,6 +698,7 @@ body {
   
   .modal-footer button {
     width: 100%;
+    justify-content: center;
   }
 }
 
@@ -742,4 +732,85 @@ body {
   .btn-view-details, .btn-restore {
     justify-content: center;
   }
+
+  /* --- ESTILOS PARA MENÚ MÓVIL (AÑADIR AL FINAL) --- */
+
+/* Evita el scroll del fondo cuando el menú está abierto */
+body.overlay-active {
+  overflow: hidden;
+}
+
+@media (max-width: 768px) {
+  /* El contenedor del menú ahora es una capa semitransparente */
+  .dropdown-menu {
+    position: fixed;
+    inset: 0; 
+    width: 100%;
+    height: 100%;
+    background-color: rgba(10, 25, 41, 0.7);
+    backdrop-filter: blur(5px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+    border-radius: 0;
+    animation: fadeIn 0.3s ease;
+  }
+
+  /* Estilos para los enlaces ("Mi Perfil", "Cerrar Sesión") */
+  .dropdown-menu a {
+    color: var(--c-white);
+    font-size: 22px;
+    font-weight: 600;
+    padding: 16px 24px;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius);
+    width: 80%;
+    max-width: 300px;
+    text-align: center;
+    transition: var(--transition);
+  }
+
+  .dropdown-menu a:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+    transform: scale(1.05);
+  }
+
+  /* Botón para cerrar el menú en la esquina */
+  .btn-close-overlay {
+    display: block; /* Hacemos visible el botón en móvil */
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: none;
+    border: none;
+    color: var(--c-white);
+    font-size: 40px;
+    font-weight: 300;
+    line-height: 1;
+    cursor: pointer;
+    transition: var(--transition);
+    opacity: 0.8;
+  }
+
+  .btn-close-overlay:hover {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+}
+
+/* Ocultamos el botón de cerrar en la versión de escritorio */
+.btn-close-overlay {
+  display: none;
+}
+
+/* Animación de entrada para el menú */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
 }

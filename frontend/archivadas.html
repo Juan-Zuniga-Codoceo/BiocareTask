@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -9,6 +10,7 @@
   <link rel="icon" href="/assets/logo.png" type="image/png">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
 </head>
+
 <body>
   <div id="app">
     <header class="header">
@@ -19,7 +21,7 @@
         </div>
       </div>
 
-      <div class="header-center">
+      <div class="main-controls">
         <nav class="main-nav">
           <a href="/tablero.html" class="nav-link" title="Tablero">
             <i class="fa-solid fa-table-columns"></i>
@@ -44,8 +46,12 @@
                 <i class="fa-solid fa-user-gear"></i>
               </button>
               <div class="dropdown-menu" v-if="showDropdown">
+                <button @click="toggleDropdown" class="btn-close-overlay">&times;</button>
+
+                <a href="/tablero.html"><i class="fa-solid fa-table-columns"></i> Tablero</a>
                 <a href="/perfil.html"><i class="fa-solid fa-user"></i> Mi Perfil</a>
-                <a href="javascript:void(0)" @click="logout()"><i class="fa-solid fa-right-from-bracket"></i> Cerrar sesión</a>
+                <a href="javascript:void(0)" @click="logout()"><i class="fa-solid fa-right-from-bracket"></i> Cerrar
+                  sesión</a>
               </div>
             </div>
             <span v-if="user" class="user-name">{{ user.name }}</span>
@@ -53,7 +59,6 @@
         </div>
       </div>
     </header>
-
     <main class="archived-dashboard">
       <div class="page-header">
         <h2><i class="fa-solid fa-box-archive"></i> Tareas Archivadas</h2>
@@ -112,10 +117,10 @@
                 </span>
               </div>
             </div>
-            
+
             <div class="task-body">
               <p v-if="task.description" class="task-description">{{ task.description }}</p>
-              
+
               <div class="task-footer">
                 <div class="task-info">
                   <span class="created-by">
@@ -123,13 +128,13 @@
                     ID: {{ task.id }}
                   </span>
                 </div>
-                
+
                 <div class="task-actions">
                   <button class="btn-view-details" @click="verDetalles(task)">
                     <i class="fa-solid fa-eye"></i> Detalles
                   </button>
                   <button class="btn-restore" @click="restoreTask(task.id)" :disabled="restoring">
-                    <i class="fa-solid fa-rotate-left"></i> 
+                    <i class="fa-solid fa-rotate-left"></i>
                     {{ restoring === task.id ? 'Restaurando...' : 'Restaurar' }}
                   </button>
                 </div>
@@ -140,7 +145,6 @@
       </div>
     </main>
 
-    <!-- Modal de detalles de tarea archivada -->
     <div class="modal" v-if="tareaSeleccionada" @click.self="tareaSeleccionada = null">
       <div class="modal-content large">
         <div class="modal-header">
@@ -150,7 +154,7 @@
           </h2>
           <button @click="tareaSeleccionada = null" class="btn-close-modal">&times;</button>
         </div>
-        
+
         <div class="modal-body" v-if="tareaSeleccionada">
           <div class="detail-grid">
             <div class="detail-col">
@@ -158,27 +162,27 @@
                 <h3><i class="fa-solid fa-heading"></i> Título</h3>
                 <p>{{ tareaSeleccionada.title }}</p>
               </div>
-              
+
               <div class="detail-section" v-if="tareaSeleccionada.description">
                 <h3><i class="fa-solid fa-align-left"></i> Descripción</h3>
                 <p>{{ tareaSeleccionada.description }}</p>
               </div>
             </div>
-            
+
             <div class="detail-col">
               <div class="detail-section">
                 <h3><i class="fa-solid fa-circle-info"></i> Información</h3>
                 <ul class="detail-list">
                   <li>
-                    <strong>Estado:</strong> 
+                    <strong>Estado:</strong>
                     <span class="status-badge completed">Completada</span>
                   </li>
                   <li>
-                    <strong>Completada el:</strong> 
+                    <strong>Completada el:</strong>
                     <span>{{ formatDate(tareaSeleccionada.completed_at) }}</span>
                   </li>
                   <li>
-                    <strong>ID de tarea:</strong> 
+                    <strong>ID de tarea:</strong>
                     <span>#{{ tareaSeleccionada.id }}</span>
                   </li>
                 </ul>
@@ -186,10 +190,10 @@
             </div>
           </div>
         </div>
-        
+
         <div class="modal-footer">
           <button class="btn-restore" @click="restoreTask(tareaSeleccionada.id)" :disabled="restoring">
-            <i class="fa-solid fa-rotate-left"></i> 
+            <i class="fa-solid fa-rotate-left"></i>
             {{ restoring === tareaSeleccionada.id ? 'Restaurando...' : 'Restaurar Tarea' }}
           </button>
           <button @click="tareaSeleccionada = null" class="btn-primary">
@@ -204,4 +208,5 @@
   <script src="/js/api.js"></script>
   <script src="/js/archivadas.js"></script>
 </body>
+
 </html>
