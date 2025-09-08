@@ -16,6 +16,7 @@ const { broadcast } = require('../services/websocket.service');
 // Cerca de la línea 12
 const { autoArchiveTasks } = require('../jobs/auto-archive');
 
+const { createEmailTemplate } = require('../services/email-template.service');
 // --- Middlewares específicos para este router ---
 
 // Middleware para parsear JSON
@@ -173,7 +174,7 @@ router.post('/tasks/check-due-today', authenticateToken, async (req, res) => {
   });
 });
 
-// 🆕 CREAR TAREA
+// --- RUTA PARA CREAR TAREA (MODIFICADA con nueva plantilla) ---
 router.post('/tasks', jsonParser, authenticateToken, [body('title').notEmpty().trim().escape()], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -189,39 +190,49 @@ router.post('/tasks', jsonParser, authenticateToken, [body('title').notEmpty().t
       if (err) return res.status(500).json({ error: 'No se pudo crear la tarea' });
 
       const taskId = this.lastID;
-      const taskTitle = title.substring(0, 30);
-      const taskUrl = `${process.env.APP_URL || 'http://localhost:3000'}/tablero.html`;
-      const formattedDueDate = new Date(due_date).toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' });
+      const taskUrl = `${process.env.APP_URL || 'http://localhost:3000'}/tablero`;
+      const formattedDueDate = due_date ? new Date(due_date).toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' }) : 'No especificada';
 
-      const creatorHtml = `
-        <h2>¡Tarea Creada Exitosamente!</h2>
-        <p>Hola ${creator.name},</p>
-        <p>Tu tarea "<strong>${title}</strong>" ha sido creada en BiocareTask.</p>
-        <p><strong>Vencimiento:</strong> ${formattedDueDate}</p>
-        <a href="${taskUrl}" style="color: #049DD9; font-weight: bold;">Ver en el tablero</a>
+      // --- Contenido para el creador ---
+      const creatorContent = `
+        <p style="color: #34495E; font-size: 16px;">Tu tarea "<strong>${title}</strong>" ha sido creada exitosamente.</p>
+        <p style="color: #7F8C8D;"><strong>Prioridad:</strong> <span style="color: ${priority === 'alta' ? '#E74C3C' : '#34495E'}; font-weight: bold;">${priority.toUpperCase()}</span></p>
+        <p style="color: #7F8C8D;"><strong>Vencimiento:</strong> ${formattedDueDate}</p>
       `;
-      sendEmail(creator.email, `✅ Tarea Creada: ${taskTitle}`, creatorHtml);
+      const creatorHtml = createEmailTemplate({
+        title: '✅ Tarea Creada',
+        recipientName: creator.name,
+        mainContentHtml: creatorContent,
+        buttonUrl: taskUrl,
+        buttonText: 'Ver Tarea'
+      });
+      sendEmail(creator.email, `✅ Tarea Creada: ${title.substring(0, 30)}`, creatorHtml);
 
       if (assigned_to && Array.isArray(assigned_to)) {
         const stmt = db.prepare("INSERT INTO task_assignments (task_id, user_id) VALUES (?, ?)");
         assigned_to.forEach(userId => {
           stmt.run(taskId, userId);
           if (userId !== creator.id) {
-            const mensaje = `${creator.name} te ha asignado una nueva tarea: "${taskTitle}..."`;
-            // <-- MODIFICADO: Añadimos taskId para que la notificación sea interactiva
+            const mensaje = `${creator.name} te ha asignado una nueva tarea: "${title.substring(0, 30)}..."`;
             db.run(`INSERT INTO notifications (usuario_id, mensaje, tipo, task_id) VALUES (?, ?, ?, ?)`, [userId, mensaje, 'assignment', taskId]);
 
             db.get("SELECT name, email FROM users WHERE id = ?", [userId], (err, assignedUser) => {
               if (assignedUser) {
-                const assigneeHtml = `
-                  <h2>¡Nueva Tarea Asignada!</h2>
-                  <p>Hola ${assignedUser.name},</p>
-                  <p>${creator.name} te ha asignado una nueva tarea: "<strong>${title}</strong>".</p>
-                  <p><strong>Vencimiento:</strong> ${formattedDueDate}</p>
-                  <p>Por favor, revísala en el tablero de BiocareTask.</p>
-                  <a href="${taskUrl}" style="color: #049DD9; font-weight: bold;">Ir al tablero</a>
+                // --- Contenido para el asignado ---
+                const assigneeContent = `
+                  <p style="color: #34495E; font-size: 16px;">${creator.name} te ha asignado una nueva tarea: "<strong>${title}</strong>".</p>
+                  <p style="color: #7F8C8D;"><strong>Prioridad:</strong> <span style="color: ${priority === 'alta' ? '#E74C3C' : '#34495E'}; font-weight: bold;">${priority.toUpperCase()}</span></p>
+                  <p style="color: #7F8C8D;"><strong>Vencimiento:</strong> ${formattedDueDate}</p>
+                  <p style="color: #34495E; font-size: 16px; margin-top: 20px;">Por favor, revísala en el tablero de BiocareTask.</p>
                 `;
-                sendEmail(assignedUser.email, `🔔 Nueva Tarea Asignada: ${taskTitle}`, assigneeHtml);
+                const assigneeHtml = createEmailTemplate({
+                  title: '🔔 ¡Nueva Tarea Asignada!',
+                  recipientName: assignedUser.name,
+                  mainContentHtml: assigneeContent,
+                  buttonUrl: taskUrl,
+                  buttonText: 'Ir a la Tarea'
+                });
+                sendEmail(assignedUser.email, `🔔 Nueva Tarea Asignada: ${title.substring(0, 30)}`, assigneeHtml);
               }
             });
           }
