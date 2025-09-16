@@ -1,12 +1,13 @@
 // backend/services/email.service.js
 const nodemailer = require('nodemailer');
 
-// Configuramos el "transporter" una sola vez
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: 'smtp.resend.com',      // Servidor SMTP de Resend
+  secure: true,                 // Usa SSL
+  port: 465,                    // Puerto para SSL
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
+    user: 'resend',             // Este valor es siempre 'resend'
+    pass: process.env.RESEND_API_KEY // Tu nueva variable de entorno
   }
 });
 
@@ -18,7 +19,8 @@ const transporter = nodemailer.createTransport({
  */
 const sendEmail = async (to, subject, html) => {
   const mailOptions = {
-    from: `"BiocareTask" <${process.env.EMAIL_USER}>`,
+    // IMPORTANTE: Cambia el remitente. Usa el de prueba o tu dominio verificado.
+    from: `"BiocareTask" <onboarding@resend.dev>`, 
     to: to,
     subject: subject,
     html: html
@@ -26,9 +28,9 @@ const sendEmail = async (to, subject, html) => {
 
   try {
     await transporter.sendMail(mailOptions);
-    console.log(`✅ Correo enviado exitosamente a: ${to}`);
+    console.log(`✅ Correo enviado exitosamente a: ${to} vía Resend`);
   } catch (error) {
-    console.error(`❌ Error al enviar correo a ${to}:`, error);
+    console.error(`❌ Error al enviar correo a ${to} vía Resend:`, error);
   }
 };
 
