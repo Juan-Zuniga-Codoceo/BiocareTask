@@ -4,6 +4,7 @@ const router = express.Router();
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const { sendEmail } = require('../services/email.service');
+const { createEmailTemplate } = require('../services/email-template.service');
 const { body, validationResult } = require('express-validator');
 
 // Importamos la conexión a la base de datos
@@ -120,13 +121,27 @@ router.post('/forgot-password', jsonParser, [
       const baseUrl = process.env.APP_URL || 'http://localhost:3000';
       const resetLink = `${baseUrl}/reset-password.html?token=${token}`;
 
-      const mailOptions = {
-        subject: 'Recuperación de Contraseña - BiocareTask',
-        html: `<p>Hola ${user.name},</p><p>Has solicitado restablecer tu contraseña. Haz clic en el siguiente enlace para continuar:</p><a href="${resetLink}" style="color: #049DD9; font-weight: bold;">Restablecer mi contraseña</a><p>Este enlace es válido por 1 hora.</p>`
-      };
+      // Código NUEVO y CORRECTO:
+      const subject = 'Recuperación de Contraseña - BiocareTask';
+
+      // 1. Creamos el contenido principal del correo
+      const mainContentHtml = `
+        <p style="color: #34495E; font-size: 16px; line-height: 1.5;">Has solicitado restablecer tu contraseña para tu cuenta en BiocareTask. Haz clic en el botón de abajo para continuar con el proceso.</p>
+        <p style="color: #7F8C8D; font-size: 14px;">Este enlace es válido por 1 hora.</p>
+      `;
+
+      // 2. Usamos la plantilla para generar el HTML final
+      const finalHtml = createEmailTemplate({
+          title: 'Recuperación de Contraseña',
+          recipientName: user.name,
+          mainContentHtml: mainContentHtml,
+          buttonUrl: resetLink,
+          buttonText: 'Restablecer mi Contraseña'
+      });
 
       try {
-        await sendEmail(user.email, mailOptions.subject, mailOptions.html);
+        // 3. Enviamos el correo con el HTML formateado
+        await sendEmail(user.email, subject, finalHtml);
         res.status(200).json({ message: 'Si existe una cuenta, se ha enviado un correo de recuperación.' });
       } catch (emailError) {
         console.error("Error al enviar correo de recuperación:", emailError);
