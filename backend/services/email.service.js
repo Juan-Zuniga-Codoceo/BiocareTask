@@ -20,7 +20,7 @@ const transporter = nodemailer.createTransport({
 const sendEmail = async (to, subject, html) => {
   const mailOptions = {
     // IMPORTANTE: Cambia el remitente. Usa el de prueba o tu dominio verificado.
-    from: `"BiocareTask" <onboarding@resend.dev>`, 
+    from: '"BiocareTask" <notificaciones@biocaretask.site>',
     to: to,
     subject: subject,
     html: html
