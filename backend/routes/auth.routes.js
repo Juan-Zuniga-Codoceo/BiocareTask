@@ -3,7 +3,7 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
-const nodemailer = require('nodemailer');
+const { sendEmail } = require('../services/email.service');
 const { body, validationResult } = require('express-validator');
 
 // Importamos la conexión a la base de datos
@@ -11,16 +11,6 @@ const db = require('../db');
 
 // --- Middleware para parsear JSON ---
 const jsonParser = express.json({ limit: '10mb' });
-
-// --- Configuración de Nodemailer ---
-// La movemos aquí para que el módulo de autenticación sea autónomo
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
-  }
-});
 
 // ======================================================
 // ===      DEFINICIÓN DE RUTAS DE AUTENTICACIÓN      ===
@@ -131,14 +121,12 @@ router.post('/forgot-password', jsonParser, [
       const resetLink = `${baseUrl}/reset-password.html?token=${token}`;
 
       const mailOptions = {
-        from: `"BiocareTask" <${process.env.EMAIL_USER}>`,
-        to: user.email,
         subject: 'Recuperación de Contraseña - BiocareTask',
         html: `<p>Hola ${user.name},</p><p>Has solicitado restablecer tu contraseña. Haz clic en el siguiente enlace para continuar:</p><a href="${resetLink}" style="color: #049DD9; font-weight: bold;">Restablecer mi contraseña</a><p>Este enlace es válido por 1 hora.</p>`
       };
 
       try {
-        await transporter.sendMail(mailOptions);
+        await sendEmail(user.email, mailOptions.subject, mailOptions.html);
         res.status(200).json({ message: 'Si existe una cuenta, se ha enviado un correo de recuperación.' });
       } catch (emailError) {
         console.error("Error al enviar correo de recuperación:", emailError);
