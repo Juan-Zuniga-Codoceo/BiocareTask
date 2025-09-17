@@ -1,5 +1,20 @@
 // backend/server.js (Versión refactorizada)
 require('dotenv').config();
+
+// --- INICIO DEL CÓDIGO DE DIAGNÓSTICO (TEMPORAL) ---
+console.log('--- DIAGNÓSTICO DE VARIABLES DE ENTORNO ---');
+const apiKey = process.env.RESEND_API_KEY;
+if (apiKey && apiKey.length > 10) { // Verificamos que no esté vacía y tenga una longitud razonable
+  console.log('✅ RESEND_API_KEY encontrada.');
+  console.log(`   Primeros 8 caracteres: ${apiKey.substring(0, 8)}...`);
+  console.log(`   Últimos 5 caracteres: ...${apiKey.substring(apiKey.length - 5)}`);
+} else {
+  console.log('❌ ¡ALERTA! La variable RESEND_API_KEY no fue encontrada, está vacía o es inválida.');
+}
+console.log('-------------------------------------------');
+// --- FIN DEL CÓDIGO DE DIAGNÓSTICO ---
+
+
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
