@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
+const jwt = require('jsonwebtoken'); 
 const { sendEmail } = require('../services/email.service');
 const { createEmailTemplate } = require('../services/email-template.service');
 const { body, validationResult } = require('express-validator');
@@ -17,7 +18,7 @@ const jsonParser = express.json({ limit: '10mb' });
 // ===      DEFINICIÓN DE RUTAS DE AUTENTICACIÓN      ===
 // ======================================================
 
-// 🔐 LOGIN
+// 🔐 LOGIN (VERSIÓN MODIFICADA)
 router.post('/login', jsonParser, [
   body('email').isEmail().normalizeEmail(),
   body('password').isLength({ min: 1 })
@@ -31,6 +32,7 @@ router.post('/login', jsonParser, [
     const { email, password } = req.body;
 
     const sql = "SELECT id, name, email, office, role, password, avatar_url, email_notifications FROM users WHERE email = ?";
+ 
     db.get(sql, [email], async (err, user) => {
       if (err) {
         console.error('Error en consulta de login:', err);
@@ -44,14 +46,24 @@ router.post('/login', jsonParser, [
         if (!valid) {
           return res.status(401).json({ error: 'Credenciales inválidas' });
         }
+        
         const { password: _, ...userWithoutPassword } = user;
-        res.json(userWithoutPassword);
+
+        // <-- 2. GENERAMOS EL TOKEN SEGURO
+        const token = jwt.sign(
+          { id: user.id, name: user.name, role: user.role }, // Payload del token
+          process.env.JWT_SECRET,                            // Nuestra clave secreta del .env
+          { expiresIn: '8h' }                                // Duración del token
+        );
+
+        // <-- 3. ENVIAMOS EL USUARIO Y EL TOKEN
+        res.json({ user: userWithoutPassword, token });
+
       } catch (compareError) {
         console.error('Error al comparar contraseñas:', compareError);
         return res.status(500).json({ error: 'Error interno al validar credenciales' });
       }
-    }
-    );
+    });
   } catch (error) {
     console.error('Error en proceso de login:', error);
     res.status(500).json({ error: 'Error interno del servidor' });

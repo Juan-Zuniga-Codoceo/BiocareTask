@@ -16,41 +16,41 @@ if (document.getElementById('login-app')) {
       const error = ref('');
 
       const login = async () => {
-        error.value = '';
-        loading.value = true;
+  error.value = '';
+  loading.value = true;
 
-        try {
-          const res = await fetch('/api/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: email.value, password: password.value })
-          });
+  try {
+    const res = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email.value, password: password.value })
+    });
 
-          if (!res.ok) {
-            const errorData = await res.json();
-            throw new Error(errorData.error || 'Credenciales inválidas');
-          }
+    if (!res.ok) {
+      const errorData = await res.json();
+      throw new Error(errorData.error || 'Credenciales inválidas');
+    }
 
-          const data = await res.json();
+    const data = await res.json();
 
-          // Validación extra
-          if (!data.id) {
-            throw new Error('Respuesta del servidor inválida');
-          }
+    // <-- CAMBIO: AHORA RECIBIMOS UN OBJETO CON 'user' y 'token'
+    if (!data.user || !data.token) {
+      throw new Error('Respuesta del servidor inválida');
+    }
 
-          // Guardar sesión
-          localStorage.setItem('biocare_user', JSON.stringify(data));
-          localStorage.setItem('auth_token', data.id.toString());
+    // Guardar sesión con los nuevos datos
+    localStorage.setItem('biocare_user', JSON.stringify(data.user));
+    localStorage.setItem('auth_token', data.token); // <-- Guardamos el token JWT
 
-          // Redirigir
-          window.location.href = '/tablero.html';
-        } catch (err) {
-          error.value = err.message || 'Error de conexión. Intenta nuevamente.';
-          console.error('Error en login:', err);
-        } finally {
-          loading.value = false;
-        }
-      };
+    // Redirigir
+    window.location.href = '/tablero.html';
+  } catch (err) {
+    error.value = err.message || 'Error de conexión. Intenta nuevamente.';
+    console.error('Error en login:', err);
+  } finally {
+    loading.value = false;
+  }
+};
 
       return { email, password, loading, error, login };
     }
