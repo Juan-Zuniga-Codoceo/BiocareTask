@@ -422,7 +422,12 @@
           <button @click="abrirModalEditar" class="btn-edit">
             <i class="fa-solid fa-pencil"></i> Editar
           </button>
-          <button @click="abrirConfirmarEliminar" class="btn-delete" v-if="user.id === tareaSeleccionada.created_by">
+
+          <button @click="abrirSelectorDeCreador" class="btn-change-creator" v-if="user.role === 'admin'">
+            <i class="fa-solid fa-user-pen"></i> Cambiar Creador
+          </button>
+
+          <button @click="abrirConfirmarEliminar" class="btn-delete" v-if="puedeEliminarTarea">
             <i class="fa-solid fa-trash-can"></i> Eliminar
           </button>
 
@@ -455,6 +460,33 @@
               <i class="fa-solid fa-undo"></i> Reabrir Tarea
             </button>
           </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal" v-if="mostrandoSelectorCreador">
+      <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-header">
+          <h2><i class="fa-solid fa-user-pen"></i> Cambiar Creador de Tarea</h2>
+          <button @click="mostrandoSelectorCreador = false" class="btn-close-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p>Selecciona el nuevo usuario que será el creador de la tarea "<strong>{{ tareaSeleccionada.title
+              }}</strong>".</p>
+          <div class="form-group">
+            <label for="user-selector">Usuarios Disponibles</label>
+            <select id="user-selector" v-model="nuevoCreadorId" class="user-select-add">
+              <option :value="null" disabled>-- Selecciona un usuario --</option>
+              <option v-for="u in users" :key="u.id" :value="u.id">
+                {{ u.name }} (ID: {{ u.id }})
+              </option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button @click="mostrandoSelectorCreador = false" class="btn-cancel">Cancelar</button>
+          <button @click="confirmarCambioDeCreador" class="btn-create">
+            <i class="fa-solid fa-save"></i> Guardar Cambio
+          </button>
         </div>
       </div>
     </div>

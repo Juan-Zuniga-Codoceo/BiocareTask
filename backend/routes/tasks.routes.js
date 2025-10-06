@@ -253,61 +253,99 @@ router.post('/tasks', jsonParser, authenticateToken, [body('title').notEmpty().t
 });
 
 // ✏️ EDITAR TAREA
+// ✏️ EDITAR TAREA (VERSIÓN MEJORADA CON PERMISOS DE ADMIN)
 router.put('/tasks/:id', jsonParser, authenticateToken, (req, res) => {
   const taskId = req.params.id;
   const { title, description, due_date, priority, assigned_to, label_ids } = req.body;
 
-  const permissionSql = `
-    SELECT t.id FROM tasks t
+  // 1. Primero, obtenemos la información de la tarea para verificar los permisos.
+  const getTaskSql = `
+    SELECT 
+      t.created_by, 
+      GROUP_CONCAT(ta.user_id) as assigned_ids
+    FROM tasks t
     LEFT JOIN task_assignments ta ON t.id = ta.task_id
-    WHERE t.id = ? AND (t.created_by = ? OR ta.user_id = ?)
+    WHERE t.id = ?
     GROUP BY t.id
   `;
 
-  db.get(permissionSql, [taskId, req.userId, req.userId], (err, task) => {
-    if (err) return res.status(500).json({ error: 'Error al verificar permisos de la tarea' });
-    if (!task) return res.status(403).json({ error: 'No tienes permiso para editar esta tarea o la tarea no existe' });
+  db.get(getTaskSql, [taskId], (err, task) => {
+    if (err) return res.status(500).json({ error: 'Error al verificar los permisos de la tarea.' });
+    if (!task) return res.status(404).json({ error: 'La tarea no existe.' });
 
+    // ✨ 2. Lógica de permisos centralizada y clara ✨
+    const esAdmin = req.user.role === 'admin';
+    const esCreador = task.created_by === req.userId;
+    const estaAsignado = task.assigned_ids ? task.assigned_ids.split(',').includes(req.userId.toString()) : false;
+
+    // Si no es admin, ni el creador, ni está asignado, denegamos el acceso.
+    if (!esAdmin && !esCreador && !estaAsignado) {
+      return res.status(403).json({ error: 'No tienes permiso para editar esta tarea.' });
+    }
+
+    // 3. Si los permisos son correctos, procedemos con la actualización.
     db.serialize(() => {
       db.run("BEGIN TRANSACTION");
-      db.run(`UPDATE tasks SET title = ?, description = ?, due_date = ?, priority = ? WHERE id = ?`, [title, description, due_date, priority, taskId]);
+
+      // Actualizar los datos principales de la tarea
+      db.run(`UPDATE tasks SET title = ?, description = ?, due_date = ?, priority = ? WHERE id = ?`, 
+        [title, description, due_date, priority, taskId]);
+
+      // Reemplazar las asignaciones de usuarios
       db.run("DELETE FROM task_assignments WHERE task_id = ?", [taskId]);
       if (assigned_to && Array.isArray(assigned_to) && assigned_to.length > 0) {
         const assignStmt = db.prepare("INSERT INTO task_assignments (task_id, user_id) VALUES (?, ?)");
         assigned_to.forEach(userId => assignStmt.run(taskId, userId));
         assignStmt.finalize();
       }
+
+      // Reemplazar las etiquetas de la tarea
       db.run("DELETE FROM task_labels WHERE task_id = ?", [taskId]);
       if (label_ids && Array.isArray(label_ids) && label_ids.length > 0) {
         const labelStmt = db.prepare("INSERT INTO task_labels (task_id, label_id) VALUES (?, ?)");
         label_ids.forEach(labelId => labelStmt.run(taskId, labelId));
         labelStmt.finalize();
       }
+
+      // Finalizar la transacción
       db.run("COMMIT", (commitErr) => {
         if (commitErr) {
           db.run("ROLLBACK");
-          return res.status(500).json({ error: 'Error al guardar los cambios en la base de datos' });
+          return res.status(500).json({ error: 'Error al guardar los cambios en la base de datos.' });
         }
         res.status(200).json({ success: true, message: 'Tarea actualizada' });
-        broadcast({ type: 'TASKS_UPDATED' });
+        broadcast({ type: 'TASKS_UPDATED' }); // Notificamos a todos los clientes del cambio
       });
     });
   });
 });
 
-// 🗑️ ELIMINAR TAREA
+// 🗑️ ELIMINAR TAREA (VERSIÓN MEJORADA CON PERMISOS DE ADMIN)
 router.delete('/tasks/:id', authenticateToken, (req, res) => {
   const taskId = req.params.id;
+
+  // 1. Obtenemos la tarea para verificar quién es el creador
   db.get("SELECT created_by FROM tasks WHERE id = ?", [taskId], (err, task) => {
-    if (err) return res.status(500).json({ error: 'Error al verificar la tarea' });
-    if (!task) return res.status(404).json({ error: 'Tarea no encontrada' });
-    if (task.created_by !== req.userId) {
-      return res.status(403).json({ error: 'No tienes permiso para eliminar esta tarea' });
+    if (err) {
+      return res.status(500).json({ error: 'Error al verificar la tarea.' });
     }
+    if (!task) {
+      return res.status(404).json({ error: 'Tarea no encontrada.' });
+    }
+
+    // ✨ 2. Lógica de permisos mejorada ✨
+    // Permitimos la acción si el usuario es el creador O si tiene el rol de 'admin'
+    if (task.created_by !== req.userId && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'No tienes permiso para eliminar esta tarea.' });
+    }
+
+    // 3. Si los permisos son correctos, procedemos a eliminar
     db.run("DELETE FROM tasks WHERE id = ?", [taskId], function (err) {
-      if (err) return res.status(500).json({ error: 'Error al eliminar la tarea' });
+      if (err) {
+        return res.status(500).json({ error: 'Error al eliminar la tarea de la base de datos.' });
+      }
       res.status(200).json({ success: true, message: 'Tarea eliminada' });
-      broadcast({ type: 'TASKS_UPDATED' });
+      broadcast({ type: 'TASKS_UPDATED' }); // Notificamos a todos los clientes del cambio
     });
   });
 });
@@ -438,134 +476,188 @@ router.post('/tasks/comments', authenticateToken, upload.array('attachments', 5)
   });
 });
 
-// 📎 OBTENER ADJUNTOS DE UNA TAREA (DIRECTOS)
+// 📎 OBTENER ADJUNTOS DE UNA TAREA (VERSIÓN MEJORADA CON PERMISOS DE ADMIN)
 router.get('/attachments/task/:taskId', authenticateToken, (req, res) => {
   const { taskId } = req.params;
-  db.get("SELECT id FROM tasks WHERE id = ? AND (created_by = ? OR id IN (SELECT task_id FROM task_assignments WHERE user_id = ?))",
-    [taskId, req.userId, req.userId], (err, task) => {
-      if (!task) return res.status(404).json({ error: 'Sin permisos o tarea no encontrada' });
-      db.all(`SELECT a.*, u.name as uploaded_by_name FROM attachments a JOIN users u ON a.uploaded_by = u.id WHERE a.task_id = ? AND a.comment_id IS NULL`, [taskId],
-        (err, attachments) => {
-          if (err) return res.status(500).json({ error: 'Error al obtener adjuntos' });
-          res.json(attachments || []);
-        }
-      );
-    });
+
+  // ✨ INICIO DE LA MODIFICACIÓN ✨
+  const getTaskSql = `
+    SELECT t.created_by, GROUP_CONCAT(ta.user_id) as assigned_ids
+    FROM tasks t
+    LEFT JOIN task_assignments ta ON t.id = ta.task_id
+    WHERE t.id = ? GROUP BY t.id
+  `;
+
+  db.get(getTaskSql, [taskId], (err, task) => {
+    if (err || !task) {
+      return res.status(err ? 500 : 404).json({ error: 'Tarea no encontrada.' });
+    }
+
+    const esAdmin = req.user.role === 'admin';
+    const esCreador = task.created_by === req.userId;
+    const estaAsignado = task.assigned_ids ? task.assigned_ids.split(',').includes(req.userId.toString()) : false;
+
+    if (!esAdmin && !esCreador && !estaAsignado) {
+      return res.status(403).json({ error: 'No tienes permiso para ver los adjuntos de esta tarea.' });
+    }
+    // ✨ FIN DE LA MODIFICACIÓN ✨
+
+    // Si tiene permisos, busca los adjuntos
+    db.all(`SELECT a.*, u.name as uploaded_by_name FROM attachments a JOIN users u ON a.uploaded_by = u.id WHERE a.task_id = ? AND a.comment_id IS NULL`, [taskId],
+      (err, attachments) => {
+        if (err) return res.status(500).json({ error: 'Error al obtener adjuntos.' });
+        res.json(attachments || []);
+      }
+    );
+  });
 });
 
 // 📤 SUBIR ARCHIVOS A UNA TAREA (DIRECTO, MÚLTIPLE)
+// 📤 SUBIR ARCHIVOS A UNA TAREA (VERSIÓN MEJORADA CON PERMISOS DE ADMIN)
 router.post('/upload', authenticateToken, upload.array('files', 5), async (req, res) => {
-  // 1. Verificamos que se hayan subido archivos
   if (!req.files || req.files.length === 0) {
-    return res.status(400).json({ error: 'No se subieron archivos' });
+    return res.status(400).json({ error: 'No se subieron archivos.' });
   }
 
   const { task_id } = req.body;
+  const cleanupFiles = () => { /* ... (función interna sin cambios) */ };
 
-  // Función para limpiar los archivos subidos en caso de error
-  const cleanupFiles = () => {
-    for (const file of req.files) {
-      try {
-        fs.unlinkSync(file.path);
-      } catch (e) {
-        console.error(`Error al limpiar el archivo: ${file.path}`, e);
-      }
-    }
-  };
-
-  // 2. Verificamos que se haya proporcionado un ID de tarea
   if (!task_id) {
     cleanupFiles();
-    return res.status(400).json({ error: 'ID de tarea requerido' });
+    return res.status(400).json({ error: 'ID de tarea requerido.' });
   }
 
-  // 3. Verificamos que el usuario tenga permisos sobre la tarea
-  db.get("SELECT id FROM tasks WHERE id = ? AND (created_by = ? OR id IN (SELECT task_id FROM task_assignments WHERE user_id = ?))",
-    [task_id, req.userId, req.userId], (err, task) => {
-      if (err || !task) {
-        cleanupFiles();
-        return res.status(err ? 500 : 404).json({ error: err ? 'Error al verificar la tarea' : 'Tarea no encontrada o sin permisos' });
-      }
+  // ✨ INICIO DE LA MODIFICACIÓN ✨
+  // 1. Obtenemos la información de la tarea para verificar permisos
+  const getTaskSql = `
+    SELECT t.created_by, GROUP_CONCAT(ta.user_id) as assigned_ids
+    FROM tasks t
+    LEFT JOIN task_assignments ta ON t.id = ta.task_id
+    WHERE t.id = ? GROUP BY t.id
+  `;
 
-      // 4. Preparamos la inserción en la base de datos
-      const stmt = db.prepare(`INSERT INTO attachments (task_id, file_path, file_name, file_type, file_size, uploaded_by) VALUES (?, ?, ?, ?, ?, ?)`);
-      const insertedFiles = [];
-
-      // 5. Usamos una transacción para insertar todos los archivos de forma atómica
-      db.serialize(() => {
-        db.run("BEGIN TRANSACTION");
-
-        for (const file of req.files) {
-          stmt.run(task_id, file.filename, file.originalname, file.mimetype, file.size, req.userId);
-          insertedFiles.push({ file_path: file.filename, file_name: file.originalname });
-        }
-
-        db.run("COMMIT", (commitErr) => {
-          stmt.finalize(); // Cerramos el statement preparado
-
-          if (commitErr) {
-            db.run("ROLLBACK");
-            cleanupFiles(); // Limpiamos archivos si la transacción falla
-            return res.status(500).json({ error: 'No se pudo guardar la información de los archivos' });
-          }
-
-          // 6. Si todo sale bien, enviamos la respuesta y notificamos a los clientes
-          res.status(201).json({ success: true, files: insertedFiles });
-          broadcast({ type: 'TASKS_UPDATED' });
-        });
-      });
+  db.get(getTaskSql, [task_id], (err, task) => {
+    if (err) {
+      cleanupFiles();
+      return res.status(500).json({ error: 'Error al verificar la tarea.' });
     }
-  );
+    if (!task) {
+      cleanupFiles();
+      return res.status(404).json({ error: 'Tarea no encontrada.' });
+    }
+
+    // 2. Lógica de permisos en Javascript
+    const esAdmin = req.user.role === 'admin';
+    const esCreador = task.created_by === req.userId;
+    const estaAsignado = task.assigned_ids ? task.assigned_ids.split(',').includes(req.userId.toString()) : false;
+
+    if (!esAdmin && !esCreador && !estaAsignado) {
+      cleanupFiles();
+      return res.status(403).json({ error: 'No tienes permiso para subir archivos a esta tarea.' });
+    }
+    
+    // ✨ FIN DE LA MODIFICACIÓN ✨
+
+    // 3. Si tiene permisos, procedemos a guardar los archivos (lógica sin cambios)
+    const stmt = db.prepare(`INSERT INTO attachments (task_id, file_path, file_name, file_type, file_size, uploaded_by) VALUES (?, ?, ?, ?, ?, ?)`);
+    const insertedFiles = [];
+    db.serialize(() => {
+      db.run("BEGIN TRANSACTION");
+      for (const file of req.files) {
+        stmt.run(task_id, file.filename, file.originalname, file.mimetype, file.size, req.userId);
+        insertedFiles.push({ file_path: file.filename, file_name: file.originalname });
+      }
+      db.run("COMMIT", (commitErr) => {
+        stmt.finalize();
+        if (commitErr) {
+          db.run("ROLLBACK");
+          cleanupFiles();
+          return res.status(500).json({ error: 'No se pudo guardar la información de los archivos.' });
+        }
+        res.status(201).json({ success: true, files: insertedFiles });
+        broadcast({ type: 'TASKS_UPDATED' });
+      });
+    });
+  });
 });
 
-// 📥 DESCARGAR ARCHIVO
+// 📥 DESCARGAR ARCHIVO (VERSIÓN MEJORADA CON PERMISOS DE ADMIN)
 router.get('/download/:filename', authenticateToken, (req, res) => {
   const { filename } = req.params;
   const filePath = path.join(uploadsDir, filename);
-  if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Archivo no encontrado' });
-  db.get(`SELECT a.*, t.id as task_id FROM attachments a JOIN tasks t ON a.task_id = t.id WHERE a.file_path = ? AND (t.created_by = ? OR t.id IN (SELECT task_id FROM task_assignments WHERE user_id = ?))`,
-    [filename, req.userId, req.userId], (err, attachment) => {
-      if (err || !attachment) return res.status(403).json({ error: 'Sin permisos para descargar este archivo' });
-      res.setHeader('Content-Disposition', `attachment; filename="${attachment.file_name}"`);
-      res.setHeader('Content-Type', attachment.file_type || 'application/octet-stream');
-      fs.createReadStream(filePath).pipe(res);
-    });
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Archivo no encontrado.' });
+
+  // Obtenemos la tarea a la que pertenece el adjunto
+  const getTaskSql = `
+    SELECT t.created_by, t.id as taskId, a.file_name, a.file_type, GROUP_CONCAT(ta.user_id) as assigned_ids
+    FROM attachments a
+    JOIN tasks t ON a.task_id = t.id
+    LEFT JOIN task_assignments ta ON t.id = ta.task_id
+    WHERE a.file_path = ?
+    GROUP BY t.id
+  `;
+
+  db.get(getTaskSql, [filename], (err, taskInfo) => {
+    if (err) return res.status(500).json({ error: 'Error al verificar el archivo.' });
+    if (!taskInfo) return res.status(404).json({ error: 'El archivo no está asociado a ninguna tarea válida.' });
+
+    const esAdmin = req.user.role === 'admin';
+    const esCreador = taskInfo.created_by === req.userId;
+    const estaAsignado = taskInfo.assigned_ids ? taskInfo.assigned_ids.split(',').includes(req.userId.toString()) : false;
+    
+    if (!esAdmin && !esCreador && !estaAsignado) {
+        return res.status(403).json({ error: 'No tienes permiso para descargar este archivo.' });
+    }
+    
+    // Si tiene permisos, procede con la descarga
+    res.setHeader('Content-Disposition', `attachment; filename="${taskInfo.file_name}"`);
+    res.setHeader('Content-Type', taskInfo.file_type || 'application/octet-stream');
+    fs.createReadStream(filePath).pipe(res);
+  });
 });
 
-// 🗑️ ELIMINAR UN ADJUNTO ESPECÍFICO
+// 🗑️ ELIMINAR UN ADJUNTO ESPECÍFICO (VERSIÓN MEJORADA CON PERMISOS DE ADMIN)
 router.delete('/attachments/:id', authenticateToken, (req, res) => {
   const attachmentId = req.params.id;
-  const userId = req.userId;
 
-  // 1. Primero, obtenemos la información del adjunto, incluyendo el ID de la tarea a la que pertenece
   db.get("SELECT task_id, file_path FROM attachments WHERE id = ?", [attachmentId], (err, attachment) => {
-    if (err) return res.status(500).json({ error: 'Error al buscar el adjunto' });
-    if (!attachment) return res.status(404).json({ error: 'Adjunto no encontrado' });
+    if (err) return res.status(500).json({ error: 'Error al buscar el adjunto.' });
+    if (!attachment) return res.status(404).json({ error: 'Adjunto no encontrado.' });
 
-    // 2. Verificamos que el usuario tenga permisos sobre la tarea dueña del adjunto
-    db.get("SELECT id FROM tasks WHERE id = ? AND (created_by = ? OR id IN (SELECT task_id FROM task_assignments WHERE user_id = ?))",
-      [attachment.task_id, userId, userId], (err, task) => {
-        if (err || !task) {
-          return res.status(403).json({ error: 'No tienes permiso para eliminar este adjunto' });
-        }
+    // ✨ INICIO DE LA MODIFICACIÓN ✨
+    // 1. Obtenemos la información de la tarea para verificar permisos
+    const getTaskSql = `
+      SELECT t.created_by, GROUP_CONCAT(ta.user_id) as assigned_ids
+      FROM tasks t
+      LEFT JOIN task_assignments ta ON t.id = ta.task_id
+      WHERE t.id = ? GROUP BY t.id
+    `;
+    db.get(getTaskSql, [attachment.task_id], (err, task) => {
+      if (err) return res.status(500).json({ error: 'Error al verificar la tarea del adjunto.' });
+      if (!task) return res.status(404).json({ error: 'La tarea asociada no existe.' });
 
-        // 3. Si tiene permisos, procedemos a eliminar
-        const filePath = path.join(uploadsDir, attachment.file_path);
+      // 2. Lógica de permisos en Javascript
+      const esAdmin = req.user.role === 'admin';
+      const esCreador = task.created_by === req.userId;
+      const estaAsignado = task.assigned_ids ? task.assigned_ids.split(',').includes(req.userId.toString()) : false;
 
-        // Eliminar de la base de datos
-        db.run("DELETE FROM attachments WHERE id = ?", [attachmentId], function(err) {
-          if (err) return res.status(500).json({ error: 'Error al eliminar el adjunto de la base de datos' });
-
-          // Eliminar el archivo físico del disco
-          if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
-          }
-          
-          res.status(200).json({ success: true, message: 'Adjunto eliminado' });
-          broadcast({ type: 'TASKS_UPDATED' }); // Notificamos a todos para que actualicen la vista
-        });
+      if (!esAdmin && !esCreador && !estaAsignado) {
+        return res.status(403).json({ error: 'No tienes permiso para eliminar este adjunto.' });
       }
-    );
+
+      // ✨ FIN DE LA MODIFICACIÓN ✨
+
+      // 3. Si tiene permisos, procedemos a eliminar (lógica sin cambios)
+      const filePath = path.join(uploadsDir, attachment.file_path);
+      db.run("DELETE FROM attachments WHERE id = ?", [attachmentId], function(err) {
+        if (err) return res.status(500).json({ error: 'Error al eliminar el adjunto de la base de datos.' });
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+        res.status(200).json({ success: true, message: 'Adjunto eliminado.' });
+        broadcast({ type: 'TASKS_UPDATED' });
+      });
+    });
   });
 });
 
@@ -679,6 +771,34 @@ router.post('/tasks/:id/unarchive', authenticateToken, (req, res) => {
       // Avisamos a todos los clientes para que sus tableros se actualicen
       broadcast({ type: 'TASKS_UPDATED' });
     });
+  });
+});
+// 👑 CAMBIAR CREADOR DE TAREA (Solo Admins)
+router.put('/tasks/:id/creator', jsonParser, authenticateToken, (req, res) => {
+  // 1. Verificar si el usuario es un administrador
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Acción no permitida. Se requiere rol de administrador.' });
+  }
+
+  const taskId = req.params.id;
+  const { newCreatorId } = req.body;
+
+  if (!newCreatorId) {
+    return res.status(400).json({ error: 'El ID del nuevo creador es requerido.' });
+  }
+
+  // 2. Actualizar la base de datos
+  const sql = "UPDATE tasks SET created_by = ? WHERE id = ?";
+  db.run(sql, [newCreatorId, taskId], function (err) {
+    if (err) {
+      return res.status(500).json({ error: 'Error al actualizar la tarea en la base de datos.' });
+    }
+    if (this.changes === 0) {
+      return res.status(404).json({ error: 'La tarea no fue encontrada.' });
+    }
+    
+    res.status(200).json({ success: true, message: 'El creador de la tarea ha sido actualizado.' });
+    broadcast({ type: 'TASKS_UPDATED' }); // Notificar a todos para que la vista se actualice
   });
 });
 

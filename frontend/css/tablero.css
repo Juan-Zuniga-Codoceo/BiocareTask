@@ -1641,4 +1641,22 @@ select[multiple] option:checked {
     justify-content: center;
   }
 
+  .btn-change-creator {
+  background-color: #8E44AD; /* Un color púrpura distintivo */
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: var(--radius);
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: var(--transition);
+}
+
+.btn-change-creator:hover {
+  background-color: #732d91;
+}
+
 

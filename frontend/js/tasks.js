@@ -50,6 +50,8 @@ createApp({
       'pedido web': 'Pedido Web', 'starken': 'Starken', 'blueexpress': 'BlueExpress',
       'chileexpress': 'ChileExpress', 'bodega': 'Bodega'
     };
+    const mostrandoSelectorCreador = ref(false);
+    const nuevoCreadorId = ref(null);
 
     // ======================================================
     // 2. PROPIEDADES COMPUTADAS (computed)
@@ -82,9 +84,27 @@ createApp({
     const availableUsersInEdit = computed(() => users.value.filter(u => !editTask.value.assigned_to.includes(u.id)));
     const puedeEditarTarea = computed(() => {
       if (!user.value || !tareaSeleccionada.value) return false;
+      if (user.value.role === 'admin') {
+        return true;
+      }
+
+      // Si no es admin, se mantiene la lógica original.
       if (user.value.id === tareaSeleccionada.value.created_by) return true;
       const assignedIds = tareaSeleccionada.value.assigned_ids?.split(',') || [];
       return assignedIds.includes(user.value.id.toString());
+    });
+
+
+    const puedeEliminarTarea = computed(() => {
+      if (!user.value || !tareaSeleccionada.value) return false;
+
+      // Si el usuario es 'admin', siempre tiene permiso para eliminar.
+      if (user.value.role === 'admin') {
+        return true;
+      }
+
+      // Si no, solo el creador original puede eliminar.
+      return user.value.id === tareaSeleccionada.value.created_by;
     });
 
     // ======================================================
@@ -721,6 +741,31 @@ createApp({
       }
     };
 
+    const abrirSelectorDeCreador = () => {
+      if (!tareaSeleccionada.value) return;
+      // Pre-seleccionamos el creador actual en el dropdown
+      nuevoCreadorId.value = tareaSeleccionada.value.created_by;
+      mostrandoSelectorCreador.value = true;
+    };
+
+    const confirmarCambioDeCreador = async () => {
+      if (!nuevoCreadorId.value) {
+        return showError("Debes seleccionar un nuevo creador.");
+      }
+
+      try {
+        const taskId = tareaSeleccionada.value.id;
+        await API.put(`/api/tasks/${taskId}/creator`, { newCreatorId: nuevoCreadorId.value });
+
+        showSuccess('Creador de la tarea actualizado con éxito.');
+        mostrandoSelectorCreador.value = false; // Cierra el nuevo modal
+        tareaSeleccionada.value = null;      // Cierra el modal de detalles
+        
+      } catch (err) {
+        showError(err.message || 'No se pudo cambiar el creador.');
+      }
+    };
+
     // ======================================================
     // 5. Carga Inicial (Lifecycle Hook)
     // ======================================================
@@ -758,6 +803,11 @@ createApp({
       addUserToEditTask,
       removeUserFromEditTask,
       puedeEditarTarea,
+      puedeEliminarTarea, 
+      mostrandoSelectorCreador,
+      nuevoCreadorId,
+      abrirSelectorDeCreador,
+      confirmarCambioDeCreador,
       showStateDropdown,
       toggleStateDropdown,
       avanzarEstado,
