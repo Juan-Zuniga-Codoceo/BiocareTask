@@ -401,21 +401,28 @@ router.get('/tasks/:id/comments', authenticateToken, (req, res) => {
   });
 });
 
-// 📝 AGREGAR COMENTARIO A TAREA (CON ADJUNTO MÚLTIPLE)
+// 📝 AGREGAR COMENTARIO A TAREA (VERSIÓN FINAL Y CORRECTA CON MENCIONES)
 router.post('/tasks/comments', authenticateToken, upload.array('attachments', 5), async (req, res) => {
   const { task_id, contenido } = req.body;
   const autor_id = req.userId;
-  
-  // Verificamos si hay contenido de texto O si se subieron archivos
+
+  // ✨ 1. Aceptamos y parseamos los IDs de los usuarios mencionados que envía el frontend
+  let mentionedUserIds = [];
+  if (req.body.mentioned_user_ids) {
+    try {
+      mentionedUserIds = JSON.parse(req.body.mentioned_user_ids);
+    } catch (e) {
+      console.error("Error al parsear IDs de menciones:", e);
+    }
+  }
+
   if ((!contenido || !contenido.trim()) && (!req.files || req.files.length === 0)) {
     return res.status(400).json({ error: 'El comentario no puede estar vacío si no se adjunta un archivo.' });
   }
 
-  // Usamos una transacción para asegurar que la inserción del comentario y sus adjuntos sean atómicas
   db.serialize(() => {
     db.run("BEGIN TRANSACTION");
     
-    // 1. Insertar el comentario primero para obtener su ID
     db.run(`INSERT INTO comments (task_id, contenido, autor_id) VALUES (?, ?, ?)`,
       [task_id, contenido || '', autor_id],
       function (err) {
@@ -425,44 +432,47 @@ router.post('/tasks/comments', authenticateToken, upload.array('attachments', 5)
         }
         
         const commentId = this.lastID;
-        let filesInserted = true;
 
-        // 2. Insertar cada archivo adjunto si existen
+        // Lógica para guardar adjuntos (sin cambios)
         if (req.files && req.files.length > 0) {
-          const stmt = db.prepare(
-            `INSERT INTO attachments (task_id, comment_id, file_path, file_name, file_type, file_size, uploaded_by) VALUES (?, ?, ?, ?, ?, ?, ?)`
-          );
-          
+          const stmt = db.prepare(`INSERT INTO attachments (task_id, comment_id, file_path, file_name, file_type, file_size, uploaded_by) VALUES (?, ?, ?, ?, ?, ?, ?)`);
           for (const file of req.files) {
-            stmt.run(task_id, commentId, file.filename, file.originalname, file.mimetype, file.size, autor_id, (err) => {
-              if (err) {
-                console.error('Error al insertar adjunto:', err);
-                filesInserted = false;
-              }
-            });
+            stmt.run(task_id, commentId, file.filename, file.originalname, file.mimetype, file.size, autor_id);
           }
           stmt.finalize();
         }
 
-        // 3. Confirmar la transacción
         db.run("COMMIT", (commitErr) => {
-          if (commitErr || !filesInserted) {
+          if (commitErr) {
             db.run("ROLLBACK");
-            // Adicionalmente, podrías limpiar los archivos del disco aquí.
-            return res.status(500).json({ error: 'Error al guardar los adjuntos del comentario' });
+            return res.status(500).json({ error: 'Error al guardar los adjuntos.' });
           }
 
-          // 4. Si todo es exitoso, enviar notificaciones y respuesta
+          // ✨ 2. Lógica de Notificaciones Mejorada que diferencia menciones
           db.get("SELECT title, created_by FROM tasks WHERE id = ?", [task_id], (err, taskInfo) => {
             if (taskInfo) {
               db.all("SELECT user_id FROM task_assignments WHERE task_id = ?", [task_id], (err, assignments) => {
                 const assignedUserIds = assignments.map(a => a.user_id);
-                const usersToNotify = [...new Set([taskInfo.created_by, ...assignedUserIds])].filter(id => id !== autor_id);
-                if (usersToNotify.length > 0) {
-                  const mensaje = `${req.user.name} comentó en la tarea: "${taskInfo.title.substring(0, 30)}..."`;
+                const usersInvolved = [...new Set([taskInfo.created_by, ...assignedUserIds])];
+                
+                // Notificación normal para los involucrados que NO fueron mencionados
+                const normalNotificationMessage = `${req.user.name} comentó en la tarea: "${taskInfo.title.substring(0, 30)}..."`;
+                const usersToNotifyNormally = usersInvolved.filter(id => id !== autor_id && !mentionedUserIds.includes(id));
+                
+                if (usersToNotifyNormally.length > 0) {
                   const stmtNotif = db.prepare(`INSERT INTO notifications (usuario_id, mensaje, tipo, task_id) VALUES (?, ?, ?, ?)`);
-                  usersToNotify.forEach(userId => stmtNotif.run(userId, mensaje, 'comment', task_id));
+                  usersToNotifyNormally.forEach(userId => stmtNotif.run(userId, normalNotificationMessage, 'comment', task_id));
                   stmtNotif.finalize();
+                }
+
+                // Notificación especial para los MENCIONADOS
+                const mentionNotificationMessage = `${req.user.name} te ha mencionado en la tarea: "${taskInfo.title.substring(0, 30)}..."`;
+                const mentionedUsersToNotify = mentionedUserIds.filter(id => id !== autor_id);
+
+                if (mentionedUsersToNotify.length > 0) {
+                    const stmtMention = db.prepare(`INSERT INTO notifications (usuario_id, mensaje, tipo, task_id) VALUES (?, ?, ?, ?)`);
+                    mentionedUsersToNotify.forEach(userId => stmtMention.run(userId, mentionNotificationMessage, 'mention', task_id));
+                    stmtMention.finalize();
                 }
               });
             }

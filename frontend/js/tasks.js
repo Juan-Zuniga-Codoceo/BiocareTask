@@ -1,6 +1,9 @@
 const { createApp, ref, computed, onMounted, watch } = Vue;
 
 createApp({
+  components: {
+    'update-modal': UpdateModal
+  },
   setup() {
     // ======================================================
     // 1. ESTADO REACTIVO (refs)
@@ -52,6 +55,12 @@ createApp({
     };
     const mostrandoSelectorCreador = ref(false);
     const nuevoCreadorId = ref(null);
+    const showMentionList = ref(false);
+    const filteredMentionUsers = ref([]);
+    const mentionQuery = ref('');
+    const mentionNavIndex = ref(-1);
+    const showUpdateModal = ref(false);
+    const APP_VERSION = "1.2.0";
 
     // ======================================================
     // 2. PROPIEDADES COMPUTADAS (computed)
@@ -605,7 +614,6 @@ createApp({
     };
 
     const agregarComentario = async () => {
-      // CORREGIDO: se comprueba si el array de adjuntos está vacío
       if ((!nuevoComentario.value.trim() && commentAttachments.value.length === 0) || !tareaSeleccionada.value) {
         return;
       }
@@ -613,16 +621,42 @@ createApp({
         const formData = new FormData();
         formData.append('task_id', tareaSeleccionada.value.id);
         formData.append('contenido', nuevoComentario.value.trim());
+
+        
+        // 1. Encontrar todas las menciones que sigan el formato @Nombre Completo
+        const mentionRegex = /@([A-Za-z0-9_ Á-Úá-ú]+)/g;
+        const mentions = nuevoComentario.value.match(mentionRegex);
+        const mentionedUserIds = new Set();
+
+        if (mentions) {
+          mentions.forEach(mention => {
+            const username = mention.substring(1).trim(); // Quitar el '@' y espacios extra
+            // Buscamos el usuario en nuestra lista de usuarios cargada (insensible a mayúsculas)
+            const foundUser = users.value.find(u => u.name.toLowerCase() === username.toLowerCase());
+            if (foundUser) {
+              mentionedUserIds.add(foundUser.id);
+            }
+          });
+        }
+
+        // 2. Si encontramos IDs, los añadimos al FormData como un string JSON
+        if (mentionedUserIds.size > 0) {
+          formData.append('mentioned_user_ids', JSON.stringify(Array.from(mentionedUserIds)));
+        }
+        
+
         if (commentAttachments.value.length > 0) {
-          // Usamos 'attachments' (plural) que coincide con el backend
           for (const file of commentAttachments.value) {
             formData.append('attachments', file);
           }
         }
+        
         await API.upload('/api/tasks/comments', formData);
+        
         nuevoComentario.value = '';
         removeCommentAttachment();
         showSuccess('💬 Comentario agregado');
+        
         const taskActual = tasks.value.find(t => t.id === tareaSeleccionada.value.id);
         if (taskActual) {
           await verDetalles(taskActual);
@@ -631,7 +665,6 @@ createApp({
         showError('❌ Error al agregar comentario: ' + err.message);
       }
     };
-
     const getLabelsArray = (task) => {
       if (!task?.label_names) return [];
       return task.label_names.split(',').map(label => label.trim()).filter(Boolean);
@@ -693,6 +726,14 @@ createApp({
           hour: '2-digit', minute: '2-digit'
         });
       } catch { return isoDate; }
+    };
+
+    const formatCommentContent = (text) => {
+      if (!text) return '';
+      // Convierte saltos de línea a <br> y resalta las menciones con una clase CSS
+      return text
+        .replace(/\n/g, '<br>')
+        .replace(/@([A-Za-z0-9_ Á-Úá-ú]+)/g, '<strong class="mention">@$1</strong>');
     };
 
     const getColor = (labelName) => {
@@ -766,13 +807,90 @@ createApp({
       }
     };
 
+    const handleCommentInput = (event) => {
+      const text = event.target.value;
+      const cursorPos = event.target.selectionStart;
+      
+      // Regex para encontrar si estamos escribiendo una mención (ej: @jua)
+      const mentionMatch = text.slice(0, cursorPos).match(/@(\w*)$/);
+
+      if (mentionMatch) {
+        mentionQuery.value = mentionMatch[1].toLowerCase();
+        filteredMentionUsers.value = users.value.filter(u => 
+          u.name.toLowerCase().includes(mentionQuery.value)
+        );
+        showMentionList.value = true;
+        mentionNavIndex.value = 0; // Resetea el índice de navegación
+      } else {
+        showMentionList.value = false;
+        mentionNavIndex.value = -1;
+      }
+    };
+    
+    const selectMention = (user) => {
+      const text = nuevoComentario.value;
+      const cursorPos = document.querySelector('.comment-form textarea').selectionStart;
+      const textBeforeCursor = text.slice(0, cursorPos);
+      
+      // Reemplaza la mención parcial (ej: @jua) por la completa (@Juan Perez )
+      const newTextBefore = textBeforeCursor.replace(/@(\w*)$/, `@${user.name} `);
+      
+      nuevoComentario.value = newTextBefore + text.slice(cursorPos);
+      showMentionList.value = false;
+      mentionNavIndex.value = -1;
+
+      // Ponemos el foco de vuelta en el textarea
+      Vue.nextTick(() => {
+        const textarea = document.querySelector('.comment-form textarea');
+        textarea.focus();
+        textarea.selectionStart = textarea.selectionEnd = newTextBefore.length;
+      });
+    };
+
+    const navigateMentions = (direction) => {
+        if (!showMentionList.value || filteredMentionUsers.value.length === 0) return;
+        if (direction === 'down') {
+            mentionNavIndex.value = (mentionNavIndex.value + 1) % filteredMentionUsers.value.length;
+        } else if (direction === 'up') {
+            mentionNavIndex.value = (mentionNavIndex.value - 1 + filteredMentionUsers.value.length) % filteredMentionUsers.value.length;
+        }
+    };
+    
+    const selectMentionWithEnter = (event) => {
+        if (showMentionList.value && mentionNavIndex.value >= 0) {
+            selectMention(filteredMentionUsers.value[mentionNavIndex.value]);
+            event.preventDefault(); // Evita que se inserte un salto de línea
+        } else {
+            // Permite el comportamiento normal del Enter (agregar comentario) si no hay menú
+            agregarComentario();
+        }
+    };
+
+    const closeUpdateModal = (shouldNotShowAgain) => {
+      if (shouldNotShowAgain) {
+        // Guardamos la versión actual que el usuario ha visto
+        localStorage.setItem('lastUpdateSeen', APP_VERSION);
+      }
+      showUpdateModal.value = false;
+    };
+
     // ======================================================
     // 5. Carga Inicial (Lifecycle Hook)
     // ======================================================
-    onMounted(() => {
+   onMounted(() => {
+      // Estas dos líneas ya estaban y están correctas
       cargarDatos();
       setupWebSocket();
-    });
+
+      // ✨ LÓGICA DEL POP-UP AHORA DENTRO DE onMounted ✨
+      const lastSeenVersion = localStorage.getItem('lastUpdateSeen');
+      
+      // Comparamos la versión guardada con la versión actual de la app
+      if (lastSeenVersion !== APP_VERSION) {
+        // Si no coinciden, activamos el pop-up
+        showUpdateModal.value = true;
+      }
+    }); 
 
     // ======================================================
     // 6. EXPOSICIÓN A LA PLANTILLA (return)
@@ -807,7 +925,15 @@ createApp({
       mostrandoSelectorCreador,
       nuevoCreadorId,
       abrirSelectorDeCreador,
+      formatCommentContent, 
       confirmarCambioDeCreador,
+      showMentionList,
+      filteredMentionUsers,
+      handleCommentInput,
+      selectMention,
+      navigateMentions,
+      selectMentionWithEnter,
+      mentionNavIndex,
       showStateDropdown,
       toggleStateDropdown,
       avanzarEstado,
@@ -819,6 +945,8 @@ createApp({
       handleFileUploadEnEdicion,
       quitarDeLaListaDeSubida,
       marcarParaBorrar,
+      showUpdateModal,
+      closeUpdateModal,
       archivarTarea
     };
   }

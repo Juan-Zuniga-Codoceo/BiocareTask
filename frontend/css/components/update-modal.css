@@ -1,0 +1,74 @@
+/* Estilos mejorados para el Modal de Novedades */
+
+/* 1. Encabezado con más contraste y jerarquía */
+.update-modal-header {
+  background-color: var(--c-primary); /* ✨ CAMBIO: Fondo azul primario */
+  color: var(--c-white);
+  padding: 20px 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+
+.update-modal-header .fa-rocket {
+  font-size: 28px;
+  color: var(--c-white); /* ✨ CAMBIO: Ícono en blanco para mejor contraste */
+}
+
+.update-modal-header h2 {
+  color: var(--c-white);
+  font-size: 22px;
+  margin: 0;
+}
+
+/* 2. Lista de Novedades más legible */
+.update-list {
+  list-style: none;
+  padding-left: 0;
+  margin: 24px 0;
+}
+
+.update-list li {
+  margin-bottom: 20px;
+  padding-left: 32px;
+  position: relative;
+  line-height: 1.5;
+}
+
+.update-list li i {
+  position: absolute;
+  left: 0;
+  top: 5px;
+  font-size: 18px;
+  color: var(--c-primary); /* Íconos en azul Biocare */
+}
+
+.update-list li strong {
+  display: block; /* Asegura que el título ocupe su propia línea */
+  margin-bottom: 4px;
+}
+
+.update-list .update-description {
+  color: var(--c-text-light); /* Texto descriptivo más suave */
+  font-size: 14px;
+}
+
+/* 3. Pie de página agrupado y alineado */
+.modal-footer .dont-show-again {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--c-text-light);
+  margin-right: 16px; /* Espacio entre la casilla y el botón */
+}
+
+.modal-footer .dont-show-again input[type="checkbox"] {
+  accent-color: var(--c-action); /* Color del check en verde Biocare */
+  cursor: pointer;
+}
+
+.modal-footer .dont-show-again label {
+  cursor: pointer;
+}

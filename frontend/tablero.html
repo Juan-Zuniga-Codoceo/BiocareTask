@@ -345,7 +345,8 @@
                         <span class="comment-date">{{ formatDate(comentario.fecha_creacion) }}</span>
                       </div>
                       <div class="comment-content">
-                        <p>{{ comentario.contenido }}</p>
+                        <p v-html="formatCommentContent(comentario.contenido)"></p>
+
                         <div v-if="comentario.attachments && comentario.attachments.length > 0"
                           class="comment-attachments-grid">
                           <a v-for="att in comentario.attachments" :key="att.id" href="javascript:void(0)"
@@ -359,9 +360,20 @@
                     </div>
                   </div>
                 </div>
-                <<div class="comment-form">
-                  <textarea v-model="nuevoComentario" placeholder="Escribe un comentario..."></textarea>
+                <div class="comment-form">
+                  <textarea v-model="nuevoComentario" @input="handleCommentInput"
+                    @keydown.down.prevent="navigateMentions('down')" @keydown.up.prevent="navigateMentions('up')"
+                    @keydown.enter.prevent="selectMentionWithEnter" placeholder="Escribe un comentario..."></textarea>
 
+                  <div class="mention-suggestions" v-if="showMentionList">
+                    <div v-for="(u, index) in filteredMentionUsers" :key="u.id" class="mention-item"
+                      :class="{ 'is-active': index === mentionNavIndex }" @mousedown.prevent="selectMention(u)">
+                      {{ u.name }}
+                    </div>
+                    <div v-if="filteredMentionUsers.length === 0" class="mention-item-empty">
+                      No se encontraron usuarios.
+                    </div>
+                  </div>
                   <div v-if="commentAttachments.length > 0" class="comment-attachments-grid">
                     <div v-for="(file, index) in commentAttachments" :key="index" class="attachment-pill preview">
                       <i class="fa-solid fa-file-arrow-up"></i>
@@ -380,274 +392,277 @@
                     <button @click="agregarComentario"
                       :disabled="!nuevoComentario.trim() && commentAttachments.length === 0">Enviar</button>
                   </div>
+                </div>
               </div>
             </div>
-          </div>
-          <div class="detail-col">
-            <div class="detail-section">
-              <h3><i class="fa-solid fa-circle-info"></i> Detalles</h3>
-              <ul class="detail-list">
-                <li><strong>Asignado a:</strong> <span>{{ tareaSeleccionada.assigned_names || 'Nadie' }}</span></li>
-                <li><strong>Fecha Límite:</strong> <span>{{ formatDate(tareaSeleccionada.due_date) }}</span></li>
-                <li><strong>Prioridad:</strong> <span :class="'badge-' + tareaSeleccionada.priority">{{
-                    getPriorityText(tareaSeleccionada.priority) }}</span></li>
-                <li><strong>Creado por:</strong> <span>{{ tareaSeleccionada.created_by_name }}</span></li>
-                <li v-if="getLabelsArray(tareaSeleccionada).length > 0">
-                  <strong>Etiquetas:</strong>
-                  <div class="labels">
-                    <span v-for="label in getLabelsArray(tareaSeleccionada)" :key="label" class="label-tag"
-                      :style="{ backgroundColor: getColor(label) }">{{ label }}</span>
-                  </div>
-                </li>
-              </ul>
-            </div>
-            <div class="detail-section"
-              v-if="tareaSeleccionada.attachments && tareaSeleccionada.attachments.length > 0">
-              <h3><i class="fa-solid fa-paperclip"></i> Archivos Adjuntos</h3>
+            <div class="detail-col">
+              <div class="detail-section">
+                <h3><i class="fa-solid fa-circle-info"></i> Detalles</h3>
+                <ul class="detail-list">
+                  <li><strong>Asignado a:</strong> <span>{{ tareaSeleccionada.assigned_names || 'Nadie' }}</span></li>
+                  <li><strong>Fecha Límite:</strong> <span>{{ formatDate(tareaSeleccionada.due_date) }}</span></li>
+                  <li><strong>Prioridad:</strong> <span :class="'badge-' + tareaSeleccionada.priority">{{
+                      getPriorityText(tareaSeleccionada.priority) }}</span></li>
+                  <li><strong>Creado por:</strong> <span>{{ tareaSeleccionada.created_by_name }}</span></li>
+                  <li v-if="getLabelsArray(tareaSeleccionada).length > 0">
+                    <strong>Etiquetas:</strong>
+                    <div class="labels">
+                      <span v-for="label in getLabelsArray(tareaSeleccionada)" :key="label" class="label-tag"
+                        :style="{ backgroundColor: getColor(label) }">{{ label }}</span>
+                    </div>
+                  </li>
+                </ul>
+              </div>
+              <div class="detail-section"
+                v-if="tareaSeleccionada.attachments && tareaSeleccionada.attachments.length > 0">
+                <h3><i class="fa-solid fa-paperclip"></i> Archivos Adjuntos</h3>
 
-              <div class="comment-attachments-grid">
-                <a v-for="attachment in tareaSeleccionada.attachments" :key="attachment.id" href="javascript:void(0)"
-                  @click.stop="downloadFile(attachment)" class="attachment-pill"
-                  :title="'Descargar ' + attachment.file_name">
-                  <i class="fa-solid fa-download"></i>
-                  <span class="attachment-pill-name">{{ attachment.file_name }}</span>
-                </a>
+                <div class="comment-attachments-grid">
+                  <a v-for="attachment in tareaSeleccionada.attachments" :key="attachment.id" href="javascript:void(0)"
+                    @click.stop="downloadFile(attachment)" class="attachment-pill"
+                    :title="'Descargar ' + attachment.file_name">
+                    <i class="fa-solid fa-download"></i>
+                    <span class="attachment-pill-name">{{ attachment.file_name }}</span>
+                  </a>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <div class="modal-actions-left" v-if="puedeEditarTarea">
-          <button @click="abrirModalEditar" class="btn-edit">
-            <i class="fa-solid fa-pencil"></i> Editar
-          </button>
-
-          <button @click="abrirSelectorDeCreador" class="btn-change-creator" v-if="user.role === 'admin'">
-            <i class="fa-solid fa-user-pen"></i> Cambiar Creador
-          </button>
-
-          <button @click="abrirConfirmarEliminar" class="btn-delete" v-if="puedeEliminarTarea">
-            <i class="fa-solid fa-trash-can"></i> Eliminar
-          </button>
-
-          <button @click="archivarTarea(tareaSeleccionada.id)" class="btn-archive"
-            v-if="tareaSeleccionada.status === 'completada'">
-            <i class="fa-solid fa-box-archive"></i> Archivar
-          </button>
-        </div>
-
-        <div class="modal-actions-right">
-          <div class="split-button-group" v-if="tareaSeleccionada.status !== 'completada'">
-            <button @click="avanzarEstado(tareaSeleccionada)" class="btn-primary-action">
-              {{ tareaSeleccionada.status === 'pendiente' ? 'Iniciar Tarea' : 'Completar' }}
-              <i
-                :class="tareaSeleccionada.status === 'pendiente' ? 'fa-solid fa-arrow-right' : 'fa-solid fa-check'"></i>
-            </button>
-            <button class="btn-split-trigger" @click.stop="toggleStateDropdown">
-              <i class="fa-solid fa-chevron-down"></i>
-            </button>
-            <div class="split-dropdown-menu" v-if="showStateDropdown">
-              <a href="#" @click.prevent="retrocederEstado(tareaSeleccionada)">
-                <i class="fa-solid fa-arrow-left"></i> Devolver a "{{ tareaSeleccionada.status === 'en_camino' ?
-                'Pendiente' : '' }}"
-              </a>
-            </div>
-          </div>
-
-          <div v-if="tareaSeleccionada.status === 'completada'">
-            <button @click="retrocederEstado(tareaSeleccionada)" class="btn-secondary-action">
-              <i class="fa-solid fa-undo"></i> Reabrir Tarea
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="modal" v-if="mostrandoSelectorCreador">
-      <div class="modal-content" style="max-width: 500px;">
-        <div class="modal-header">
-          <h2><i class="fa-solid fa-user-pen"></i> Cambiar Creador de Tarea</h2>
-          <button @click="mostrandoSelectorCreador = false" class="btn-close-modal">&times;</button>
-        </div>
-        <div class="modal-body">
-          <p>Selecciona el nuevo usuario que será el creador de la tarea "<strong>{{ tareaSeleccionada.title
-              }}</strong>".</p>
-          <div class="form-group">
-            <label for="user-selector">Usuarios Disponibles</label>
-            <select id="user-selector" v-model="nuevoCreadorId" class="user-select-add">
-              <option :value="null" disabled>-- Selecciona un usuario --</option>
-              <option v-for="u in users" :key="u.id" :value="u.id">
-                {{ u.name }} (ID: {{ u.id }})
-              </option>
-            </select>
           </div>
         </div>
         <div class="modal-footer">
-          <button @click="mostrandoSelectorCreador = false" class="btn-cancel">Cancelar</button>
-          <button @click="confirmarCambioDeCreador" class="btn-create">
-            <i class="fa-solid fa-save"></i> Guardar Cambio
+          <div class="modal-actions-left" v-if="puedeEditarTarea">
+            <button @click="abrirModalEditar" class="btn-edit">
+              <i class="fa-solid fa-pencil"></i> Editar
+            </button>
+
+            <button @click="abrirSelectorDeCreador" class="btn-change-creator" v-if="user.role === 'admin'">
+              <i class="fa-solid fa-user-pen"></i> Cambiar Creador
+            </button>
+
+            <button @click="abrirConfirmarEliminar" class="btn-delete" v-if="puedeEliminarTarea">
+              <i class="fa-solid fa-trash-can"></i> Eliminar
+            </button>
+
+            <button @click="archivarTarea(tareaSeleccionada.id)" class="btn-archive"
+              v-if="tareaSeleccionada.status === 'completada'">
+              <i class="fa-solid fa-box-archive"></i> Archivar
+            </button>
+          </div>
+
+          <div class="modal-actions-right">
+            <div class="split-button-group" v-if="tareaSeleccionada.status !== 'completada'">
+              <button @click="avanzarEstado(tareaSeleccionada)" class="btn-primary-action">
+                {{ tareaSeleccionada.status === 'pendiente' ? 'Iniciar Tarea' : 'Completar' }}
+                <i
+                  :class="tareaSeleccionada.status === 'pendiente' ? 'fa-solid fa-arrow-right' : 'fa-solid fa-check'"></i>
+              </button>
+              <button class="btn-split-trigger" @click.stop="toggleStateDropdown">
+                <i class="fa-solid fa-chevron-down"></i>
+              </button>
+              <div class="split-dropdown-menu" v-if="showStateDropdown">
+                <a href="#" @click.prevent="retrocederEstado(tareaSeleccionada)">
+                  <i class="fa-solid fa-arrow-left"></i> Devolver a "{{ tareaSeleccionada.status === 'en_camino' ?
+                  'Pendiente' : '' }}"
+                </a>
+              </div>
+            </div>
+
+            <div v-if="tareaSeleccionada.status === 'completada'">
+              <button @click="retrocederEstado(tareaSeleccionada)" class="btn-secondary-action">
+                <i class="fa-solid fa-undo"></i> Reabrir Tarea
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal" v-if="mostrandoSelectorCreador">
+        <div class="modal-content" style="max-width: 500px;">
+          <div class="modal-header">
+            <h2><i class="fa-solid fa-user-pen"></i> Cambiar Creador de Tarea</h2>
+            <button @click="mostrandoSelectorCreador = false" class="btn-close-modal">&times;</button>
+          </div>
+          <div class="modal-body">
+            <p>Selecciona el nuevo usuario que será el creador de la tarea "<strong>{{ tareaSeleccionada.title
+                }}</strong>".</p>
+            <div class="form-group">
+              <label for="user-selector">Usuarios Disponibles</label>
+              <select id="user-selector" v-model="nuevoCreadorId" class="user-select-add">
+                <option :value="null" disabled>-- Selecciona un usuario --</option>
+                <option v-for="u in users" :key="u.id" :value="u.id">
+                  {{ u.name }} (ID: {{ u.id }})
+                </option>
+              </select>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button @click="mostrandoSelectorCreador = false" class="btn-cancel">Cancelar</button>
+            <button @click="confirmarCambioDeCreador" class="btn-create">
+              <i class="fa-solid fa-save"></i> Guardar Cambio
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal" v-if="showEditModal" @click.self="showEditModal = false">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2><i class="fa-solid fa-pencil"></i> Editar Tarea</h2>
+          <button @click="showEditModal = false" class="btn-close-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+
+          <div class="form-group">
+            <label>Título *</label>
+            <input type="text" v-model="editTask.title" required />
+          </div>
+
+          <div class="form-group">
+            <label>Descripción</label>
+            <textarea v-model="editTask.description"></textarea>
+          </div>
+
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="edit-task-datepicker">Fecha de Entrega *</label>
+              <div class="date-input-wrapper">
+                <input id="edit-task-datepicker" type="text" v-model="editTask.due_date"
+                  placeholder="Selecciona una fecha y hora...">
+                <i class="fa-regular fa-calendar-alt"></i>
+              </div>
+              <div class="quick-dates">
+                <button @click.prevent="setQuickEditDate(0)">Hoy</button>
+                <button @click.prevent="setQuickEditDate(1)">Mañana</button>
+                <button @click.prevent="setQuickEditDate('eod')">Fin del Día</button>
+                <button @click.prevent="setQuickEditDate(7)">En 7 días</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Prioridad</label>
+              <select v-model="editTask.priority">
+                <option value="baja">Baja</option>
+                <option value="media">Media</option>
+                <option value="alta">Alta</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Asignar a</label>
+            <div class="pills-container user-pills">
+              <span v-for="user in selectedUsersInEdit" :key="user.id" class="pill user-pill">
+                {{ user.name }}
+                <button @click="removeUserFromEditTask(user.id)" class="remove-pill">&times;</button>
+              </span>
+              <span v-if="selectedUsersInEdit.length === 0" class="empty-pills">Nadie asignado</span>
+            </div>
+
+            <select @change="addUserToEditTask($event.target.value)" class="user-select-add">
+              <option value="" disabled selected>Añadir usuario...</option>
+              <option v-for="user in availableUsersInEdit" :key="user.id" :value="user.id">
+                {{ user.name }}
+              </option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Etiquetas</label>
+            <div class="pills-container">
+              <span v-for="label in selectedLabelsInEdit" :key="label.id" class="pill"
+                :style="{ backgroundColor: getColor(label.name) }">
+                {{ label.name }}
+                <button @click="toggleLabelInEdit(label.id)" class="remove-pill">&times;</button>
+              </span>
+            </div>
+            <div class="dropdown-container">
+              <input type="text" placeholder="Añadir etiqueta..." @focus="showLabelDropdown = true"
+                @blur="showLabelDropdown = false" class="label-input" />
+              <div class="label-dropdown" v-if="showLabelDropdown">
+                <div v-for="label in availableLabelsInEdit" :key="label.id" @mousedown="toggleLabelInEdit(label.id)">
+                  {{ label.name }}
+                </div>
+                <div v-if="availableLabelsInEdit.length === 0" class="empty-dropdown">
+                  No hay más etiquetas para añadir.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Archivos Adjuntos</label>
+
+            <div class="comment-attachments-grid" v-if="editTask.attachments && editTask.attachments.length > 0">
+              <div v-for="att in editTask.attachments" :key="att.id" class="attachment-pill"
+                :class="{ 'marked-for-deletion': adjuntosParaBorrar.includes(att.id) }"
+                :title="adjuntosParaBorrar.includes(att.id) ? 'Marcado para eliminar' : att.file_name">
+
+                <i class="fa-solid fa-file-zipper"></i>
+                <span class="attachment-pill-name">{{ att.file_name }}</span>
+                <button @click="marcarParaBorrar(att.id)" class="remove-pill-btn">&times;</button>
+              </div>
+            </div>
+            <p v-else class="empty-pills">Esta tarea no tiene archivos adjuntos.</p>
+          </div>
+
+          <div class="form-group">
+            <label for="editFileInput">Añadir Nuevos Archivos</label>
+            <input type="file" @change="handleFileUploadEnEdicion" class="file-input" id="editFileInput" multiple />
+
+            <div v-if="archivosParaSubirEnEdicion.length > 0" class="comment-attachments-grid"
+              style="margin-top: 12px;">
+              <div v-for="(file, index) in archivosParaSubirEnEdicion" :key="index" class="attachment-pill preview">
+                <i class="fa-solid fa-file-arrow-up"></i>
+                <span class="attachment-pill-name">{{ file.name }}</span>
+                <button @click="quitarDeLaListaDeSubida(index)" class="remove-pill-btn"
+                  title="Quitar archivo">&times;</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group create-label-group">
+            <input type="text" v-model="nuevaEtiqueta" placeholder="O crea una nueva etiqueta..."
+              @keyup.enter="crearEtiqueta" />
+            <button @click="crearEtiqueta" class="btn-create-label">Crear</button>
+          </div>
+
+        </div>
+        <div class="modal-footer">
+          <button @click="showEditModal = false" class="btn-cancel">Cancelar</button>
+          <button @click="guardarCambiosTarea" class="btn-create">
+            <i class="fa-solid fa-save"></i> Guardar Cambios
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="modal" v-if="showDeleteConfirm">
+      <div class="modal-content" style="max-width: 400px;">
+        <div class="modal-header">
+          <h2><i class="fa-solid fa-triangle-exclamation"></i> Confirmar Eliminación</h2>
+        </div>
+        <div class="modal-body" style="background-color: var(--c-panel-bg);">
+          <p>¿Estás seguro de que deseas eliminar la tarea "<strong>{{ tareaSeleccionada.title }}</strong>"?</p>
+          <p style="color: var(--c-danger); font-weight: 600;">Esta acción no se puede deshacer.</p>
+        </div>
+        <div class="modal-footer">
+          <button @click="showDeleteConfirm = false" class="btn-cancel">Cancelar</button>
+          <button @click="eliminarTarea" class="btn-delete">
+            <i class="fa-solid fa-trash-can"></i> Sí, eliminar
           </button>
         </div>
       </div>
     </div>
-  </div>
 
-  <div class="modal" v-if="showEditModal" @click.self="showEditModal = false">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2><i class="fa-solid fa-pencil"></i> Editar Tarea</h2>
-        <button @click="showEditModal = false" class="btn-close-modal">&times;</button>
-      </div>
-      <div class="modal-body">
+   <update-modal :show="showUpdateModal" @close="closeUpdateModal"></update-modal>
 
-        <div class="form-group">
-          <label>Título *</label>
-          <input type="text" v-model="editTask.title" required />
-        </div>
-
-        <div class="form-group">
-          <label>Descripción</label>
-          <textarea v-model="editTask.description"></textarea>
-        </div>
-
-        <div class="form-grid">
-          <div class="form-group">
-            <label for="edit-task-datepicker">Fecha de Entrega *</label>
-            <div class="date-input-wrapper">
-              <input id="edit-task-datepicker" type="text" v-model="editTask.due_date"
-                placeholder="Selecciona una fecha y hora...">
-              <i class="fa-regular fa-calendar-alt"></i>
-            </div>
-            <div class="quick-dates">
-              <button @click.prevent="setQuickEditDate(0)">Hoy</button>
-              <button @click.prevent="setQuickEditDate(1)">Mañana</button>
-              <button @click.prevent="setQuickEditDate('eod')">Fin del Día</button>
-              <button @click.prevent="setQuickEditDate(7)">En 7 días</button>
-            </div>
-          </div>
-          <div class="form-group">
-            <label>Prioridad</label>
-            <select v-model="editTask.priority">
-              <option value="baja">Baja</option>
-              <option value="media">Media</option>
-              <option value="alta">Alta</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label>Asignar a</label>
-          <div class="pills-container user-pills">
-            <span v-for="user in selectedUsersInEdit" :key="user.id" class="pill user-pill">
-              {{ user.name }}
-              <button @click="removeUserFromEditTask(user.id)" class="remove-pill">&times;</button>
-            </span>
-            <span v-if="selectedUsersInEdit.length === 0" class="empty-pills">Nadie asignado</span>
-          </div>
-
-          <select @change="addUserToEditTask($event.target.value)" class="user-select-add">
-            <option value="" disabled selected>Añadir usuario...</option>
-            <option v-for="user in availableUsersInEdit" :key="user.id" :value="user.id">
-              {{ user.name }}
-            </option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label>Etiquetas</label>
-          <div class="pills-container">
-            <span v-for="label in selectedLabelsInEdit" :key="label.id" class="pill"
-              :style="{ backgroundColor: getColor(label.name) }">
-              {{ label.name }}
-              <button @click="toggleLabelInEdit(label.id)" class="remove-pill">&times;</button>
-            </span>
-          </div>
-          <div class="dropdown-container">
-            <input type="text" placeholder="Añadir etiqueta..." @focus="showLabelDropdown = true"
-              @blur="showLabelDropdown = false" class="label-input" />
-            <div class="label-dropdown" v-if="showLabelDropdown">
-              <div v-for="label in availableLabelsInEdit" :key="label.id" @mousedown="toggleLabelInEdit(label.id)">
-                {{ label.name }}
-              </div>
-              <div v-if="availableLabelsInEdit.length === 0" class="empty-dropdown">
-                No hay más etiquetas para añadir.
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label>Archivos Adjuntos</label>
-
-          <div class="comment-attachments-grid" v-if="editTask.attachments && editTask.attachments.length > 0">
-            <div v-for="att in editTask.attachments" :key="att.id" class="attachment-pill"
-              :class="{ 'marked-for-deletion': adjuntosParaBorrar.includes(att.id) }"
-              :title="adjuntosParaBorrar.includes(att.id) ? 'Marcado para eliminar' : att.file_name">
-
-              <i class="fa-solid fa-file-zipper"></i>
-              <span class="attachment-pill-name">{{ att.file_name }}</span>
-              <button @click="marcarParaBorrar(att.id)" class="remove-pill-btn">&times;</button>
-            </div>
-          </div>
-          <p v-else class="empty-pills">Esta tarea no tiene archivos adjuntos.</p>
-        </div>
-
-        <div class="form-group">
-          <label for="editFileInput">Añadir Nuevos Archivos</label>
-          <input type="file" @change="handleFileUploadEnEdicion" class="file-input" id="editFileInput" multiple />
-
-          <div v-if="archivosParaSubirEnEdicion.length > 0" class="comment-attachments-grid" style="margin-top: 12px;">
-            <div v-for="(file, index) in archivosParaSubirEnEdicion" :key="index" class="attachment-pill preview">
-              <i class="fa-solid fa-file-arrow-up"></i>
-              <span class="attachment-pill-name">{{ file.name }}</span>
-              <button @click="quitarDeLaListaDeSubida(index)" class="remove-pill-btn"
-                title="Quitar archivo">&times;</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="form-group create-label-group">
-          <input type="text" v-model="nuevaEtiqueta" placeholder="O crea una nueva etiqueta..."
-            @keyup.enter="crearEtiqueta" />
-          <button @click="crearEtiqueta" class="btn-create-label">Crear</button>
-        </div>
-
-      </div>
-      <div class="modal-footer">
-        <button @click="showEditModal = false" class="btn-cancel">Cancelar</button>
-        <button @click="guardarCambiosTarea" class="btn-create">
-          <i class="fa-solid fa-save"></i> Guardar Cambios
-        </button>
-      </div>
-
-    </div>
-  </div>
-
-  <div class="modal" v-if="showDeleteConfirm">
-    <div class="modal-content" style="max-width: 400px;">
-      <div class="modal-header">
-        <h2><i class="fa-solid fa-triangle-exclamation"></i> Confirmar Eliminación</h2>
-      </div>
-      <div class="modal-body" style="background-color: var(--c-panel-bg);">
-        <p>¿Estás seguro de que deseas eliminar la tarea "<strong>{{ tareaSeleccionada.title }}</strong>"?</p>
-        <p style="color: var(--c-danger); font-weight: 600;">Esta acción no se puede deshacer.</p>
-      </div>
-      <div class="modal-footer">
-        <button @click="showDeleteConfirm = false" class="btn-cancel">Cancelar</button>
-        <button @click="eliminarTarea" class="btn-delete">
-          <i class="fa-solid fa-trash-can"></i> Sí, eliminar
-        </button>
-      </div>
-    </div>
-  </div>
-  </div>
-
-
-  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  </div> <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
   <script src="https://npmcdn.com/flatpickr/dist/l10n/es.js"></script>
   <script src="/js/api.js"></script>
+  
+  <script src="/js/components/UpdateModal.js"></script>
+  
   <script src="/js/tasks.js"></script>
 </body>
-
 </html>

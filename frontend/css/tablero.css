@@ -3,6 +3,8 @@
 /* ================================================================== */
 /* 1. Variables de Diseño                                             */
 /* ================================================================== */
+
+@import url('/css/components/update-modal.css');
 :root {
   --c-primary: #049DD9;
   --c-primary-light: #04B2D9;
@@ -1657,6 +1659,57 @@ select[multiple] option:checked {
 
 .btn-change-creator:hover {
   background-color: #732d91;
+}
+
+.mention {
+  color: var(--c-primary);
+  background-color: #eaf5fb;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+/* Estilos para el autocompletado de menciones */
+.comment-form {
+  position: relative; /* Necesario para posicionar la lista de sugerencias */
+}
+
+.mention-suggestions {
+  position: absolute;
+  bottom: 100%; /* Se muestra arriba del textarea */
+  left: 0;
+  width: 100%;
+  max-height: 150px;
+  overflow-y: auto;
+  background-color: var(--c-white);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  z-index: 10;
+  margin-bottom: 4px;
+}
+
+.mention-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.mention-item:not(:last-child) {
+  border-bottom: 1px solid var(--c-border);
+}
+
+.mention-item:hover,
+.mention-item.is-active {
+  background-color: var(--c-bg);
+  color: var(--c-primary);
+}
+
+.mention-item-empty {
+  padding: 8px 12px;
+  font-size: 14px;
+  color: var(--c-text-light);
+  font-style: italic;
 }
 
 
