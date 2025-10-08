@@ -9,7 +9,7 @@ const API_BASE_URL = IS_LOCAL ? 'http://localhost:3000' : '';
 
 class API {
   static async request(url, options = {}) {
-    const token = localStorage.getItem('auth_token');
+    const token = sessionStorage.getItem('auth_token');
     const defaultOptions = {
       headers: {
         'Content-Type': 'application/json',
@@ -30,8 +30,8 @@ class API {
       const response = await fetch(API_BASE_URL + url, mergedOptions);
       
       if (response.status === 401) {
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('biocare_user');
+        sessionStorage.removeItem('auth_token');
+        sessionStorage.removeItem('biocare_user');
         window.location.href = '/login';
         throw new Error('Sesión expirada');
       }
@@ -77,7 +77,7 @@ class API {
   }
 
   static async upload(url, formData) {
-    const token = localStorage.getItem('auth_token');
+    const token = sessionStorage.getItem('auth_token')
     
     // <-- CORRECCIÓN: Anteponemos la URL base también a la subida de archivos.
     return fetch(API_BASE_URL + url, {
@@ -89,8 +89,8 @@ class API {
       body: formData
     }).then(async response => {
       if (response.status === 401) {
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('biocare_user');
+        sessionStorage.removeItem('auth_token');
+        sessionStorage.removeItem('biocare_user');
         window.location.href = '/login';
         throw new Error('Sesión expirada');
       }

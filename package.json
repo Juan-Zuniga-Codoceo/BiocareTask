@@ -7,6 +7,7 @@
     "start": "node start-server.js",
     "dev": "nodemon backend/server.js",
     "init-db": "node backend/db.js",
+    "notify-update": "node scripts/send-update-email.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [

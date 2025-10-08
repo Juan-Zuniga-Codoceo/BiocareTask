@@ -105,8 +105,8 @@ createApp({
     };
     
     const logout = () => {
-      localStorage.removeItem('biocare_user');
-      localStorage.removeItem('auth_token');
+      sessionStorage.removeItem('biocare_user');
+      sessionStorage.removeItem('auth_token');
       sessionStorage.removeItem('restoredCount');
       window.location.href = '/login.html';
     };
@@ -147,7 +147,7 @@ createApp({
     });
 
     onMounted(() => {
-      const userData = localStorage.getItem('biocare_user');
+      const userData = sessionStorage.getItem('biocare_user');
       if (!userData) {
         window.location.href = '/login.html';
       } else {

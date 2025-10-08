@@ -319,13 +319,13 @@ createApp({
       return text.replace(/\n/g, '<br>');
     };
 
-    const userData = localStorage.getItem('biocare_user');
+    const userData = sessionStorage.getItem('biocare_user');
     if (!userData) { window.location.href = '/login'; }
     else { user.value = JSON.parse(userData); }
 
     const logout = () => {
-      localStorage.removeItem('biocare_user');
-      localStorage.removeItem('auth_token');
+      sessionStorage.removeItem('biocare_user');
+      sessionStorage.removeItem('auth_token');
       window.location.href = '/login';
     };
 
@@ -763,7 +763,7 @@ createApp({
 
     const downloadFile = async (attachment) => {
       try {
-        const token = localStorage.getItem('auth_token');
+        const token = sessionStorage.getItem('auth_token');
         const response = await fetch(`/api/download/${attachment.file_path}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });

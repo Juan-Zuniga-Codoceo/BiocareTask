@@ -4,7 +4,7 @@ const { createApp, ref } = Vue;
 // === LOGIN ===
 if (document.getElementById('login-app')) {
   // Si ya está logueado, redirigir
-  if (localStorage.getItem('auth_token')) {
+  if (sessionStorage.getItem('auth_token')) {
     window.location.href = '/tablero.html';
   }
 
@@ -16,41 +16,41 @@ if (document.getElementById('login-app')) {
       const error = ref('');
 
       const login = async () => {
-  error.value = '';
-  loading.value = true;
+        error.value = '';
+        loading.value = true;
 
-  try {
-    const res = await fetch('/api/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: email.value, password: password.value })
-    });
+        try {
+          const res = await fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: email.value, password: password.value })
+          });
 
-    if (!res.ok) {
-      const errorData = await res.json();
-      throw new Error(errorData.error || 'Credenciales inválidas');
-    }
+          if (!res.ok) {
+            const errorData = await res.json();
+            throw new Error(errorData.error || 'Credenciales inválidas');
+          }
 
-    const data = await res.json();
+          const data = await res.json();
 
-    // <-- CAMBIO: AHORA RECIBIMOS UN OBJETO CON 'user' y 'token'
-    if (!data.user || !data.token) {
-      throw new Error('Respuesta del servidor inválida');
-    }
+          // <-- CAMBIO: AHORA RECIBIMOS UN OBJETO CON 'user' y 'token'
+          if (!data.user || !data.token) {
+            throw new Error('Respuesta del servidor inválida');
+          }
 
-    // Guardar sesión con los nuevos datos
-    localStorage.setItem('biocare_user', JSON.stringify(data.user));
-    localStorage.setItem('auth_token', data.token); // <-- Guardamos el token JWT
+          // Guardar sesión con los nuevos datos
+          sessionStorage.setItem('biocare_user', JSON.stringify(data.user));
+          sessionStorage.setItem('auth_token', data.token);
 
-    // Redirigir
-    window.location.href = '/tablero.html';
-  } catch (err) {
-    error.value = err.message || 'Error de conexión. Intenta nuevamente.';
-    console.error('Error en login:', err);
-  } finally {
-    loading.value = false;
-  }
-};
+          // Redirigir
+          window.location.href = '/tablero.html';
+        } catch (err) {
+          error.value = err.message || 'Error de conexión. Intenta nuevamente.';
+          console.error('Error en login:', err);
+        } finally {
+          loading.value = false;
+        }
+      };
 
       return { email, password, loading, error, login };
     }
@@ -108,15 +108,15 @@ if (document.getElementById('register-app')) {
         try {
           const res = await fetch('/api/register', {
             method: 'POST',
-            headers: { 
+            headers: {
               'Content-Type': 'application/json',
               'Accept': 'application/json'
             },
-            body: JSON.stringify({ 
-              name: name.value.trim(), 
-              email: email.value.trim(), 
-              password: password.value, 
-              office: office.value 
+            body: JSON.stringify({
+              name: name.value.trim(),
+              email: email.value.trim(),
+              password: password.value,
+              office: office.value
             })
           });
 
@@ -130,7 +130,7 @@ if (document.getElementById('register-app')) {
             password.value = '';
             confirmPassword.value = '';
             office.value = '';
-            
+
             setTimeout(() => {
               window.location.href = '/login.html';
             }, 2000);
@@ -145,16 +145,16 @@ if (document.getElementById('register-app')) {
         }
       };
 
-      return { 
-        name, 
-        email, 
-        password, 
-        confirmPassword, 
-        office, 
-        loading, 
-        error, 
-        success, 
-        registrar 
+      return {
+        name,
+        email,
+        password,
+        confirmPassword,
+        office,
+        loading,
+        error,
+        success,
+        registrar
       };
     }
   }).mount('#register-app');

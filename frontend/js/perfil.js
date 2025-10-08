@@ -21,12 +21,12 @@ createApp({
         const payload = { email_notifications: isEnabled ? 1 : 0 };
         await API.put('/api/user/preferences', payload);
 
-        // Actualizamos de forma segura el localStorage y el estado local.
-        const localUser = JSON.parse(localStorage.getItem('biocare_user'));
+        
+        const localUser = JSON.parse(sessionStorage.getItem('biocare_user'));
         if (localUser) {
           localUser.email_notifications = payload.email_notifications;
           user.value.email_notifications = payload.email_notifications; // Sincronizamos el objeto 'user' principal
-          localStorage.setItem('biocare_user', JSON.stringify(localUser));
+          sessionStorage.setItem('biocare_user', JSON.stringify(localUser));
         }
         API.showNotification('Preferencias guardadas.', 'success');
       } catch (error) {
@@ -48,7 +48,7 @@ createApp({
     // MODIFICADO: Cargamos el usuario y sincronizamos el interruptor al inicio.
     const loadUserAndSyncToggle = () => {
       try {
-        const userData = localStorage.getItem('biocare_user');
+        const userData = sessionStorage.getItem('biocare_user');
         if (!userData) {
           window.location.href = '/login';
           return;
@@ -58,7 +58,7 @@ createApp({
         notificationsEnabled.value = !!user.value.email_notifications;
       } catch (error) {
         console.error("Error al cargar datos de usuario:", error);
-        localStorage.clear();
+        sessionStorage.clear();
         window.location.href = '/login';
       }
     };
@@ -76,8 +76,8 @@ createApp({
       }
     };
     const logout = () => {
-      localStorage.removeItem('biocare_user');
-      localStorage.removeItem('auth_token');
+      sessionStorage.removeItem('biocare_user');
+      sessionStorage.removeItem('auth_token');
       window.location.href = '/login';
     };
     const avatarStyle = computed(() => ({
@@ -109,7 +109,7 @@ createApp({
       try {
         const result = await API.upload('/api/user/avatar', formData);
         user.value.avatar_url = result.avatar_url;
-        localStorage.setItem('biocare_user', JSON.stringify(user.value));
+        sessionStorage.setItem('biocare_user', JSON.stringify(user.value));
         API.showNotification('Imagen de perfil actualizada', 'success');
       } catch (error) {
         API.showNotification(error.message || 'Error al subir la imagen', 'error');
