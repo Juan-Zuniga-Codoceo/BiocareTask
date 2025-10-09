@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BiocareTask - Mis Proyectos</title>
+    <link rel="stylesheet" href="/css/admin.css" /> <link rel="manifest" href="/manifest.json">
+    <link rel="icon" href="/assets/logo.png" type="image/png">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+</head>
+<body>
+<div id="projects-app">
+    <header class="header">
+        <div class="header-left">
+            <div class="logo">
+                <img src="/assets/logo.png" alt="Biocare Logo" />
+                <h1><span class="biocare">Biocare</span><span class="task">Task</span></h1>
+            </div>
+        </div>
+        <div class="header-right">
+            <div class="user-actions">
+                <div class="user-menu">
+                    <a href="/tablero.html" class="btn-create" style="text-decoration: none;"><i class="fa-solid fa-arrow-left"></i> Volver al Tablero</a>
+                    <span class="user-name" v-if="user">{{ user.name }}</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="dashboard">
+        <div class="page-header">
+            <h2><i class="fa-solid fa-diagram-project"></i> Gestión de Proyectos</h2>
+            <p>Crea nuevos espacios de trabajo y gestiona sus miembros.</p>
+        </div>
+
+        <div class="admin-controls">
+            <button class="btn-create" @click="openCreateModal">
+                <i class="fa-solid fa-plus"></i> Crear Nuevo Proyecto
+            </button>
+        </div>
+
+        <div class="user-table-container">
+            <table class="user-table">
+                <thead>
+                    <tr>
+                        <th>Nombre del Proyecto</th>
+                        <th>Descripción</th>
+                        <th>Creado el</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-if="loading">
+                        <td colspan="4" style="text-align: center; padding: 40px;">Cargando proyectos...</td>
+                    </tr>
+                    <tr v-for="project in projects" :key="project.id" @click="selectProject(project)" style="cursor: pointer;">
+                        <td><strong>{{ project.name }}</strong></td>
+                        <td>{{ project.description || '-' }}</td>
+                        <td>{{ formatDate(project.created_at) }}</td>
+                        <td><i class="fa-solid fa-chevron-right"></i></td>
+                    </tr>
+                    <tr v-if="!loading && projects.length === 0">
+                        <td colspan="4" style="text-align: center; padding: 40px;">Aún no has creado ningún proyecto.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div v-if="selectedProject" class="user-table-container" style="margin-top: 32px;">
+            <h3 style="padding: 16px; border-bottom: 1px solid var(--c-border);">Miembros de "{{ selectedProject.name }}"</h3>
+            <div style="padding: 16px;">
+                <form @submit.prevent="addMember" style="display: flex; gap: 8px; margin-bottom: 16px;">
+                    <input type="email" v-model="newMemberEmail" placeholder="Correo del usuario a invitar..." required style="flex-grow: 1; padding: 10px; border: 1px solid var(--c-border); border-radius: var(--radius);">
+                    <button type="submit" class="btn-create">Añadir Miembro</button>
+                </form>
+            </div>
+            <table class="user-table">
+                <tbody>
+                    <tr v-for="member in members" :key="member.id">
+                        <td>{{ member.name }}</td>
+                        <td>{{ member.email }}</td>
+                    </tr>
+                    <tr v-if="members.length === 0">
+                        <td colspan="2" style="text-align: center;">Este proyecto aún no tiene otros miembros.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <div class="modal" v-if="showCreateModal" @click.self="closeModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2><i class="fa-solid fa-plus"></i> Crear Nuevo Proyecto</h2>
+          <button @click="closeModal" class="btn-close-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Nombre del Proyecto *</label>
+            <input type="text" v-model="newProject.name" placeholder="Ej: Lanzamiento Producto X">
+          </div>
+          <div class="form-group">
+            <label>Descripción</label>
+            <textarea v-model="newProject.description" placeholder="Describe el objetivo de este proyecto..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button @click="closeModal" class="btn-cancel">Cancelar</button>
+          <button @click="createProject" class="btn-create">Crear Proyecto</button>
+        </div>
+      </div>
+    </div>
+
+</div>
+
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/projects.js"></script>
+</body>
+</html>

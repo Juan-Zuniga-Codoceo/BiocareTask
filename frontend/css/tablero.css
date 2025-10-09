@@ -1937,6 +1937,17 @@ select[multiple] option:checked {
   font-style: italic;
 }
 
+
+.project-selector { position: relative; }
+.project-selector-btn {
+    display: flex; align-items: center; gap: 8px; background: none; border: none;
+    font-size: 18px; font-weight: 600; cursor: pointer; padding: 8px 12px;
+    border-radius: var(--radius); transition: var(--transition);
+}
+.project-selector-btn:hover { background-color: var(--c-bg); }
+.project-dropdown { width: 250px; }
+.project-dropdown hr { border: none; border-top: 1px solid var(--c-border); margin: 4px 0; }
+
 /* ================================================================== */
 /* 15. Media Queries para Móviles (FINAL)                             */
 /* ================================================================== */
