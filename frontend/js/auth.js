@@ -15,6 +15,12 @@ if (document.getElementById('login-app')) {
       const loading = ref(false);
       const error = ref('');
 
+      const passwordFieldType = ref('password');
+
+      const togglePasswordVisibility = () => {
+        passwordFieldType.value = passwordFieldType.value === 'password' ? 'text' : 'password';
+      };
+
       const login = async () => {
         error.value = '';
         loading.value = true;
@@ -52,7 +58,7 @@ if (document.getElementById('login-app')) {
         }
       };
 
-      return { email, password, loading, error, login };
+      return { email, password, loading, error, login, passwordFieldType, togglePasswordVisibility };
     }
   }).mount('#login-app');
 }

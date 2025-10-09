@@ -336,3 +336,26 @@ body {
     font-size: 14px;
   }
 }
+
+/* --- ESTILOS PARA VER CONTRASEÑA (AÑADIR AL FINAL) --- */
+
+.input-group.password-group {
+  position: relative;
+}
+
+.toggle-password {
+  position: absolute;
+  top: 50%;
+  right: 15px;
+  transform: translateY(15%); /* Ajuste vertical fino */
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--gris-medio);
+  font-size: 18px;
+  padding: 5px;
+}
+
+.toggle-password:hover {
+  color: var(--azul-principal);
+}

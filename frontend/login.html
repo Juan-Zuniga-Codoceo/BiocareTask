@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="css/login.css" />
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="assets/logo.png" type="image/png">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
 </head>
 
 <body>
@@ -39,11 +40,18 @@
         </div>
 
         <!-- Campo de contraseña -->
-        <div class="input-group">
+        <div class="input-group password-group">
           <label>Contraseña</label>
-          <input type="password" v-model="password" placeholder="••••••••" required />
+          <input 
+            :type="passwordFieldType" 
+            v-model="password" 
+            placeholder="••••••••" 
+            required 
+          />
+          <button type="button" class="toggle-password" @click="togglePasswordVisibility">
+             <i :class="passwordFieldType === 'password' ? 'fa-solid fa-eye' : 'fa-solid fa-eye-slash'"></i>
+          </button>
         </div>
-
         <!-- Botón de acceso -->
         <button type="submit" :disabled="loading" class="btn-primary">
           {{ loading ? 'Cargando...' : 'Iniciar Sesión' }}
