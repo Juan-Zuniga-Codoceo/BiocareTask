@@ -622,7 +622,7 @@ createApp({
         formData.append('task_id', tareaSeleccionada.value.id);
         formData.append('contenido', nuevoComentario.value.trim());
 
-        
+
         // 1. Encontrar todas las menciones que sigan el formato @Nombre Completo
         const mentionRegex = /@([A-Za-z0-9_ Á-Úá-ú]+)/g;
         const mentions = nuevoComentario.value.match(mentionRegex);
@@ -643,20 +643,20 @@ createApp({
         if (mentionedUserIds.size > 0) {
           formData.append('mentioned_user_ids', JSON.stringify(Array.from(mentionedUserIds)));
         }
-        
+
 
         if (commentAttachments.value.length > 0) {
           for (const file of commentAttachments.value) {
             formData.append('attachments', file);
           }
         }
-        
+
         await API.upload('/api/tasks/comments', formData);
-        
+
         nuevoComentario.value = '';
         removeCommentAttachment();
         showSuccess('💬 Comentario agregado');
-        
+
         const taskActual = tasks.value.find(t => t.id === tareaSeleccionada.value.id);
         if (taskActual) {
           await verDetalles(taskActual);
@@ -717,6 +717,28 @@ createApp({
         hoy.getMonth() === fechaTarea.getMonth() &&
         hoy.getDate() === fechaTarea.getDate();
     };
+
+    // --- VERSIÓN DE DEPURACIÓN ---
+const esTareaVencida = (dateString, taskTitle) => {
+  if (!dateString) return false;
+
+  // 1. Corregimos el formato de la fecha
+  const isoDateString = dateString.replace(' ', 'T');
+  const fechaTarea = new Date(isoDateString);
+  const hoy = new Date();
+
+  // 2. Comprobamos si la fecha es válida
+  if (isNaN(fechaTarea.getTime())) {
+    console.error(`[DEPURACIÓN] Fecha inválida para la tarea "${taskTitle}":`, dateString);
+    return false;
+  }
+
+  // 3. Comparamos y mostramos en consola el resultado
+  const estaVencida = fechaTarea < hoy;
+  console.log(`[DEPURACIÓN] Tarea: "${taskTitle}" | Fecha Tarea: ${fechaTarea.toLocaleString()} | ¿Está Vencida?: ${estaVencida}`);
+
+  return estaVencida;
+};
 
     const formatDate = (isoDate) => {
       if (!isoDate) return 'No especificada';
@@ -801,7 +823,7 @@ createApp({
         showSuccess('Creador de la tarea actualizado con éxito.');
         mostrandoSelectorCreador.value = false; // Cierra el nuevo modal
         tareaSeleccionada.value = null;      // Cierra el modal de detalles
-        
+
       } catch (err) {
         showError(err.message || 'No se pudo cambiar el creador.');
       }
@@ -810,13 +832,13 @@ createApp({
     const handleCommentInput = (event) => {
       const text = event.target.value;
       const cursorPos = event.target.selectionStart;
-      
+
       // Regex para encontrar si estamos escribiendo una mención (ej: @jua)
       const mentionMatch = text.slice(0, cursorPos).match(/@(\w*)$/);
 
       if (mentionMatch) {
         mentionQuery.value = mentionMatch[1].toLowerCase();
-        filteredMentionUsers.value = users.value.filter(u => 
+        filteredMentionUsers.value = users.value.filter(u =>
           u.name.toLowerCase().includes(mentionQuery.value)
         );
         showMentionList.value = true;
@@ -826,15 +848,15 @@ createApp({
         mentionNavIndex.value = -1;
       }
     };
-    
+
     const selectMention = (user) => {
       const text = nuevoComentario.value;
       const cursorPos = document.querySelector('.comment-form textarea').selectionStart;
       const textBeforeCursor = text.slice(0, cursorPos);
-      
+
       // Reemplaza la mención parcial (ej: @jua) por la completa (@Juan Perez )
       const newTextBefore = textBeforeCursor.replace(/@(\w*)$/, `@${user.name} `);
-      
+
       nuevoComentario.value = newTextBefore + text.slice(cursorPos);
       showMentionList.value = false;
       mentionNavIndex.value = -1;
@@ -848,22 +870,22 @@ createApp({
     };
 
     const navigateMentions = (direction) => {
-        if (!showMentionList.value || filteredMentionUsers.value.length === 0) return;
-        if (direction === 'down') {
-            mentionNavIndex.value = (mentionNavIndex.value + 1) % filteredMentionUsers.value.length;
-        } else if (direction === 'up') {
-            mentionNavIndex.value = (mentionNavIndex.value - 1 + filteredMentionUsers.value.length) % filteredMentionUsers.value.length;
-        }
+      if (!showMentionList.value || filteredMentionUsers.value.length === 0) return;
+      if (direction === 'down') {
+        mentionNavIndex.value = (mentionNavIndex.value + 1) % filteredMentionUsers.value.length;
+      } else if (direction === 'up') {
+        mentionNavIndex.value = (mentionNavIndex.value - 1 + filteredMentionUsers.value.length) % filteredMentionUsers.value.length;
+      }
     };
-    
+
     const selectMentionWithEnter = (event) => {
-        if (showMentionList.value && mentionNavIndex.value >= 0) {
-            selectMention(filteredMentionUsers.value[mentionNavIndex.value]);
-            event.preventDefault(); // Evita que se inserte un salto de línea
-        } else {
-            // Permite el comportamiento normal del Enter (agregar comentario) si no hay menú
-            agregarComentario();
-        }
+      if (showMentionList.value && mentionNavIndex.value >= 0) {
+        selectMention(filteredMentionUsers.value[mentionNavIndex.value]);
+        event.preventDefault(); // Evita que se inserte un salto de línea
+      } else {
+        // Permite el comportamiento normal del Enter (agregar comentario) si no hay menú
+        agregarComentario();
+      }
     };
 
     const closeUpdateModal = (shouldNotShowAgain) => {
@@ -877,20 +899,20 @@ createApp({
     // ======================================================
     // 5. Carga Inicial (Lifecycle Hook)
     // ======================================================
-   onMounted(() => {
+    onMounted(() => {
       // Estas dos líneas ya estaban y están correctas
       cargarDatos();
       setupWebSocket();
 
       // ✨ LÓGICA DEL POP-UP AHORA DENTRO DE onMounted ✨
       const lastSeenVersion = localStorage.getItem('lastUpdateSeen');
-      
+
       // Comparamos la versión guardada con la versión actual de la app
       if (lastSeenVersion !== APP_VERSION) {
         // Si no coinciden, activamos el pop-up
         showUpdateModal.value = true;
       }
-    }); 
+    });
 
     // ======================================================
     // 6. EXPOSICIÓN A LA PLANTILLA (return)
@@ -908,7 +930,7 @@ createApp({
       selectedUsersInEdit,
       availableUsersInEdit,
       logout, cargarDatos, abrirModalEditar, guardarCambiosTarea,
-      abrirConfirmarEliminar, eliminarTarea, esTareaParaHoy, crearTarea,
+      abrirConfirmarEliminar, eliminarTarea, esTareaParaHoy, esTareaVencida, crearTarea,
       toggleLabelInNew, resetForm, handleFileUpload, removeFile, crearEtiqueta,
       toggleLabelInEdit, cambiarEstadoTarea, verDetalles, handleCommentAttachment,
       removeCommentAttachment, removeCommentAttachmentFile, agregarComentario, getLabelsArray, toggleNotifications,
@@ -921,11 +943,11 @@ createApp({
       addUserToEditTask,
       removeUserFromEditTask,
       puedeEditarTarea,
-      puedeEliminarTarea, 
+      puedeEliminarTarea,
       mostrandoSelectorCreador,
       nuevoCreadorId,
       abrirSelectorDeCreador,
-      formatCommentContent, 
+      formatCommentContent,
       confirmarCambioDeCreador,
       showMentionList,
       filteredMentionUsers,

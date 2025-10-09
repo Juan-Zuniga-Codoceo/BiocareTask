@@ -129,7 +129,7 @@
           </h2>
           <div class="task-list">
             <div v-for="task in tareasPendientes" :key="task.id" class="task-card"
-              :class="{ 'vence-hoy': esTareaParaHoy(task.due_date) }" @click="verDetalles(task)">
+    :class="{ 'vence-hoy': esTareaParaHoy(task.due_date), 'vencida': esTareaVencida(task.due_date, task.title) }" @click="verDetalles(task)">
               <h3>{{ task.title }}</h3>
               <p>{{ task.description }}</p>
               <div class="task-meta">
