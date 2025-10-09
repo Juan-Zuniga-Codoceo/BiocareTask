@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BiocareTask - Administración</title>
+  <link rel="stylesheet" href="/css/admin.css" />
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/assets/logo.png" type="image/png">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+</head>
+<body>
+  <div id="admin-app">
+    <header class="header">
+      <div class="header-left">
+        <div class="logo">
+          <img src="/assets/logo.png" alt="Biocare Logo" />
+          <h1><span class="biocare">Biocare</span><span class="task">Task</span></h1>
+        </div>
+      </div>
+      <div class="header-right">
+        <div class="user-actions">
+          <div class="user-menu">
+            <div class="dropdown">
+              <button class="btn-icon" @click="toggleDropdown" title="Mi Perfil">
+                <i class="fa-solid fa-user-gear"></i>
+              </button>
+              <div class="dropdown-menu" v-if="showDropdown">
+                <button @click="toggleDropdown" class="btn-close-overlay">&times;</button>
+                <a href="/tablero.html"><i class="fa-solid fa-table-columns"></i> Tablero</a>
+                <a href="/perfil.html"><i class="fa-solid fa-user"></i> Mi Perfil</a>
+                <a href="/archivadas.html"><i class="fa-solid fa-box-archive"></i> Tareas Archivadas</a>
+                <a href="javascript:void(0)" @click="logout()"><i class="fa-solid fa-right-from-bracket"></i> Cerrar sesión</a>
+              </div>
+            </div>
+            <span class="user-name" v-if="user">{{ user.name }}</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="dashboard">
+      <div class="page-header">
+        <h2><i class="fa-solid fa-users-cog"></i> Panel de Administración</h2>
+        <p>Gestiona los usuarios y roles del sistema.</p>
+      </div>
+      <div class="admin-controls">
+        <div class="search-box">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="text" v-model="searchTerm" placeholder="Buscar por nombre o correo...">
+        </div>
+        <button class="btn-create" @click="openCreateModal">
+          <i class="fa-solid fa-user-plus"></i> Crear Usuario
+        </button>
+      </div>
+      <div class="user-table-container">
+        <table class="user-table">
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Correo</th>
+              <th>Oficina</th>
+              <th>Rol</th>
+              <th style="text-align: right;">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-if="loading">
+              <td colspan="5" style="text-align: center; padding: 40px;">Cargando usuarios...</td>
+            </tr>
+            <tr v-for="u in filteredUsers" :key="u.id" :class="{ 'inactive-user': !u.is_active }">
+              <td>{{ u.name }}</td>
+              <td>{{ u.email }}</td>
+              <td>{{ u.office }}</td>
+              <td><span class="role-badge" :class="u.role">{{ u.role }}</span></td>
+              <td>
+                <div class="action-buttons">
+                    <button @click="toggleUserStatus(u)" class="action-btn btn-toggle" :class="{ 'active': u.is_active }" :title="u.is_active ? 'Desactivar' : 'Activar'"><i :class="u.is_active ? 'fa-solid fa-user-slash' : 'fa-solid fa-user-check'"></i></button>
+                    <button @click="openEditModal(u)" class="action-btn btn-edit-user" title="Editar"><i class="fa-solid fa-pencil"></i></button>
+                    <button @click="openDeleteConfirm(u)" class="action-btn btn-delete-user" title="Eliminar"><i class="fa-solid fa-trash-can"></i></button>
+                </div>
+              </td>
+            </tr>
+            <tr v-if="!loading && filteredUsers.length === 0">
+                <td colspan="5" style="text-align: center; padding: 40px;">No se encontraron usuarios.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+
+    <div class="modal" v-if="showModal" @click.self="closeModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2><i :class="isEditing ? 'fa-solid fa-user-edit' : 'fa-solid fa-user-plus'"></i> {{ modalTitle }}</h2>
+          <button @click="closeModal" class="btn-close-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Nombre Completo *</label>
+            <input type="text" v-model="editableUser.name" placeholder="Ej: Juan Pérez">
+          </div>
+          <div class="form-group">
+            <label>Correo Electrónico *</label>
+            <input type="email" v-model="editableUser.email" placeholder="Ej: juan.perez@biocare.cl">
+          </div>
+           <div class="form-group" v-if="!isEditing">
+            <label>Contraseña *</label>
+            <input type="password" v-model="editableUser.password" placeholder="Mínimo 6 caracteres">
+          </div>
+          <div class="form-group">
+            <label>Oficina</label>
+             <select v-model="editableUser.office">
+                <option value="" disabled>Selecciona una oficina</option>
+                <option>Valparaíso</option>
+                <option>Viña del Mar</option>
+                <option>Quilpué</option>
+                <option>Bodega</option>
+             </select>
+          </div>
+          <div class="form-group">
+            <label>Rol *</label>
+            <select v-model="editableUser.role">
+              <option value="user">Usuario</option>
+              <option value="admin">Administrador</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button @click="closeModal" class="btn-cancel">Cancelar</button>
+          <button @click="saveUser" class="btn-create">{{ isEditing ? 'Guardar Cambios' : 'Crear Usuario' }}</button>
+        </div>
+      </div>
+    </div>
+    
+    <div class="modal" v-if="showDeleteModal">
+      <div class="modal-content" style="max-width: 450px;">
+        <div class="modal-header">
+          <h2><i class="fa-solid fa-triangle-exclamation"></i> Confirmar Eliminación</h2>
+        </div>
+        <div class="modal-body">
+          <p>¿Estás seguro de que deseas eliminar al usuario "<strong>{{ userToDelete.name }}</strong>"?</p>
+          <p style="color: var(--c-danger); font-weight: 600;">Esta acción no se puede deshacer. Las tareas creadas por este usuario serán reasignadas a ti.</p>
+        </div>
+        <div class="modal-footer">
+          <button @click="closeModal" class="btn-cancel">Cancelar</button>
+          <button @click="confirmDelete" class="btn-delete"><i class="fa-solid fa-trash-can"></i> Sí, eliminar</button>
+        </div>
+      </div>
+    </div>
+    
+    </div>
+
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/admin.js"></script>
+</body>
+</html>

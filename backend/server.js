@@ -28,6 +28,7 @@ const tasksRoutes = require('./routes/tasks.routes');
 const usersRoutes = require('./routes/users.routes');
 // <-- NUEVO: Importamos el programador de tareas internas
 const { initScheduledJobs } = require('./jobs/in-app-jobs');
+const adminRoutes = require('./routes/admin.routes.js'); 
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -44,6 +45,7 @@ app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 app.use('/api', authRoutes);
 app.use('/api', tasksRoutes);
 app.use('/api', usersRoutes);
+app.use('/api/admin', adminRoutes); 
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, '..', 'frontend', 'login.html')));
 
 // Rutas amigables para servir los archivos HTML principales
@@ -52,7 +54,8 @@ app.get('/tablero', (req, res) => res.sendFile(path.join(__dirname, '..', 'front
 app.get('/perfil', (req, res) => res.sendFile(path.join(__dirname, '..', 'frontend', 'perfil.html')));
 app.get('/archivadas', (req, res) => res.sendFile(path.join(__dirname, '..', 'frontend', 'archivadas.html')));
 app.get('/registro', (req, res) => res.sendFile(path.join(__dirname, '..', 'frontend', 'registro.html')));
-// ===== FIN DE LA MEJORA =====
+app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, '..', 'frontend', 'admin.html'))); 
+
 
 app.use((err, req, res, next) => {
     console.error('Error no controlado:', err.stack);

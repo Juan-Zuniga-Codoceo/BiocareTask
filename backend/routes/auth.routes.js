@@ -31,7 +31,7 @@ router.post('/login', jsonParser, [
 
     const { email, password } = req.body;
 
-    const sql = "SELECT id, name, email, office, role, password, avatar_url, email_notifications FROM users WHERE email = ?";
+    const sql = "SELECT id, name, email, office, role, password, avatar_url, email_notifications FROM users WHERE email = ? AND is_active = 1";
  
     db.get(sql, [email], async (err, user) => {
       if (err) {

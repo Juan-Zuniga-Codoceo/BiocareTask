@@ -45,9 +45,9 @@ const uploadAvatar = multer({
 // ======================================================
 
 // 👥 OBTENER LISTA DE USUARIOS (Añadir el nuevo campo)
+
 router.get('/users', authenticateToken, (req, res) => {
-  
-  db.all("SELECT id, name, email, office, role, email_notifications FROM users ORDER BY name", (err, users) => {
+  db.all("SELECT id, name, email, office, role, email_notifications FROM users WHERE is_active = 1 ORDER BY name", (err, users) => {
     if (err) return res.status(500).json({ error: 'Error al obtener usuarios' });
     res.json(users || []);
   });

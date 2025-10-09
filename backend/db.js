@@ -38,7 +38,8 @@ db.run("PRAGMA foreign_keys = ON", (err) => {
 // === CREAR TABLAS EN ORDEN ===
 db.serialize(() => {
   // Tabla users
-  db.run(`CREATE TABLE IF NOT EXISTS users (
+  // Cerca de la línea 24
+db.run(`CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
     email TEXT UNIQUE NOT NULL,
@@ -49,16 +50,18 @@ db.serialize(() => {
     created_at TEXT DEFAULT (datetime('now', 'localtime')),
     reset_token TEXT,  
     reset_token_expires INTEGER,
-    email_notifications INTEGER DEFAULT 1 -- <<< AÑADIR ESTA LÍNEA
-  )`, (err) => {
+    email_notifications INTEGER DEFAULT 1,
+    is_active INTEGER DEFAULT 1 
+)`, (err) => {
     if (err) {
-      console.error('❌ Error al crear tabla users:', err.message);
+        console.error('❌ Error al crear tabla users:', err.message);
     } else {
-      // Para actualizar la tabla si ya existe, sin borrar datos
-      db.run("ALTER TABLE users ADD COLUMN email_notifications INTEGER DEFAULT 1", () => {});
-      console.log('✅ Tabla users lista');
+        // Para actualizar la tabla si ya existe, sin borrar datos
+        db.run("ALTER TABLE users ADD COLUMN email_notifications INTEGER DEFAULT 1", () => {});
+        db.run("ALTER TABLE users ADD COLUMN is_active INTEGER DEFAULT 1", () => {}); // <<< AÑADIR ESTA LÍNEA
+        console.log('✅ Tabla users lista');
     }
-  });
+});
 
    // Tabla tasks
   db.run(`CREATE TABLE IF NOT EXISTS tasks (
