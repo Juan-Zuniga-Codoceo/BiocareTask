@@ -26,9 +26,9 @@ const { initializeWebSocket } = require('./services/websocket.service');
 const authRoutes = require('./routes/auth.routes');
 const tasksRoutes = require('./routes/tasks.routes');
 const usersRoutes = require('./routes/users.routes');
-// <-- NUEVO: Importamos el programador de tareas internas
 const { initScheduledJobs } = require('./jobs/in-app-jobs');
 const adminRoutes = require('./routes/admin.routes.js'); 
+const projectsRoutes = require('./routes/projects.routes.js');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -43,9 +43,11 @@ app.use('/assets', express.static(path.join(__dirname, '..', 'frontend/assets'))
 app.use(express.static(path.join(__dirname, '..', 'frontend')));
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 app.use('/api', authRoutes);
-app.use('/api', tasksRoutes);
 app.use('/api', usersRoutes);
 app.use('/api/admin', adminRoutes); 
+app.use('/api/projects', projectsRoutes);
+app.use('/api/projects/:projectId', tasksRoutes); 
+
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, '..', 'frontend', 'login.html')));
 
 // Rutas amigables para servir los archivos HTML principales
@@ -54,7 +56,9 @@ app.get('/tablero', (req, res) => res.sendFile(path.join(__dirname, '..', 'front
 app.get('/perfil', (req, res) => res.sendFile(path.join(__dirname, '..', 'frontend', 'perfil.html')));
 app.get('/archivadas', (req, res) => res.sendFile(path.join(__dirname, '..', 'frontend', 'archivadas.html')));
 app.get('/registro', (req, res) => res.sendFile(path.join(__dirname, '..', 'frontend', 'registro.html')));
-app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, '..', 'frontend', 'admin.html'))); 
+app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, '..', 'frontend', 'admin.html')));
+app.get('/projects', (req, res) => res.sendFile(path.join(__dirname, '..', 'frontend', 'projects.html'))); // <<< AÑADIR ESTA LÍNEA
+
 
 
 app.use((err, req, res, next) => {

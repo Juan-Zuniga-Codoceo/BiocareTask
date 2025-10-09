@@ -38,7 +38,7 @@ db.run("PRAGMA foreign_keys = ON", (err) => {
 // === CREAR TABLAS EN ORDEN ===
 db.serialize(() => {
   // Tabla users
-  // Cerca de la línea 24
+  
 db.run(`CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
@@ -63,7 +63,38 @@ db.run(`CREATE TABLE IF NOT EXISTS users (
     }
 });
 
-   // Tabla tasks
+ db.run(`CREATE TABLE IF NOT EXISTS projects (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    description TEXT,
+    created_by INTEGER,
+    created_at TEXT DEFAULT (datetime('now', 'localtime')),
+    FOREIGN KEY (created_by) REFERENCES users(id)
+  )`, (err) => {
+    if (err) {
+      console.error('❌ Error al crear tabla projects:', err.message);
+    } else {
+      console.log('✅ Tabla projects lista');
+    }
+  });
+
+  // <<< NUEVO: Tabla de Miembros de Proyectos >>>
+  db.run(`CREATE TABLE IF NOT EXISTS project_members (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER,
+    user_id INTEGER,
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE(project_id, user_id)
+  )`, (err) => {
+    if (err) {
+      console.error('❌ Error al crear tabla project_members:', err.message);
+    } else {
+      console.log('✅ Tabla project_members lista');
+    }
+  });
+
+  // Tabla tasks (Modificada)
   db.run(`CREATE TABLE IF NOT EXISTS tasks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     title TEXT NOT NULL,
@@ -74,15 +105,17 @@ db.run(`CREATE TABLE IF NOT EXISTS users (
     created_by INTEGER,
     created_at TEXT DEFAULT (datetime('now', 'localtime')),
     completed_at TEXT,
-    is_archived INTEGER DEFAULT 0, -- <<< AÑADIR ESTA LÍNEA
-    FOREIGN KEY (created_by) REFERENCES users(id)
+    is_archived INTEGER DEFAULT 0,
+    project_id INTEGER, -- <<< LÍNEA AÑADIDA
+    FOREIGN KEY (created_by) REFERENCES users(id),
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE -- <<< LÍNEA AÑADIDA
   )`, (err) => {
     if (err) {
       console.error('❌ Error al crear tabla tasks:', err.message);
     } else {
-      // Para actualizar la tabla si ya existe, sin borrar datos
       db.run("ALTER TABLE tasks ADD COLUMN is_archived INTEGER DEFAULT 0", () => {});
-      console.log('✅ Tabla tasks lista');
+      db.run("ALTER TABLE tasks ADD COLUMN project_id INTEGER", () => {}); 
+      console.log('✅ Tabla tasks lista y actualizada');
     }
   });
 
@@ -192,6 +225,22 @@ db.run(`CREATE TABLE IF NOT EXISTS users (
       console.log('✅ Tabla notifications lista');
     }
   });
+
+
+  db.run(
+    `INSERT OR IGNORE INTO projects (id, name, description, created_by) VALUES (?, ?, ?, ?)`,
+    [1, 'Proyecto General', 'Tareas existentes antes de la implementación de proyectos.', 1],
+    (err) => {
+      if (!err) {
+        db.run(`UPDATE tasks SET project_id = 1 WHERE project_id IS NULL`, function(err) {
+          if (!err && this.changes > 0) {
+            console.log(`✅ Migración: ${this.changes} tareas existentes asignadas al 'Proyecto General'.`);
+          }
+        });
+      }
+    }
+  );
+ 
 
   // === DATOS INICIALES: SOLO ADMIN ===
   const defaultPassword = bcrypt.hashSync('1234', 10); // Contraseña: 1234
