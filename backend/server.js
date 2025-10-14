@@ -16,6 +16,7 @@ console.log('-------------------------------------------');
 
 
 const express = require('express');
+const cors = require('cors'); 
 const path = require('path');
 const fs = require('fs');
 
@@ -35,6 +36,7 @@ const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
 
 // Middlewares y configuración de rutas (sin cambios)
+app.use(cors());
 // Servir archivos estáticos de forma explícita para evitar conflictos
 app.use('/css', express.static(path.join(__dirname, '..', 'frontend/css')));
 app.use('/js', express.static(path.join(__dirname, '..', 'frontend/js')));
