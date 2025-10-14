@@ -592,81 +592,74 @@ router.post('/upload', authenticateToken, upload.array('files', 5), async (req, 
 });
 
 // 📥 DESCARGAR ARCHIVO (VERSIÓN MEJORADA CON PERMISOS DE ADMIN)
+// 🔽 REEMPLAZA LA RUTA DE DESCARGA EXISTENTE CON ESTA 🔽
 router.get('/download/:filename', authenticateToken, (req, res) => {
   const { filename } = req.params;
   const filePath = path.join(uploadsDir, filename);
-  if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Archivo no encontrado.' });
 
-  // Obtenemos la tarea a la que pertenece el adjunto
-  const getTaskSql = `
-    SELECT t.created_by, t.id as taskId, a.file_name, a.file_type, GROUP_CONCAT(ta.user_id) as assigned_ids
+  // Primero, verificamos que el archivo exista físicamente
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: 'Archivo no encontrado en el servidor.' });
+  }
+
+  // Luego, verificamos los permisos en la base de datos
+  const sql = `
+    SELECT t.created_by, a.file_name, a.file_type
     FROM attachments a
     JOIN tasks t ON a.task_id = t.id
-    LEFT JOIN task_assignments ta ON t.id = ta.task_id
     WHERE a.file_path = ?
-    GROUP BY t.id
   `;
 
-  db.get(getTaskSql, [filename], (err, taskInfo) => {
-    if (err) return res.status(500).json({ error: 'Error al verificar el archivo.' });
-    if (!taskInfo) return res.status(404).json({ error: 'El archivo no está asociado a ninguna tarea válida.' });
-
-    const esAdmin = req.user.role === 'admin';
-    const esCreador = taskInfo.created_by === req.userId;
-    const estaAsignado = taskInfo.assigned_ids ? taskInfo.assigned_ids.split(',').includes(req.userId.toString()) : false;
-    
-    if (!esAdmin && !esCreador && !estaAsignado) {
-        return res.status(403).json({ error: 'No tienes permiso para descargar este archivo.' });
+  db.get(sql, [filename], (err, info) => {
+    if (err || !info) {
+      return res.status(404).json({ error: 'El archivo no está asociado a ninguna tarea.' });
     }
-    
-    // Si tiene permisos, procede con la descarga
-    res.setHeader('Content-Disposition', `attachment; filename="${taskInfo.file_name}"`);
-    res.setHeader('Content-Type', taskInfo.file_type || 'application/octet-stream');
+
+    // Lógica de permisos simple: O eres admin o eres el creador de la tarea
+    if (req.user.role !== 'admin' && info.created_by !== req.userId) {
+      return res.status(403).json({ error: 'No tienes permiso para descargar este archivo.' });
+    }
+
+    // Si todo está bien, enviamos el archivo
+    res.setHeader('Content-Disposition', `attachment; filename="${info.file_name}"`);
+    res.setHeader('Content-Type', info.file_type || 'application/octet-stream');
     fs.createReadStream(filePath).pipe(res);
   });
 });
 
-// 🗑️ ELIMINAR UN ADJUNTO ESPECÍFICO (VERSIÓN MEJORADA CON PERMISOS DE ADMIN)
+/// 🔽 REEMPLAZA LA RUTA DE ELIMINACIÓN DE ADJUNTOS EXISTENTE CON ESTA 🔽
 router.delete('/attachments/:id', authenticateToken, (req, res) => {
   const attachmentId = req.params.id;
 
-  db.get("SELECT task_id, file_path FROM attachments WHERE id = ?", [attachmentId], (err, attachment) => {
-    if (err) return res.status(500).json({ error: 'Error al buscar el adjunto.' });
-    if (!attachment) return res.status(404).json({ error: 'Adjunto no encontrado.' });
+  // Obtenemos la información del adjunto y del creador de la tarea asociada
+  const sql = `
+    SELECT a.file_path, t.created_by
+    FROM attachments a
+    JOIN tasks t ON a.task_id = t.id
+    WHERE a.id = ?
+  `;
 
-    // ✨ INICIO DE LA MODIFICACIÓN ✨
-    // 1. Obtenemos la información de la tarea para verificar permisos
-    const getTaskSql = `
-      SELECT t.created_by, GROUP_CONCAT(ta.user_id) as assigned_ids
-      FROM tasks t
-      LEFT JOIN task_assignments ta ON t.id = ta.task_id
-      WHERE t.id = ? GROUP BY t.id
-    `;
-    db.get(getTaskSql, [attachment.task_id], (err, task) => {
-      if (err) return res.status(500).json({ error: 'Error al verificar la tarea del adjunto.' });
-      if (!task) return res.status(404).json({ error: 'La tarea asociada no existe.' });
+  db.get(sql, [attachmentId], (err, info) => {
+    if (err || !info) {
+      return res.status(404).json({ error: 'Adjunto no encontrado o no asociado a una tarea.' });
+    }
 
-      // 2. Lógica de permisos en Javascript
-      const esAdmin = req.user.role === 'admin';
-      const esCreador = task.created_by === req.userId;
-      const estaAsignado = task.assigned_ids ? task.assigned_ids.split(',').includes(req.userId.toString()) : false;
+    // Lógica de permisos simple: O eres admin o eres el creador de la tarea
+    if (req.user.role !== 'admin' && info.created_by !== req.userId) {
+      return res.status(403).json({ error: 'No tienes permiso para eliminar este adjunto.' });
+    }
 
-      if (!esAdmin && !esCreador && !estaAsignado) {
-        return res.status(403).json({ error: 'No tienes permiso para eliminar este adjunto.' });
+    // Si tiene permisos, procedemos a eliminar
+    const filePath = path.join(uploadsDir, info.file_path);
+    db.run("DELETE FROM attachments WHERE id = ?", [attachmentId], function(dbErr) {
+      if (dbErr) {
+        return res.status(500).json({ error: 'Error al eliminar el adjunto de la base de datos.' });
       }
-
-      // ✨ FIN DE LA MODIFICACIÓN ✨
-
-      // 3. Si tiene permisos, procedemos a eliminar (lógica sin cambios)
-      const filePath = path.join(uploadsDir, attachment.file_path);
-      db.run("DELETE FROM attachments WHERE id = ?", [attachmentId], function(err) {
-        if (err) return res.status(500).json({ error: 'Error al eliminar el adjunto de la base de datos.' });
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
-        }
-        res.status(200).json({ success: true, message: 'Adjunto eliminado.' });
-        broadcast({ type: 'TASKS_UPDATED' });
-      });
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath); // Borramos el archivo físico
+      }
+      res.status(200).json({ success: true, message: 'Adjunto eliminado.' });
+      broadcast({ type: 'TASKS_UPDATED' });
     });
   });
 });
