@@ -719,26 +719,26 @@ createApp({
     };
 
     // --- VERSIÓN DE DEPURACIÓN ---
-const esTareaVencida = (dateString, taskTitle) => {
-  if (!dateString) return false;
+    const esTareaVencida = (dateString, taskTitle) => {
+      if (!dateString) return false;
 
-  // 1. Corregimos el formato de la fecha
-  const isoDateString = dateString.replace(' ', 'T');
-  const fechaTarea = new Date(isoDateString);
-  const hoy = new Date();
+      // 1. Corregimos el formato de la fecha
+      const isoDateString = dateString.replace(' ', 'T');
+      const fechaTarea = new Date(isoDateString);
+      const hoy = new Date();
 
-  // 2. Comprobamos si la fecha es válida
-  if (isNaN(fechaTarea.getTime())) {
-    console.error(`[DEPURACIÓN] Fecha inválida para la tarea "${taskTitle}":`, dateString);
-    return false;
-  }
+      // 2. Comprobamos si la fecha es válida
+      if (isNaN(fechaTarea.getTime())) {
+        console.error(`[DEPURACIÓN] Fecha inválida para la tarea "${taskTitle}":`, dateString);
+        return false;
+      }
 
-  // 3. Comparamos y mostramos en consola el resultado
-  const estaVencida = fechaTarea < hoy;
-  console.log(`[DEPURACIÓN] Tarea: "${taskTitle}" | Fecha Tarea: ${fechaTarea.toLocaleString()} | ¿Está Vencida?: ${estaVencida}`);
+      // 3. Comparamos y mostramos en consola el resultado
+      const estaVencida = fechaTarea < hoy;
+      console.log(`[DEPURACIÓN] Tarea: "${taskTitle}" | Fecha Tarea: ${fechaTarea.toLocaleString()} | ¿Está Vencida?: ${estaVencida}`);
 
-  return estaVencida;
-};
+      return estaVencida;
+    };
 
     const formatDate = (isoDate) => {
       if (!isoDate) return 'No especificada';
@@ -785,22 +785,32 @@ const esTareaVencida = (dateString, taskTitle) => {
 
     const downloadFile = async (attachment) => {
       try {
+        // Obtenemos la URL base de la misma forma que lo hace api.js [cite: 1077]
+        const IS_LOCAL = window.location.hostname.includes('localhost') || window.location.hostname === '127.0.0.1';[cite: 1077]
+        const API_BASE_URL = IS_LOCAL ? 'http://localhost:3000' : '';[cite: 1077]
+
         const token = sessionStorage.getItem('auth_token');
-        const response = await fetch(`/api/download/${attachment.file_path}`, {
+
+        // Construimos la URL completa y correcta
+        const downloadUrl = `${API_BASE_URL}/api/download/${attachment.file_path}`;
+
+        const response = await fetch(downloadUrl, {
           headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (!response.ok) throw new Error('No se pudo iniciar la descarga');
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = attachment.file_name;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        window.URL.revokeObjectURL(url);
+        });[cite: 1389]
+
+        if (!response.ok) throw new Error('No se pudo iniciar la descarga. Es posible que no tengas permisos.');[cite: 1390]
+
+        const blob = await response.blob();[cite: 1390]
+        const url = window.URL.createObjectURL(blob);[cite: 1390]
+        const a = document.createElement('a');[cite: 1391]
+        a.href = url;[cite: 1391]
+        a.download = attachment.file_name;[cite: 1391]
+        document.body.appendChild(a);[cite: 1391]
+        a.click();[cite: 1391]
+        a.remove();[cite: 1391]
+        window.URL.revokeObjectURL(url);[cite: 1391]
       } catch (err) {
-        showError('❌ Error al descargar archivo: ' + err.message);
+        showError('❌ Error al descargar archivo: ' + err.message);[cite: 1392]
       }
     };
 
