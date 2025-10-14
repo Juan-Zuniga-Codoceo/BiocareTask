@@ -785,9 +785,9 @@ createApp({
 
     const downloadFile = async (attachment) => {
       try {
-        // Obtenemos la URL base de la misma forma que lo hace api.js [cite: 1077]
-        const IS_LOCAL = window.location.hostname.includes('localhost') || window.location.hostname === '127.0.0.1';[cite: 1077]
-        const API_BASE_URL = IS_LOCAL ? 'http://localhost:3000' : '';[cite: 1077]
+        // Obtenemos la URL base de la misma forma que lo hace api.js
+        const IS_LOCAL = window.location.hostname.includes('localhost') || window.location.hostname === '127.0.0.1';
+        const API_BASE_URL = IS_LOCAL ? 'http://localhost:3000' : '';
 
         const token = sessionStorage.getItem('auth_token');
 
@@ -796,21 +796,23 @@ createApp({
 
         const response = await fetch(downloadUrl, {
           headers: { 'Authorization': `Bearer ${token}` }
-        });[cite: 1389]
+        });
 
-        if (!response.ok) throw new Error('No se pudo iniciar la descarga. Es posible que no tengas permisos.');[cite: 1390]
+        if (!response.ok) {
+          throw new Error('No se pudo iniciar la descarga. Es posible que no tengas permisos.');
+        }
 
-        const blob = await response.blob();[cite: 1390]
-        const url = window.URL.createObjectURL(blob);[cite: 1390]
-        const a = document.createElement('a');[cite: 1391]
-        a.href = url;[cite: 1391]
-        a.download = attachment.file_name;[cite: 1391]
-        document.body.appendChild(a);[cite: 1391]
-        a.click();[cite: 1391]
-        a.remove();[cite: 1391]
-        window.URL.revokeObjectURL(url);[cite: 1391]
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = attachment.file_name;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
       } catch (err) {
-        showError('❌ Error al descargar archivo: ' + err.message);[cite: 1392]
+        showError('❌ Error al descargar archivo: ' + err.message);
       }
     };
 
