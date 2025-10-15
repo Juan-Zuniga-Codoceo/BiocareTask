@@ -522,7 +522,7 @@ router.get('/attachments/task/:taskId', authenticateToken, (req, res) => {
   });
 });
 
-// 📤 SUBIR ARCHIVOS A UNA TAREA (DIRECTO, MÚLTIPLE)
+
 // 📤 SUBIR ARCHIVOS A UNA TAREA (VERSIÓN MEJORADA CON PERMISOS DE ADMIN)
 router.post('/upload', authenticateToken, upload.array('files', 5), async (req, res) => {
   if (!req.files || req.files.length === 0) {
@@ -632,8 +632,8 @@ router.get('/download/:filename', authenticateToken, (req, res) => {
     // ✨ FIN DE LA MODIFICACIÓN ✨
 
     // Si todo está bien, enviamos el archivo (esta parte no cambia).
-    [cite_start]res.setHeader('Content-Disposition', `attachment; filename="${info.file_name}"`); [cite: 265]
-    [cite_start]res.setHeader('Content-Type', info.file_type || 'application/octet-stream'); [cite: 266]
+    res.setHeader('Content-Disposition', `attachment; filename="${info.file_name}"`); 
+    res.setHeader('Content-Type', info.file_type || 'application/octet-stream'); 
     fs.createReadStream(filePath).pipe(res);
   });
 });
@@ -657,7 +657,7 @@ router.delete('/attachments/:id', authenticateToken, (req, res) => {
 
   db.get(sql, [attachmentId], (err, info) => {
     if (err || !info) {
-      [cite_start]return res.status(404).json({ error: 'Adjunto no encontrado.' }); [cite: 267]
+      return res.status(404).json({ error: 'Adjunto no encontrado.' }); 
     }
 
     // Nueva lógica de permisos.
@@ -674,13 +674,13 @@ router.delete('/attachments/:id', authenticateToken, (req, res) => {
     const filePath = path.join(uploadsDir, info.file_path);
     db.run("DELETE FROM attachments WHERE id = ?", [attachmentId], function(dbErr) {
        if (dbErr) {
-        [cite_start]return res.status(500).json({ error: 'Error al eliminar el adjunto de la base de datos.' }); [cite: 268]
+        return res.status(500).json({ error: 'Error al eliminar el adjunto de la base de datos.' }); [cite: 268]
       }
       if (fs.existsSync(filePath)) {
-        [cite_start]fs.unlinkSync(filePath); [cite: 269, 270]
+        fs.unlinkSync(filePath); [cite: 269, 270]
       }
       res.status(200).json({ success: true, message: 'Adjunto eliminado.' });
-      [cite_start]broadcast({ type: 'TASKS_UPDATED' }); [cite: 271]
+      broadcast({ type: 'TASKS_UPDATED' }); [cite: 271]
     });
   });
 });
