@@ -783,23 +783,23 @@ createApp({
       return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     };
 
+    // frontend/js/tasks.js
+
     const downloadFile = async (attachment) => {
       try {
-        // Obtenemos la URL base de la misma forma que lo hace api.js
-        const IS_LOCAL = window.location.hostname.includes('localhost') || window.location.hostname === '127.0.0.1';
-        const API_BASE_URL = IS_LOCAL ? 'http://localhost:3000' : '';
-
         const token = sessionStorage.getItem('auth_token');
 
-        // Construimos la URL completa y correcta
-        const downloadUrl = `${API_BASE_URL}/api/download/${attachment.file_path}`;
+        // ✨ CORRECCIÓN: La URL debe apuntar a la ruta relativa de la API.
+        // El proxy de Netlify/Render se encargará del resto.
+        const downloadUrl = `/api/download/${attachment.file_path}`;
 
         const response = await fetch(downloadUrl, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
 
         if (!response.ok) {
-          throw new Error('No se pudo iniciar la descarga. Es posible que no tengas permisos.');
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'No se pudo iniciar la descarga.');
         }
 
         const blob = await response.blob();
@@ -811,6 +811,7 @@ createApp({
         a.click();
         a.remove();
         window.URL.revokeObjectURL(url);
+
       } catch (err) {
         showError('❌ Error al descargar archivo: ' + err.message);
       }
