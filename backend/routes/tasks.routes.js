@@ -767,6 +767,7 @@ router.post('/tasks/:id/unarchive', authenticateToken, (req, res) => {
     // ✨ FIN DE LA CORRECCIÓN ✨
   });
 });
+
 // 👑 CAMBIAR CREADOR DE TAREA (Solo Admins)
 router.put('/tasks/:id/creator', jsonParser, authenticateToken, (req, res) => {
   // 1. Verificar si el usuario es un administrador
