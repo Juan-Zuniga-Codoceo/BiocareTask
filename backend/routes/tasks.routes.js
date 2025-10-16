@@ -611,6 +611,15 @@ router.get('/download/:filename', authenticateToken, (req, res) => {
     const esCreador = info.created_by === req.userId;
     const estaAsignado = info.assigned_ids ? info.assigned_ids.split(',').includes(req.userId.toString()) : false;
 
+    console.log('--- DEBUG PERMISOS DE DESCARGA ---');
+    console.log('Usuario que solicita:', JSON.stringify(req.user, null, 2));
+    console.log('ID del usuario que solicita:', req.userId);
+    console.log('Info de la tarea y adjunto:', JSON.stringify(info, null, 2));
+    console.log('¿Es Admin?:', esAdmin);
+    console.log('¿Es Creador?:', esCreador);
+    console.log('¿Está Asignado?:', estaAsignado);
+    console.log('------------------------------------');
+
     if (!esAdmin && !esCreador && !estaAsignado) {
       return res.status(403).json({ error: 'No tienes permiso para descargar este archivo.' });
     }
