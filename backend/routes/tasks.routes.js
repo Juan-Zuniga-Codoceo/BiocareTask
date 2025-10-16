@@ -522,7 +522,7 @@ router.get('/attachments/task/:taskId', authenticateToken, (req, res) => {
   });
 });
 
-// 📤 SUBIR ARCHIVOS A UNA TAREA (DIRECTO, MÚLTIPLE)
+
 // 📤 SUBIR ARCHIVOS A UNA TAREA (VERSIÓN MEJORADA CON PERMISOS DE ADMIN)
 router.post('/upload', authenticateToken, upload.array('files', 5), async (req, res) => {
   if (!req.files || req.files.length === 0) {
@@ -592,74 +592,95 @@ router.post('/upload', authenticateToken, upload.array('files', 5), async (req, 
 });
 
 // 📥 DESCARGAR ARCHIVO (VERSIÓN MEJORADA CON PERMISOS DE ADMIN)
-// 🔽 REEMPLAZA LA RUTA DE DESCARGA EXISTENTE CON ESTA 🔽
 router.get('/download/:filename', authenticateToken, (req, res) => {
   const { filename } = req.params;
   const filePath = path.join(uploadsDir, filename);
 
-  // Primero, verificamos que el archivo exista físicamente
   if (!fs.existsSync(filePath)) {
     return res.status(404).json({ error: 'Archivo no encontrado en el servidor.' });
   }
 
-  // Luego, verificamos los permisos en la base de datos
+  // ✨ INICIO DE LA MODIFICACIÓN ✨
+  // Ahora la consulta también trae los IDs de los usuarios asignados a la tarea.
   const sql = `
-    SELECT t.created_by, a.file_name, a.file_type
+    SELECT 
+      t.id,
+      t.created_by,
+      a.file_name, 
+      a.file_type,
+      GROUP_CONCAT(ta.user_id) as assigned_ids
     FROM attachments a
     JOIN tasks t ON a.task_id = t.id
+    LEFT JOIN task_assignments ta ON t.id = ta.task_id
     WHERE a.file_path = ?
+    GROUP BY t.id, a.id
   `;
 
   db.get(sql, [filename], (err, info) => {
     if (err || !info) {
-      return res.status(404).json({ error: 'El archivo no está asociado a ninguna tarea.' });
+      return res.status(404).json({ error: 'El archivo no está asociado a ninguna tarea válida.' });
     }
 
-    // Lógica de permisos simple: O eres admin o eres el creador de la tarea
-    if (req.user.role !== 'admin' && info.created_by !== req.userId) {
+    // Nueva lógica de permisos: más flexible y correcta.
+    const esAdmin = req.user.role === 'admin';
+    const esCreador = info.created_by === req.userId;
+    const estaAsignado = info.assigned_ids ? info.assigned_ids.split(',').includes(req.userId.toString()) : false;
+
+    if (!esAdmin && !esCreador && !estaAsignado) {
       return res.status(403).json({ error: 'No tienes permiso para descargar este archivo.' });
     }
+    // ✨ FIN DE LA MODIFICACIÓN ✨
 
-    // Si todo está bien, enviamos el archivo
-    res.setHeader('Content-Disposition', `attachment; filename="${info.file_name}"`);
-    res.setHeader('Content-Type', info.file_type || 'application/octet-stream');
+    // Si todo está bien, enviamos el archivo (esta parte no cambia).
+    res.setHeader('Content-Disposition', `attachment; filename="${info.file_name}"`); 
+    res.setHeader('Content-Type', info.file_type || 'application/octet-stream'); 
     fs.createReadStream(filePath).pipe(res);
   });
 });
 
-/// 🔽 REEMPLAZA LA RUTA DE ELIMINACIÓN DE ADJUNTOS EXISTENTE CON ESTA 🔽
 router.delete('/attachments/:id', authenticateToken, (req, res) => {
   const attachmentId = req.params.id;
 
-  // Obtenemos la información del adjunto y del creador de la tarea asociada
+  // ✨ INICIO DE LA MODIFICACIÓN ✨
+  // La consulta ahora también trae los IDs de los usuarios asignados.
   const sql = `
-    SELECT a.file_path, t.created_by
+    SELECT 
+      a.file_path, 
+      t.created_by,
+      GROUP_CONCAT(ta.user_id) as assigned_ids
     FROM attachments a
     JOIN tasks t ON a.task_id = t.id
+    LEFT JOIN task_assignments ta ON t.id = ta.task_id
     WHERE a.id = ?
+    GROUP BY a.id
   `;
 
   db.get(sql, [attachmentId], (err, info) => {
     if (err || !info) {
-      return res.status(404).json({ error: 'Adjunto no encontrado o no asociado a una tarea.' });
+      return res.status(404).json({ error: 'Adjunto no encontrado.' }); 
     }
 
-    // Lógica de permisos simple: O eres admin o eres el creador de la tarea
-    if (req.user.role !== 'admin' && info.created_by !== req.userId) {
+    // Nueva lógica de permisos.
+    const esAdmin = req.user.role === 'admin';
+    const esCreador = info.created_by === req.userId;
+    const estaAsignado = info.assigned_ids ? info.assigned_ids.split(',').includes(req.userId.toString()) : false;
+
+    if (!esAdmin && !esCreador && !estaAsignado) {
       return res.status(403).json({ error: 'No tienes permiso para eliminar este adjunto.' });
     }
+    // ✨ FIN DE LA MODIFICACIÓN ✨
 
-    // Si tiene permisos, procedemos a eliminar
+    // Si tiene permisos, procedemos a eliminar (esta parte no cambia).
     const filePath = path.join(uploadsDir, info.file_path);
     db.run("DELETE FROM attachments WHERE id = ?", [attachmentId], function(dbErr) {
-      if (dbErr) {
-        return res.status(500).json({ error: 'Error al eliminar el adjunto de la base de datos.' });
+       if (dbErr) {
+        return res.status(500).json({ error: 'Error al eliminar el adjunto de la base de datos.' }); [cite: 268]
       }
       if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath); // Borramos el archivo físico
+        fs.unlinkSync(filePath); [cite: 269, 270]
       }
       res.status(200).json({ success: true, message: 'Adjunto eliminado.' });
-      broadcast({ type: 'TASKS_UPDATED' });
+      broadcast({ type: 'TASKS_UPDATED' }); [cite: 271]
     });
   });
 });
