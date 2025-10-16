@@ -537,7 +537,7 @@ router.post('/upload', authenticateToken, upload.array('files', 5), async (req, 
     return res.status(400).json({ error: 'ID de tarea requerido.' });
   }
 
-  // ✨ INICIO DE LA MODIFICACIÓN ✨
+  
   // 1. Obtenemos la información de la tarea para verificar permisos
   const getTaskSql = `
     SELECT t.created_by, GROUP_CONCAT(ta.user_id) as assigned_ids
