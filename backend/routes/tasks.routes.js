@@ -486,39 +486,24 @@ router.post('/tasks/comments', authenticateToken, upload.array('attachments', 5)
   });
 });
 
-// 📎 OBTENER ADJUNTOS DE UNA TAREA (VERSIÓN MEJORADA CON PERMISOS DE ADMIN)
+// 📎 OBTENER ADJUNTOS DE UNA TAREA (Lógica de permisos simplificada)
 router.get('/attachments/task/:taskId', authenticateToken, (req, res) => {
   const { taskId } = req.params;
 
-  // ✨ INICIO DE LA MODIFICACIÓN ✨
-  const getTaskSql = `
-    SELECT t.created_by, GROUP_CONCAT(ta.user_id) as assigned_ids
-    FROM tasks t
-    LEFT JOIN task_assignments ta ON t.id = ta.task_id
-    WHERE t.id = ? GROUP BY t.id
+  // Busca los adjuntos directamente. La seguridad se aplica en la descarga.
+  const sql = `
+    SELECT a.*, u.name as uploaded_by_name 
+    FROM attachments a 
+    JOIN users u ON a.uploaded_by = u.id 
+    WHERE a.task_id = ? AND a.comment_id IS NULL
   `;
-
-  db.get(getTaskSql, [taskId], (err, task) => {
-    if (err || !task) {
-      return res.status(err ? 500 : 404).json({ error: 'Tarea no encontrada.' });
+  
+  db.all(sql, [taskId], (err, attachments) => {
+    if (err) {
+      console.error("Error al obtener adjuntos:", err);
+      return res.status(500).json({ error: 'Error al obtener adjuntos.' });
     }
-
-    const esAdmin = req.user.role === 'admin';
-    const esCreador = task.created_by === req.userId;
-    const estaAsignado = task.assigned_ids ? task.assigned_ids.split(',').includes(req.userId.toString()) : false;
-
-    if (!esAdmin && !esCreador && !estaAsignado) {
-      return res.status(403).json({ error: 'No tienes permiso para ver los adjuntos de esta tarea.' });
-    }
-    // ✨ FIN DE LA MODIFICACIÓN ✨
-
-    // Si tiene permisos, busca los adjuntos
-    db.all(`SELECT a.*, u.name as uploaded_by_name FROM attachments a JOIN users u ON a.uploaded_by = u.id WHERE a.task_id = ? AND a.comment_id IS NULL`, [taskId],
-      (err, attachments) => {
-        if (err) return res.status(500).json({ error: 'Error al obtener adjuntos.' });
-        res.json(attachments || []);
-      }
-    );
+    res.json(attachments || []);
   });
 });
 
