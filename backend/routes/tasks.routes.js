@@ -668,20 +668,19 @@ router.delete('/attachments/:id', authenticateToken, (req, res) => {
     if (!esAdmin && !esCreador && !estaAsignado) {
       return res.status(403).json({ error: 'No tienes permiso para eliminar este adjunto.' });
     }
-    // ✨ FIN DE LA MODIFICACIÓN ✨
-
+    
     // Si tiene permisos, procedemos a eliminar (esta parte no cambia).
     const filePath = path.join(uploadsDir, info.file_path);
     db.run("DELETE FROM attachments WHERE id = ?", [attachmentId], function(dbErr) {
-       if (dbErr) {
-        return res.status(500).json({ error: 'Error al eliminar el adjunto de la base de datos.' }); [cite: 268]
-      }
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath); [cite: 269, 270]
-      }
-      res.status(200).json({ success: true, message: 'Adjunto eliminado.' });
-      broadcast({ type: 'TASKS_UPDATED' }); [cite: 271]
-    });
+   if (dbErr) {
+    return res.status(500).json({ error: 'Error al eliminar el adjunto de la base de datos.' });
+  }
+  if (fs.existsSync(filePath)) {
+    fs.unlinkSync(filePath);
+  }
+  res.status(200).json({ success: true, message: 'Adjunto eliminado.' });
+  broadcast({ type: 'TASKS_UPDATED' });
+});
   });
 });
 
