@@ -731,12 +731,11 @@ router.get('/tasks/archived', authenticateToken, (req, res) => {
   });
 });
 
-// 🗄️ RESTAURAR UNA TAREA ARCHIVADA
 router.post('/tasks/:id/unarchive', authenticateToken, (req, res) => {
   const taskId = req.params.id;
   const userId = req.userId;
 
-  // Solo el creador de la tarea o un admin pueden restaurarla
+  // La lógica de permisos no cambia, sigue siendo correcta
   db.get("SELECT created_by FROM tasks WHERE id = ?", [taskId], (err, task) => {
     if (err) {
       return res.status(500).json({ error: 'Error al verificar la tarea' });
@@ -748,16 +747,24 @@ router.post('/tasks/:id/unarchive', authenticateToken, (req, res) => {
       return res.status(403).json({ error: 'No tienes permiso para restaurar esta tarea' });
     }
 
-    // Si tiene permisos, actualiza is_archived a 0
+    // ✨ INICIO DE LA CORRECCIÓN ✨
     db.run("UPDATE tasks SET is_archived = 0 WHERE id = ?", [taskId], function (err) {
       if (err) {
-        return res.status(500).json({ error: 'Error al restaurar la tarea' });
+        return res.status(500).json({ error: 'Error al ejecutar la restauración en la base de datos.' });
       }
-      res.status(200).json({ success: true, message: 'Tarea restaurada correctamente' });
 
-      // Avisamos a todos los clientes para que sus tableros se actualicen
+      // Se añade esta verificación clave: `this.changes`
+      // Esta variable nos dice cuántas filas fueron afectadas por el comando UPDATE.
+      // Si es 0, significa que no se encontró la tarea y algo falló.
+      if (this.changes === 0) {
+        return res.status(404).json({ error: 'La tarea no se encontró para restaurar o ya estaba activa.' });
+      }
+
+      // Si this.changes es mayor a 0, la operación fue exitosa.
+      res.status(200).json({ success: true, message: 'Tarea restaurada correctamente' });
       broadcast({ type: 'TASKS_UPDATED' });
     });
+    // ✨ FIN DE LA CORRECCIÓN ✨
   });
 });
 // 👑 CAMBIAR CREADOR DE TAREA (Solo Admins)
