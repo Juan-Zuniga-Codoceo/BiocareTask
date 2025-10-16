@@ -581,53 +581,23 @@ router.get('/download/:filename', authenticateToken, (req, res) => {
   const { filename } = req.params;
   const filePath = path.join(uploadsDir, filename);
 
+  // 1. Verificamos que el archivo exista físicamente
   if (!fs.existsSync(filePath)) {
     return res.status(404).json({ error: 'Archivo no encontrado en el servidor.' });
   }
 
-  // ✨ INICIO DE LA MODIFICACIÓN ✨
-  // Ahora la consulta también trae los IDs de los usuarios asignados a la tarea.
-  const sql = `
-    SELECT 
-      t.id,
-      t.created_by,
-      a.file_name, 
-      a.file_type,
-      GROUP_CONCAT(ta.user_id) as assigned_ids
-    FROM attachments a
-    JOIN tasks t ON a.task_id = t.id
-    LEFT JOIN task_assignments ta ON t.id = ta.task_id
-    WHERE a.file_path = ?
-    GROUP BY t.id, a.id
-  `;
+  // 2. Buscamos el nombre original y tipo del archivo en la BD (ya no necesitamos los permisos)
+  const sql = `SELECT file_name, file_type FROM attachments WHERE file_path = ?`;
 
   db.get(sql, [filename], (err, info) => {
     if (err || !info) {
-      return res.status(404).json({ error: 'El archivo no está asociado a ninguna tarea válida.' });
+      return res.status(404).json({ error: 'El archivo no está registrado en la base de datos.' });
     }
 
-    // Nueva lógica de permisos: más flexible y correcta.
-    const esAdmin = req.user.role === 'admin';
-    const esCreador = info.created_by === req.userId;
-    const estaAsignado = info.assigned_ids ? info.assigned_ids.split(',').includes(req.userId.toString()) : false;
-
-    console.log('--- DEBUG PERMISOS DE DESCARGA ---');
-    console.log('Usuario que solicita:', JSON.stringify(req.user, null, 2));
-    console.log('ID del usuario que solicita:', req.userId);
-    console.log('Info de la tarea y adjunto:', JSON.stringify(info, null, 2));
-    console.log('¿Es Admin?:', esAdmin);
-    console.log('¿Es Creador?:', esCreador);
-    console.log('¿Está Asignado?:', estaAsignado);
-    console.log('------------------------------------');
-
-    if (!esAdmin && !esCreador && !estaAsignado) {
-      return res.status(403).json({ error: 'No tienes permiso para descargar este archivo.' });
-    }
-    // ✨ FIN DE LA MODIFICACIÓN ✨
-
-    // Si todo está bien, enviamos el archivo (esta parte no cambia).
-    res.setHeader('Content-Disposition', `attachment; filename="${info.file_name}"`); 
-    res.setHeader('Content-Type', info.file_type || 'application/octet-stream'); 
+    // 3. Como el middleware 'authenticateToken' ya confirmó que el usuario está logueado,
+    // procedemos directamente a enviar el archivo.
+    res.setHeader('Content-Disposition', `attachment; filename="${info.file_name}"`);
+    res.setHeader('Content-Type', info.file_type || 'application/octet-stream');
     fs.createReadStream(filePath).pipe(res);
   });
 });
