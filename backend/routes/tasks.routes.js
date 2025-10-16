@@ -23,7 +23,7 @@ const { createEmailTemplate } = require('../services/email-template.service');
 const jsonParser = express.json({ limit: '10mb' });
 
 // --- Configuración de Multer para la subida de archivos ---
-const uploadsDir = path.join(__dirname, '..', '..', 'uploads');
+const uploadsDir = process.env.RENDER_UPLOADS_PATH || path.join(__dirname, '..', '..', 'uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
