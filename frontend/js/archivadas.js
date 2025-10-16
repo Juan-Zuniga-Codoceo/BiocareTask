@@ -33,37 +33,30 @@ createApp({
 
     // Función para restaurar una tarea archivada
     const restoreTask = async (taskId) => {
-      try {
-        restoring.value = taskId;
+  try {
+    restoring.value = taskId;
+    const response = await API.post(`/api/tasks/${taskId}/unarchive`);
 
-        // Llamar a la API para restaurar la tarea
-        const response = await API.post(`/api/tasks/${taskId}/unarchive`);
+    if (response.success) {
+      API.showNotification('Tarea restaurada, redirigiendo al tablero...', 'success');
+      
+      // ✨ INICIO DE LA CORRECCIÓN ✨
+      // Esperamos 1.5 segundos para que el usuario vea la notificación
+      // y luego lo redirigimos al tablero principal.
+      setTimeout(() => {
+        window.location.href = '/tablero.html';
+      }, 1500);
+      // ✨ FIN DE LA CORRECCIÓN ✨
 
-        if (response.success) {
-          // Eliminar la tarea de la lista local
-          archivedTasks.value = archivedTasks.value.filter(task => task.id !== taskId);
-
-          // Incrementar contador de restauradas
-          restoredCount.value++;
-          // Guardar el nuevo valor en la memoria de la sesión
-          sessionStorage.setItem('restoredCount', restoredCount.value);
-
-          // Cerrar modal si está abierto
-          if (tareaSeleccionada.value && tareaSeleccionada.value.id === taskId) {
-            tareaSeleccionada.value = null;
-          }
-
-          API.showNotification('Tarea restaurada correctamente', 'success');
-        } else {
-          throw new Error('No se pudo restaurar la tarea');
-        }
-      } catch (error) {
-        console.error('Error al restaurar tarea:', error);
-        API.showNotification('Error al restaurar la tarea: ' + (error.message || ''), 'error');
-      } finally {
-        restoring.value = null;
-      }
-    };
+    } else {
+      throw new Error('No se pudo restaurar la tarea');
+    }
+  } catch (error) {
+    console.error('Error al restaurar tarea:', error);
+    API.showNotification('Error al restaurar la tarea: ' + (error.message || ''), 'error');
+    restoring.value = null; // Importante resetear el estado si hay un error
+  }
+};
 
     // Función para ver los detalles de una tarea archivada
     const verDetalles = async (task) => {
