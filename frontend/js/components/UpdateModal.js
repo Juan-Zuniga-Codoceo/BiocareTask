@@ -5,11 +5,9 @@ const UpdateModal = {
   emits: ['close'],
   setup(props, { emit }) {
     const noMostrarMas = ref(false);
-
     const closeModal = () => {
       emit('close', noMostrarMas.value);
     };
-
     return {
       noMostrarMas,
       closeModal
@@ -25,17 +23,23 @@ const UpdateModal = {
         <div class="modal-body">
           <p>Hemos implementado nuevas funciones para mejorar tu experiencia:</p>
           <ul class="update-list">
+            
+            <li>
+              <strong><i class="fa-solid fa-clipboard-check"></i> Finalización de Tareas Mejorada:</strong>
+              <span class="update-description">Ahora puedes adjuntar un archivo como comprobante y añadir una nota de cierre al finalizar una tarea.</span>
+            </li>
+            
             <li>
               <strong><i class="fa-solid fa-user-shield"></i> Rol de Administrador:</strong>
-              <span class="update-description">Ahora los superusuarios pueden editar, eliminar y gestionar tareas de todo el equipo.</span>
+              <span class="update-description">Los superusuarios ahora pueden editar, eliminar y gestionar tareas de todo el equipo.</span>
             </li>
             <li>
               <strong><i class="fa-solid fa-at"></i> Menciones en Comentarios:</strong>
-              <span class="update-description">Etiqueta a tus compañeros usando "@Nombre" en los comentarios para enviarles una notificación directa.</span>
+              <span class="update-description">Etiqueta a tus compañeros usando "@Nombre" para enviarles una notificación directa.</span>
             </li>
             <li>
               <strong><i class="fa-solid fa-screwdriver-wrench"></i> Corrección de Errores:</strong>
-              <span class="update-description">Hemos solucionado el error que causaba que las tareas aparecieran con un creador incorrecto y mejorado los permisos.</span>
+              <span class="update-description">Hemos mejorado la estabilidad general y los permisos de la plataforma.</span>
             </li>
           </ul>
           <p>¡Esperamos que estas mejoras te sean de gran utilidad!</p>
