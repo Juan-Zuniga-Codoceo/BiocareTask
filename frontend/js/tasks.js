@@ -305,6 +305,26 @@ createApp({
       };
     };
 
+    const highlightTask = (taskId) => {
+  // nextTick se asegura de que la interfaz se haya actualizado antes de buscar el elemento
+  Vue.nextTick(() => {
+    // Busca la tarjeta de la tarea usando su ID como un atributo de datos
+    const taskElement = document.querySelector(`.task-card[data-task-id='${taskId}']`);
+    if (taskElement) {
+      console.log(`✨ Resaltando tarea ${taskId}`);
+      // Añade la clase CSS que activa la animación
+      taskElement.classList.add('highlight');
+
+      // Quita la clase después de 4 segundos para detener la animación
+      setTimeout(() => {
+        taskElement.classList.remove('highlight');
+      }, 4000);
+    } else {
+      console.log(`La tarea ${taskId} no se encontró en el tablero para ser resaltada.`);
+    }
+  });
+};
+
     const cargarDatos = async () => {
       try {
         loading.value = true;
