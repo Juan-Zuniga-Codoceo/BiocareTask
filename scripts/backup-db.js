@@ -1,65 +1,122 @@
-// scripts/backup-db.js (Versión Corregida)
+// scripts/backup-db.js (VERSIÓN SEGURA - NO BORRA NADA)
 const fs = require('fs');
 const path = require('path');
 
-// === LÍNEAS MODIFICADAS ===
-// Se usa la variable de entorno de Render si existe, si no, se usa la ruta local.
-// Esto asegura que el script funcione tanto en Render como en tu computador.
+// === CONFIGURACIÓN SEGURA ===
 const dbDir = process.env.RENDER_DISK_MOUNT_PATH || path.join(__dirname, '../backend');
 const DB_PATH = path.join(dbDir, 'database.sqlite');
-// === FIN DE LA MODIFICACIÓN ===
+const BACKUP_DIR = path.join(dbDir, 'backups');
 
-// Se recomienda guardar los respaldos en el disco persistente también
-const BACKUP_DIR = path.join(dbDir, 'backups'); 
-const MAX_DAYS = 7; 
+// === VERIFICACIÓN EXTRA DE SEGURIDAD ===
+console.log('🔍 Verificando base de datos...');
 
-// === El resto de las funciones no necesitan cambios ===
-function createBackup() {
-  if (!fs.existsSync(DB_PATH)) {
-    console.error('❌ Base de datos no encontrada:', DB_PATH);
-    return;
-  }
-
-  if (!fs.existsSync(BACKUP_DIR)) {
-    fs.mkdirSync(BACKUP_DIR, { recursive: true });
-    console.log('✅ Carpeta de respaldos creada:', BACKUP_DIR);
-  }
-
-  const now = new Date();
-  const dateStr = now.getFullYear() +
-    String(now.getMonth() + 1).padStart(2, '0') +
-    String(now.getDate()).padStart(2, '0');
-  const timeStr = String(now.getHours()).padStart(2, '0') +
-    String(now.getMinutes()).padStart(2, '0');
-  const backupName = `backup_${dateStr}_${timeStr}.db`;
-  const backupPath = path.join(BACKUP_DIR, backupName);
-  
-  fs.copyFileSync(DB_PATH, backupPath);
-  console.log(`✅ Respaldo creado: ${backupPath}`);
-
-  cleanupOldBackups();
-}
-
-function cleanupOldBackups() {
+if (!fs.existsSync(DB_PATH)) {
+  console.error('❌ ERROR CRÍTICO: Base de datos no encontrada en:', DB_PATH);
+  console.log('📁 Contenido del directorio:');
   try {
-    const files = fs.readdirSync(BACKUP_DIR);
-    const now = Date.now();
-    const cutoff = now - (MAX_DAYS * 24 * 60 * 60 * 1000);
-
-    files.forEach(file => {
-      const filePath = path.join(BACKUP_DIR, file);
-      const stats = fs.statSync(filePath);
-
-      if (stats.isFile() && stats.mtimeMs < cutoff) {
-        fs.unlinkSync(filePath);
-        console.log(`🗑️  Respaldo eliminado (más de ${MAX_DAYS} días): ${file}`);
-      }
-    });
+    const files = fs.readdirSync(dbDir);
+    files.forEach(file => console.log('   -', file));
   } catch (err) {
-    console.error('❌ Error al limpiar respaldos antiguos:', err);
+    console.error('   No se pudo leer el directorio');
+  }
+  process.exit(1);
+}
+
+// Verificar tamaño de la BD
+const stats = fs.statSync(DB_PATH);
+const fileSizeMB = (stats.size / (1024 * 1024)).toFixed(2);
+console.log(`📊 Tamaño de la BD: ${fileSizeMB} MB`);
+
+if (stats.size === 0) {
+  console.error('❌ ALERTA: La base de datos está vacía (0 bytes)');
+  process.exit(1);
+}
+
+// === CREAR BACKUP ===
+function createSafeBackup() {
+  try {
+    // Crear directorio de backups si no existe
+    if (!fs.existsSync(BACKUP_DIR)) {
+      fs.mkdirSync(BACKUP_DIR, { recursive: true });
+      console.log('✅ Carpeta de respaldos creada:', BACKUP_DIR);
+    }
+
+    // Timestamp para el nombre del backup
+    const now = new Date();
+    const dateStr = now.toISOString().replace(/[:.]/g, '-').split('T')[0];
+    const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-');
+    const backupName = `backup_${dateStr}_${timeStr}.sqlite`;
+    const backupPath = path.join(BACKUP_DIR, backupName);
+    
+    console.log(`📦 Creando respaldo: ${backupName}`);
+    
+    // Crear backup (copia segura)
+    fs.copyFileSync(DB_PATH, backupPath);
+    
+    // Verificar que el backup se creó correctamente
+    const backupStats = fs.statSync(backupPath);
+    if (backupStats.size === stats.size) {
+      console.log(`✅ Respaldo creado exitosamente: ${backupPath}`);
+      console.log(`📊 Tamaño del respaldo: ${(backupStats.size / (1024 * 1024)).toFixed(2)} MB`);
+    } else {
+      console.error('❌ ALERTA: El respaldo tiene tamaño diferente al original');
+    }
+    
+    return backupPath;
+    
+  } catch (error) {
+    console.error('❌ Error creando respaldo:', error.message);
+    process.exit(1);
   }
 }
 
-console.log('📦 Iniciando respaldo de base de datos...');
-createBackup();
-console.log('✅ Proceso de respaldo finalizado.\n');
+// === LISTAR BACKUPS EXISTENTES ===
+function listExistingBackups() {
+  try {
+    if (!fs.existsSync(BACKUP_DIR)) {
+      console.log('📁 No hay backups anteriores');
+      return;
+    }
+    
+    const files = fs.readdirSync(BACKUP_DIR)
+      .filter(file => file.startsWith('backup_') && file.endsWith('.sqlite'))
+      .sort()
+      .reverse();
+    
+    console.log(`📁 Backups existentes (${files.length}):`);
+    files.slice(0, 5).forEach(file => {
+      const filePath = path.join(BACKUP_DIR, file);
+      const fileStats = fs.statSync(filePath);
+      const sizeMB = (fileStats.size / (1024 * 1024)).toFixed(2);
+      console.log(`   📄 ${file} (${sizeMB} MB)`);
+    });
+    
+    if (files.length > 5) {
+      console.log(`   ... y ${files.length - 5} más`);
+    }
+    
+  } catch (error) {
+    console.log('ℹ️ No se pudieron listar backups anteriores');
+  }
+}
+
+// === EJECUCIÓN PRINCIPAL ===
+console.log('\n🚀 INICIANDO RESPALDO DE EMERGENCIA');
+console.log('====================================');
+console.log(`📍 Ruta BD original: ${DB_PATH}`);
+console.log(`📍 Directorio backups: ${BACKUP_DIR}`);
+
+// Listar backups existentes
+listExistingBackups();
+
+// Crear nuevo backup
+console.log('\n🔄 Creando nuevo respaldo...');
+const newBackupPath = createSafeBackup();
+
+console.log('\n✅ RESPALDO COMPLETADO EXITOSAMENTE');
+console.log('====================================');
+console.log(`💾 Nuevo backup: ${path.basename(newBackupPath)}`);
+console.log('🔒 La base de datos original NO fue modificada');
+console.log('📋 Backups disponibles para recuperación si es necesario');
+console.log('\n⚠️  IMPORTANTE: Este backup NO repara problemas de tablas.');
+console.log('   Si hay errores, necesitamos diagnosticar el problema específico.');
