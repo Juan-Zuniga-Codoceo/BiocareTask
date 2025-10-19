@@ -801,6 +801,88 @@ router.put('/tasks/:id/creator', jsonParser, authenticateToken, (req, res) => {
   });
 });
 
+// 🚀 FINALIZAR TAREA CON PRUEBA DE FINALIZACIÓN (NUEVO ENDPOINT - VERSIÓN CORREGIDA)
+router.post('/tasks/:id/complete', authenticateToken, upload.single('completion_proof'), async (req, res) => {
+  const taskId = req.params.id;
+  const userId = req.userId;
+  const { closing_note } = req.body; // Nota de cierre opcional
+
+  console.log(`📝 Iniciando finalización de tarea ${taskId} por usuario ${userId}`);
+
+  db.serialize(() => {
+    // Usamos una transacción para asegurar que todas las operaciones se completen o ninguna
+    db.run("BEGIN TRANSACTION");
+
+    let hasError = false;
+
+    // 1. Marcar la tarea como completada
+    const completed_at = new Date().toISOString();
+    db.run("UPDATE tasks SET status = 'completada', completed_at = ? WHERE id = ?", 
+      [completed_at, taskId], 
+      function(err) {
+        if (err) {
+          console.error('❌ Error al actualizar tarea:', err.message);
+          hasError = true;
+          db.run("ROLLBACK");
+          return res.status(500).json({ error: 'Error al actualizar la tarea' });
+        }
+        console.log(`✅ Tarea ${taskId} marcada como completada`);
+      }
+    );
+
+    // 2. Si se adjuntó un archivo, guardarlo como prueba de finalización
+    if (req.file && !hasError) {
+      const { filename, originalname, mimetype, size } = req.file;
+      const attachmentSql = `
+        INSERT INTO attachments 
+          (task_id, file_path, file_name, file_type, file_size, uploaded_by, attachment_type) 
+        VALUES (?, ?, ?, ?, ?, ?, 'completion_proof')
+      `;
+      db.run(attachmentSql, [taskId, filename, originalname, mimetype, size, userId], function(err) {
+        if (err) {
+          console.error('❌ Error al guardar archivo:', err.message);
+          hasError = true;
+          db.run("ROLLBACK");
+          return res.status(500).json({ error: 'Error al guardar el comprobante' });
+        }
+        console.log(`✅ Archivo de prueba guardado: ${originalname}`);
+      }); // ✅ PARÉNTESIS CORREGIDO
+    }
+
+    // 3. Si hay una nota de cierre, añadirla como comentario
+    if (closing_note && closing_note.trim() !== '' && !hasError) {
+      const commentSql = `INSERT INTO comments (task_id, contenido, autor_id) VALUES (?, ?, ?)`;
+      db.run(commentSql, [taskId, closing_note.trim(), userId], function(err) {
+        if (err) {
+          console.error('❌ Error al guardar comentario:', err.message);
+          hasError = true;
+          db.run("ROLLBACK");
+          return res.status(500).json({ error: 'Error al guardar la nota de cierre' });
+        }
+        console.log(`✅ Nota de cierre guardada`);
+      }); // ✅ PARÉNTESIS CORREGIDO
+    }
+
+    // 4. Si todo salió bien, confirmamos la transacción
+    if (!hasError) {
+      db.run("COMMIT", function(err) {
+        if (err) {
+          console.error("❌ Error al hacer COMMIT:", err.message);
+          return res.status(500).json({ error: 'Error crítico al guardar los cambios' });
+        }
+        
+        console.log(`🎉 Tarea ${taskId} finalizada exitosamente por usuario ${userId}`);
+        broadcast({ type: 'TASKS_UPDATED' });
+        res.status(200).json({ 
+          success: true, 
+          message: req.file ? 'Tarea completada con comprobante' : 'Tarea completada',
+          hasProof: !!req.file,
+          hasNotes: !!(closing_note && closing_note.trim())
+        });
+      });
+    }
+  });
+});
 
 
 module.exports = router;

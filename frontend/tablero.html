@@ -172,7 +172,8 @@
               <div class="task-footer">
                 <span class="assigned-to"><i class="fa-solid fa-user-tag"></i> {{ task.assigned_names || 'Sin asignar'
                   }}</span>
-                <button @click.stop="completar(task.id)" class="btn-action green">Completar <i
+
+                <button @click.stop="openCompleteModal(task)" class="btn-action green">Completar <i
                     class="fa-solid fa-check"></i></button>
               </div>
             </div>
@@ -661,6 +662,42 @@
     </div>
 
     <update-modal :show="showUpdateModal" @close="closeUpdateModal"></update-modal>
+
+    <div class="modal" v-if="showCompleteModal" @click.self="cancelCompletion">
+      <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-header">
+          <h2><i class="fa-solid fa-flag-checkered"></i> Finalizar Tarea</h2>
+          <button @click="cancelCompletion" class="btn-close-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p>Estás a punto de completar la tarea: <strong>"{{ taskToComplete?.title }}"</strong></p>
+
+          <div class="form-group" style="margin-top: 20px;">
+            <label for="completion-file">Adjuntar Prueba de Finalización (Opcional)</label>
+            <input type="file" @change="handleCompletionFile" class="file-input" id="completion-file" />
+            <div v-if="completionFile" class="attachment-pill preview"
+              style="margin-top: 12px; max-width: fit-content;">
+              <i class="fa-solid fa-file-arrow-up"></i>
+              <span class="attachment-pill-name">{{ completionFile.name }}</span>
+              <button @click="completionFile = null" class="remove-pill-btn" title="Quitar archivo">&times;</button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="closing-note">Añadir Nota de Cierre (Opcional)</label>
+            <textarea id="closing-note" v-model="closingNote"
+              placeholder="Ej: Entregado a Juan Pérez, CI 12.345.678-9..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button @click="cancelCompletion" class="btn-cancel">Cancelar</button>
+          <button @click="confirmCompletion" class="btn-create" :disabled="isCompleting">
+            <i class="fa-solid fa-check"></i>
+            {{ isCompleting ? 'Finalizando...' : (completionFile ? 'Finalizar y Adjuntar' : 'Finalizar Tarea') }}
+          </button>
+        </div>
+      </div>
+    </div>
 
   </div>
   <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>

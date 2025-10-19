@@ -1983,9 +1983,52 @@ select[multiple] option:checked {
     opacity: 0;
   }
 }
-
 /* ================================================================== */
-/* 15. Media Queries para Móviles (FINAL)                             */
+/* 15. Modal de Finalización de Tarea                                 */
+/* ================================================================== */
+
+/* Estilo para el párrafo de confirmación dentro del modal */
+.modal-body p strong {
+  color: var(--c-primary);
+}
+
+/* Ajustes para el input de archivo y la nota de cierre */
+#completion-file {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  font-size: 14px;
+  background-color: var(--c-white);
+}
+
+#closing-note {
+  width: 100%;
+  min-height: 80px;
+  resize: vertical;
+  padding: 12px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  font-size: 15px;
+  font-family: var(--font-family);
+  background-color: var(--c-white);
+}
+
+#closing-note:focus {
+  outline: none;
+  border-color: var(--c-primary);
+  box-shadow: 0 0 0 3px rgba(4, 157, 217, 0.2);
+}
+
+/* Estilo para el botón de finalizar cuando está deshabilitado */
+.modal-footer .btn-create:disabled {
+  background-color: #BDC3C7;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+/* ================================================================== */
+/* 16. Media Queries para Móviles (FINAL)                             */
 /* ================================================================== */
 @media (max-width: 480px) {
   .header {

@@ -61,6 +61,11 @@ createApp({
     const mentionNavIndex = ref(-1);
     const showUpdateModal = ref(false);
     const APP_VERSION = "1.2.0";
+    const showCompleteModal = ref(false);
+    const taskToComplete = ref(null);
+    const completionFile = ref(null);
+    const closingNote = ref('');
+    const isCompleting = ref(false);
 
     // ======================================================
     // 2. PROPIEDADES COMPUTADAS (computed)
@@ -791,7 +796,6 @@ createApp({
       return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     };
 
-    // frontend/js/tasks.js
 
     const downloadFile = async (attachment) => {
       try {
@@ -917,37 +921,81 @@ createApp({
       showUpdateModal.value = false;
     };
 
+    const openCompleteModal = (task) => {
+      taskToComplete.value = task;
+      completionFile.value = null;
+      closingNote.value = '';
+      isCompleting.value = false;
+      showCompleteModal.value = true;
 
-    const highlightTask = (taskId) => {
-      if (!taskId) return;
-
-      const unwatch = watch(tasks, (newTasks) => {
-        const index = newTasks.findIndex(t => t.id == taskId);
-
-        if (index > -1) {
-
-          if (index > 0) {
-            const [taskToMove] = newTasks.splice(index, 1);
-            newTasks.unshift(taskToMove);
-          }
-
-          Vue.nextTick(() => {
-            const taskElement = document.querySelector(`.task-card[data-task-id="${taskId}"]`);
-            if (taskElement) {
-              taskElement.classList.add('highlight');
-              taskElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-              if (new URLSearchParams(window.location.search).has('highlight_task')) {
-                const newUrl = window.location.pathname;
-                window.history.replaceState({}, '', newUrl);
-              }
-
-              unwatch();
-            }
-          });
-        }
-      }, { deep: true, immediate: true });
+      // Resetear el input de archivo
+      Vue.nextTick(() => {
+        const fileInput = document.getElementById('completion-file');
+        if (fileInput) fileInput.value = '';
+      });
     };
+
+    const handleCompletionFile = (event) => {
+      const file = event.target.files[0];
+      if (file) {
+        if (file.size > 10 * 1024 * 1024) { // 10MB
+          showError(`El archivo "${file.name}" excede los 10MB.`);
+          event.target.value = ''; // Limpia el input
+          return;
+        }
+        completionFile.value = file;
+      } else {
+        completionFile.value = null;
+      }
+    };
+
+    const cancelCompletion = () => {
+      showCompleteModal.value = false;
+      taskToComplete.value = null;
+      completionFile.value = null;
+      closingNote.value = '';
+      isCompleting.value = false;
+      // Limpiamos el input del archivo por si el usuario cancela
+      const fileInput = document.getElementById('completion-file');
+      if (fileInput) fileInput.value = '';
+    };
+
+    // REEMPLAZA tu función `confirmCompletion` con esta versión
+
+const confirmCompletion = async () => {
+  if (!taskToComplete.value) return;
+
+  isCompleting.value = true;
+  const formData = new FormData();
+
+  if (completionFile.value) {
+    formData.append('completion_proof', completionFile.value);
+  }
+  if (closingNote.value.trim()) {
+    formData.append('closing_note', closingNote.value.trim());
+  }
+
+  try {
+    const response = await API.upload(`/api/tasks/${taskToComplete.value.id}/complete`, formData);
+
+    if (response.success) {
+      const successMessage = `La tarea "${taskToComplete.value.title}" ha sido completada.`;
+      showSuccess(successMessage);
+      cancelCompletion();
+      await cargarDatos();
+    } else {
+      // 👇 ESTE BLOQUE ES LA MEJORA CLAVE 👇
+      // Si la API dice que no fue exitoso, lanzamos un error para que lo capture el 'catch'
+      throw new Error(response.error || 'El servidor indicó un error al completar la tarea.');
+    }
+
+  } catch (err) {
+    console.error('Error en confirmCompletion:', err);
+    showError(err.message || 'No se pudo completar la tarea.');
+  } finally {
+    isCompleting.value = false;
+  }
+};
 
     // ======================================================
     // 5. Carga Inicial (Lifecycle Hook) - VERSIÓN CORREGIDA
@@ -976,6 +1024,8 @@ createApp({
     // ======================================================
     // 6. EXPOSICIÓN A LA PLANTILLA (return)
     // ======================================================
+    // REEMPLAZA tu `return` actual con este bloque completo
+
     return {
       user, tasks, users, labels, resumen, misTareas, filtroFecha, showModal,
       tareaSeleccionada, creandoTarea, loading, error, showEditModal, editTask,
@@ -997,7 +1047,7 @@ createApp({
       getColor, getPriorityText, getFileSize, downloadFile,
       setQuickDate, setQuickEditDate,
       moverACamino: (id) => cambiarEstadoTarea(id, 'en_camino'),
-      completar: (id) => cambiarEstadoTarea(id, 'completada'), addUserToNewTask,
+      addUserToNewTask,
       removeUserFromNewTask,
       addUserToEditTask,
       removeUserFromEditTask,
@@ -1028,7 +1078,19 @@ createApp({
       marcarParaBorrar,
       showUpdateModal,
       closeUpdateModal,
-      archivarTarea
-    };
+      archivarTarea,
+
+
+      showCompleteModal,
+      taskToComplete,
+      completionFile,
+      closingNote,
+      isCompleting,
+      openCompleteModal,
+      handleCompletionFile,
+      cancelCompletion,
+      confirmCompletion,
+      completar: openCompleteModal
+      }; 
   }
-}).mount('#app');
+    }).mount('#app');
