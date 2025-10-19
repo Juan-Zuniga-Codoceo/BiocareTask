@@ -271,13 +271,20 @@ createApp({
         console.log('✅ Conectado al servidor WebSocket en tiempo real.');
       };
 
-      ws.onmessage = (event) => {
+      ws.onmessage = async (event) => {
         try {
           const message = JSON.parse(event.data);
-          if (message.type === 'TASKS_UPDATED') {
-            console.log('🔄 Recibida actualización de tareas, recargando tablero...');
+
+          if (message.type === 'TASK_RESTORED') {
+            console.log(`✨ Tarea ${message.taskId} restaurada, actualizando y resaltando...`);
+            await cargarDatos(); // Carga los datos para que la tarea aparezca
+            highlightTask(message.taskId); // Llama a la nueva función de resaltado
+          }
+          else if (message.type === 'TASKS_UPDATED') {
+            console.log('🔄 Recibida actualización genérica, recargando tablero...');
             cargarDatos();
           }
+
         } catch (e) {
           console.error('Error al procesar mensaje de WebSocket:', e);
         }
@@ -306,6 +313,7 @@ createApp({
         resumen.value = resumenData || { vencidas: 0, proximas: 0, total_pendientes: 0 };
         notificaciones.value = notifData || [];
         API.post('/api/tasks/check-due-today');
+        return tasksData;
       } catch (err) {
         console.error('Error al cargar datos:', err);
         showError('No se pudieron cargar los datos. Revisa tu conexión.');
@@ -909,24 +917,62 @@ createApp({
       showUpdateModal.value = false;
     };
 
+
+    const highlightTask = (taskId) => {
+      if (!taskId) return;
+
+      const unwatch = watch(tasks, (newTasks) => {
+        const index = newTasks.findIndex(t => t.id == taskId);
+
+        if (index > -1) {
+
+          if (index > 0) {
+            const [taskToMove] = newTasks.splice(index, 1);
+            newTasks.unshift(taskToMove);
+          }
+
+          Vue.nextTick(() => {
+            const taskElement = document.querySelector(`.task-card[data-task-id="${taskId}"]`);
+            if (taskElement) {
+              taskElement.classList.add('highlight');
+              taskElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+              if (new URLSearchParams(window.location.search).has('highlight_task')) {
+                const newUrl = window.location.pathname;
+                window.history.replaceState({}, '', newUrl);
+              }
+
+              unwatch();
+            }
+          });
+        }
+      }, { deep: true, immediate: true });
+    };
+
     // ======================================================
-    // 5. Carga Inicial (Lifecycle Hook)
+    // 5. Carga Inicial (Lifecycle Hook) - VERSIÓN CORREGIDA
     // ======================================================
     onMounted(() => {
-      // Estas dos líneas ya estaban y están correctas
       cargarDatos();
       setupWebSocket();
 
-      // ✨ LÓGICA DEL POP-UP AHORA DENTRO DE onMounted ✨
-      const lastSeenVersion = localStorage.getItem('lastUpdateSeen');
+      API.post('/api/tasks/auto-archive').catch(err => {
+        console.log('No se pudo ejecutar archivado automático:', err);
+      });
 
-      // Comparamos la versión guardada con la versión actual de la app
+      // 👇 Lógica de resaltado ahora usa la nueva función
+      const params = new URLSearchParams(window.location.search);
+      const taskIdToHighlight = params.get('highlight_task');
+      if (taskIdToHighlight) {
+        highlightTask(taskIdToHighlight);
+      }
+
+      // Lógica del pop-up (sin cambios)
+      const lastSeenVersion = localStorage.getItem('lastUpdateSeen');
       if (lastSeenVersion !== APP_VERSION) {
-        // Si no coinciden, activamos el pop-up
         showUpdateModal.value = true;
       }
     });
-
     // ======================================================
     // 6. EXPOSICIÓN A LA PLANTILLA (return)
     // ======================================================

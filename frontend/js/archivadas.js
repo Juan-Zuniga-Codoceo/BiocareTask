@@ -33,30 +33,52 @@ createApp({
 
     // Función para restaurar una tarea archivada
     const restoreTask = async (taskId) => {
+  if (!taskId) {
+    showError('ID de tarea inválido');
+    return;
+  }
+
   try {
     restoring.value = taskId;
-    const response = await API.post(`/api/tasks/${taskId}/unarchive`);
+    
+    // ✅ CORRECCIÓN: Usar PUT en lugar de POST
+    const response = await API.put(`/api/tasks/${taskId}/unarchive`);
 
     if (response.success) {
-      API.showNotification('Tarea restaurada, redirigiendo al tablero...', 'success');
+      // Incrementar contador de restauraciones
+      restoredCount.value++;
+      sessionStorage.setItem('restoredCount', restoredCount.value.toString());
       
-      // ✨ INICIO DE LA CORRECCIÓN ✨
-      // Esperamos 1.5 segundos para que el usuario vea la notificación
-      // y luego lo redirigimos al tablero principal.
+      // Mostrar notificación de éxito
+      API.showNotification('✅ Tarea restaurada exitosamente', 'success');
+      
+      // ✅ CORRECCIÓN CRÍTICA: Remover la tarea de la lista local inmediatamente
+      archivedTasks.value = archivedTasks.value.filter(t => t.id !== taskId);
+      
+      // Cerrar el modal de detalles si está abierto
+      if (tareaSeleccionada.value?.id === taskId) {
+        tareaSeleccionada.value = null;
+      }
+      
+      // Esperar 1 segundo para que el usuario vea la notificación
+      // y luego redirigir al tablero
       setTimeout(() => {
-        window.location.href = '/tablero.html';
-      }, 1500);
-      // ✨ FIN DE LA CORRECCIÓN ✨
-
+        window.location.href = `/tablero.html?highlight_task=${taskId}`;
+}, 1000);
+      
     } else {
-      throw new Error('No se pudo restaurar la tarea');
+      throw new Error(response.error || 'No se pudo restaurar la tarea');
     }
   } catch (error) {
     console.error('Error al restaurar tarea:', error);
-    API.showNotification('Error al restaurar la tarea: ' + (error.message || ''), 'error');
-    restoring.value = null; // Importante resetear el estado si hay un error
+    API.showNotification('❌ Error al restaurar: ' + (error.message || 'Error desconocido'), 'error');
+    restoring.value = null;
+    
+    // Recargar la lista en caso de error para sincronizar el estado
+    await cargarArchivadas();
   }
 };
+
 
     // Función para ver los detalles de una tarea archivada
     const verDetalles = async (task) => {
@@ -96,7 +118,7 @@ createApp({
         document.body.classList.remove('overlay-active');
       }
     };
-    
+
     const logout = () => {
       sessionStorage.removeItem('biocare_user');
       sessionStorage.removeItem('auth_token');

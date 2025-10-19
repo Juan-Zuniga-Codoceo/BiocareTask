@@ -1937,6 +1937,53 @@ select[multiple] option:checked {
   font-style: italic;
 }
 
+/* --- Estilos para Tarea Restaurada Resaltada (Versión 2.0) --- */
+
+.task-card.highlight {
+  animation: highlight-fade-v2 4s ease-out;
+  position: relative; /* Necesario para posicionar la insignia */
+  overflow: hidden;   /* Evita que la insignia se salga */
+}
+
+/* Estilo para la insignia "Restaurada" */
+.task-card.highlight .task-badge-container::before {
+  content: 'RESTAURADA';
+  position: absolute;
+  top: 15px;
+  right: -35px;
+  background-color: var(--c-action); /* Color verde de acción */
+  color: white;
+  padding: 4px 30px;
+  font-size: 10px;
+  font-weight: 700;
+  text-align: center;
+  transform: rotate(45deg);
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  animation: badge-fade-in 4s ease-out; /* Misma duración que el resaltado */
+}
+
+/* Animación principal del borde y fondo */
+@keyframes highlight-fade-v2 {
+  0%, 50% {
+    background-color: #f7fcf2;
+    box-shadow: 0 0 0 3px var(--c-action), var(--shadow-md); 
+  }
+  100% {
+    background-color: var(--c-panel-bg);
+    box-shadow: var(--shadow-sm);
+  }
+}
+
+/* Animación para que la insignia también se desvanezca */
+@keyframes badge-fade-in {
+  0%, 50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
 /* ================================================================== */
 /* 15. Media Queries para Móviles (FINAL)                             */
 /* ================================================================== */

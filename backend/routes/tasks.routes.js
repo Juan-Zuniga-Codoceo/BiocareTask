@@ -6,6 +6,7 @@ const fs = require('fs');
 const multer = require('multer');
 const { body, validationResult } = require('express-validator');
 
+
 // Importamos la conexión a la base de datos y el middleware de autenticación
 const db = require('../db');
 const { authenticateToken } = require('../middleware/auth');
@@ -73,7 +74,7 @@ const upload = multer({
 
 // 📋 LISTAR TAREAS (CON ADJUNTOS)
 router.get('/tasks', authenticateToken, (req, res) => {
-  autoArchiveTasks(); 
+  //autoArchiveTasks(); 
   const { assigned_to, created_by, status, due_date, search } = req.query;
 
   let sql = `
@@ -122,7 +123,10 @@ router.get('/tasks', authenticateToken, (req, res) => {
   `;
 
   db.all(sql, params, (err, tasks) => {
-    if (err) return res.status(500).json({ error: 'Error al obtener tareas' });
+    if (err) {
+      console.error('❌ Error al obtener tareas:', err);
+      return res.status(500).json({ error: 'Error al obtener tareas' });
+    }
 
     tasks.forEach(task => {
       if (task.attachments_data) {
@@ -136,8 +140,15 @@ router.get('/tasks', authenticateToken, (req, res) => {
       delete task.attachments_data;
     });
 
+    console.log(`📋 Tareas recuperadas: ${tasks.length}`);
     res.json(tasks || []);
   });
+});
+
+// 🗄️ EJECUTAR ARCHIVADO AUTOMÁTICO (solo para uso interno/cron)
+router.post('/tasks/auto-archive', authenticateToken, (req, res) => {
+  autoArchiveTasks();
+  res.json({ success: true, message: 'Archivado automático ejecutado' });
 });
 
 // 💡 VERIFICAR Y CREAR NOTIFICACIONES DE VENCIMIENTO
@@ -731,40 +742,33 @@ router.get('/tasks/archived', authenticateToken, (req, res) => {
   });
 });
 
-router.post('/tasks/:id/unarchive', authenticateToken, (req, res) => {
+router.put('/tasks/:id/unarchive', authenticateToken, (req, res) => {
   const taskId = req.params.id;
-  const userId = req.userId;
 
-  // La lógica de permisos no cambia, sigue siendo correcta
-  db.get("SELECT created_by FROM tasks WHERE id = ?", [taskId], (err, task) => {
+  console.log(`🔄 Restaurando tarea ID: ${taskId} (por cualquier usuario)`);
+
+  // La consulta de restauración se ejecuta directamente, sin verificar quién es el creador.
+  const sql = "UPDATE tasks SET is_archived = 0, status = 'pendiente', completed_at = NULL WHERE id = ?";
+  
+  db.run(sql, [taskId], function (err) {
     if (err) {
-      return res.status(500).json({ error: 'Error al verificar la tarea' });
-    }
-    if (!task) {
-      return res.status(404).json({ error: 'Tarea no encontrada' });
-    }
-    if (task.created_by !== userId && req.user.role !== 'admin') {
-      return res.status(403).json({ error: 'No tienes permiso para restaurar esta tarea' });
+      console.error('❌ Error SQL al restaurar tarea:', err);
+      return res.status(500).json({ error: 'Error al ejecutar la restauración.' });
     }
 
-    // ✨ INICIO DE LA CORRECCIÓN ✨
-    db.run("UPDATE tasks SET is_archived = 0 WHERE id = ?", [taskId], function (err) {
-      if (err) {
-        return res.status(500).json({ error: 'Error al ejecutar la restauración en la base de datos.' });
-      }
+    // Esta verificación ahora también maneja el caso de "Tarea no encontrada"
+    if (this.changes === 0) {
+      return res.status(404).json({ error: 'La tarea no se encontró para restaurar.' });
+    }
 
-      // Se añade esta verificación clave: `this.changes`
-      // Esta variable nos dice cuántas filas fueron afectadas por el comando UPDATE.
-      // Si es 0, significa que no se encontró la tarea y algo falló.
-      if (this.changes === 0) {
-        return res.status(404).json({ error: 'La tarea no se encontró para restaurar o ya estaba activa.' });
-      }
-
-      // Si this.changes es mayor a 0, la operación fue exitosa.
-      res.status(200).json({ success: true, message: 'Tarea restaurada correctamente' });
-      broadcast({ type: 'TASKS_UPDATED' });
+    console.log(`✅ Tarea ${taskId} restaurada y movida a 'pendiente'.`);
+    
+    broadcast({ type: 'TASK_RESTORED', taskId: taskId });
+    
+    res.status(200).json({ 
+      success: true, 
+      message: 'Tarea restaurada correctamente'
     });
-    // ✨ FIN DE LA CORRECCIÓN ✨
   });
 });
 
