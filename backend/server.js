@@ -27,9 +27,10 @@ const { initializeWebSocket } = require('./services/websocket.service');
 const authRoutes = require('./routes/auth.routes');
 const tasksRoutes = require('./routes/tasks.routes');
 const usersRoutes = require('./routes/users.routes');
-// <-- NUEVO: Importamos el programador de tareas internas
 const { initScheduledJobs } = require('./jobs/in-app-jobs');
 const adminRoutes = require('./routes/admin.routes.js'); 
+const categoriesRoutes = require('./routes/categories.routes.js');
+const sheetsRoutes = require('./routes/sheets.routes.js');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -37,6 +38,10 @@ const HOST = process.env.HOST || '0.0.0.0';
 
 // Middlewares y configuración de rutas (sin cambios)
 app.use(cors());
+app.use('/api/*', (req, res, next) => {
+  console.log(`📦 API Request: ${req.method} ${req.originalUrl}`);
+  next();
+});
 // Servir archivos estáticos de forma explícita para evitar conflictos
 app.use('/css', express.static(path.join(__dirname, '..', 'frontend/css')));
 app.use('/js', express.static(path.join(__dirname, '..', 'frontend/js')));
@@ -48,6 +53,8 @@ app.use('/api', authRoutes);
 app.use('/api', tasksRoutes);
 app.use('/api', usersRoutes);
 app.use('/api/admin', adminRoutes); 
+app.use('/api/categories', categoriesRoutes);
+app.use('/api/sheets', sheetsRoutes);
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, '..', 'frontend', 'login.html')));
 
 // Rutas amigables para servir los archivos HTML principales

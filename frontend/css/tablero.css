@@ -2027,6 +2027,293 @@ select[multiple] option:checked {
   transform: none;
   box-shadow: none;
 }
+
+/* frontend/css/tablero.css - AÑADIR AL FINAL */
+
+/* ================================================================== */
+/* 17. Rediseño del Header (Consistencia Global)                      */
+/* ================================================================== */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 24px;
+}
+
+.header-left, .header-right {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+/* Contenedor central para la navegación */
+.main-nav-container {
+    flex-grow: 1;
+    display: flex;
+    justify-content: center;
+}
+
+.main-nav {
+    display: flex;
+    gap: 8px;
+    background-color: var(--c-bg);
+    padding: 6px;
+    border-radius: var(--radius);
+}
+
+.nav-link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    text-decoration: none;
+    border-radius: var(--radius);
+    color: var(--c-text-light);
+    font-weight: 600;
+    border: 2px solid transparent;
+    transition: var(--transition);
+}
+
+.nav-link:hover {
+    color: var(--c-primary);
+}
+
+.nav-link.active {
+    color: var(--c-primary);
+    background-color: var(--c-white);
+    box-shadow: var(--shadow-sm);
+}
+
+/* Ocultar texto en móviles para ahorrar espacio */
+@media (max-width: 768px) {
+    .nav-link span {
+        display: none;
+    }
+    .header {
+        padding: 12px 16px;
+    }
+}
+
+/* ... (Añadir al final del archivo) ... */
+
+/* ... (Añade esto al final de tu archivo CSS) ... */
+
+/* ================================================================== */
+/* 18. Barra de Controles del Tablero (Sub-Header)                    */
+/* ================================================================== */
+.controls-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 60px;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid var(--c-border);
+    position: sticky;
+    top: 80px; /* Altura del header principal */
+    z-index: 1051;
+}
+
+.filters {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.filter-label, .filter-checkbox {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--c-text-light);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.filter-checkbox input {
+    width: 16px;
+    height: 16px;
+}
+
+@media (max-width: 768px) {
+    .controls-bar {
+        flex-direction: column;
+        gap: 16px;
+        padding: 16px;
+        top: 68px; /* Altura ajustada del header en móvil */
+    }
+    .filters {
+        width: 100%;
+        justify-content: space-between;
+    }
+    .btn-create {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+/* ... (Añade esto al final de tu archivo CSS) ... */
+
+/* ================================================================== */
+/* 18. Barra de Controles del Tablero (Sub-Header)                    */
+/* ================================================================== */
+.controls-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 60px;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid var(--c-border);
+    position: sticky;
+    top: 80px; /* Altura del header principal */
+    z-index: 1051;
+}
+
+.filters {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.filter-label, .filter-checkbox {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--c-text-light);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.filter-checkbox input {
+    width: 16px;
+    height: 16px;
+}
+
+@media (max-width: 768px) {
+    .controls-bar {
+        flex-direction: column;
+        gap: 16px;
+        padding: 16px;
+        top: 68px; /* Altura ajustada del header en móvil */
+    }
+    .filters {
+        width: 100%;
+        justify-content: space-between;
+    }
+    .btn-create {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+/* ... (Añade esto al final de tu archivo CSS) ... */
+
+/* ================================================================== */
+/* 18. Barra de Controles del Tablero (Sub-Header)                    */
+/* ================================================================== */
+.controls-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 60px;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid var(--c-border);
+    position: sticky;
+    top: 80px; /* Altura del header principal */
+    z-index: 1051;
+}
+
+.filters {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.filter-label, .filter-checkbox {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--c-text-light);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.filter-checkbox input {
+    width: 16px;
+    height: 16px;
+}
+
+@media (max-width: 768px) {
+    .controls-bar {
+        flex-direction: column;
+        gap: 16px;
+        padding: 16px;
+        top: 68px; /* Altura ajustada del header en móvil */
+    }
+    .filters {
+        width: 100%;
+        justify-content: space-between;
+    }
+    .btn-create {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+/* ... (Añade esto al final de tu archivo CSS) ... */
+
+/* ================================================================== */
+/* 18. Barra de Controles del Tablero (Sub-Header)                    */
+/* ================================================================== */
+.controls-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 60px;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid var(--c-border);
+    position: sticky;
+    top: 80px; /* Altura del header principal */
+    z-index: 1051;
+}
+
+.filters {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.filter-label, .filter-checkbox {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--c-text-light);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.filter-checkbox input {
+    width: 16px;
+    height: 16px;
+}
+
+@media (max-width: 768px) {
+    .controls-bar {
+        flex-direction: column;
+        gap: 16px;
+        padding: 16px;
+        top: 68px; /* Altura ajustada del header en móvil */
+    }
+    .filters {
+        width: 100%;
+        justify-content: space-between;
+    }
+    .btn-create {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+
+
 /* ================================================================== */
 /* 16. Media Queries para Móviles (FINAL)                             */
 /* ================================================================== */

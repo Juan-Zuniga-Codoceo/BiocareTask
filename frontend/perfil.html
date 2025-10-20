@@ -14,48 +14,39 @@
 <body>
   <div id="app">
     <header class="header">
-      <div class="header-left">
+    <div class="header-left">
         <div class="logo">
-          <img src="/assets/logo.png" alt="Biocare Logo" />
-          <h1><span class="biocare">Biocare</span><span class="task">Task</span></h1>
+            <img src="/assets/logo.png" alt="Biocare Logo" />
+            <h1><span class="biocare">Biocare</span><span class="task">Task</span></h1>
         </div>
-      </div>
+    </div>
 
-      <div class="main-controls">
+    <div class="main-nav-container">
         <nav class="main-nav">
-          <a href="/tablero.html" class="nav-link" title="Tablero">
-            <i class="fa-solid fa-table-columns"></i>
-            <span>Tablero</span>
-          </a>
-          <a href="/perfil.html" class="nav-link active" title="Mi Perfil">
-            <i class="fa-solid fa-user"></i>
-            <span>Perfil</span>
-          </a>
-          <a href="/archivadas.html" class="nav-link" title="Tareas Archivadas">
-            <i class="fa-solid fa-box-archive"></i>
-            <span>Archivadas</span>
-          </a>
+            <a href="/tablero.html" class="nav-link" title="Tablero"><i class="fa-solid fa-table-columns"></i> <span>Tablero</span></a>
+            <a href="/fichas.html" class="nav-link" title="Fichas Técnicas"><i class="fa-solid fa-book-atlas"></i> <span>Fichas</span></a>
         </nav>
-        </div>
+    </div>
 
-      <div class="header-right">
+    <div class="header-right">
         <div class="user-actions">
-          <div class="user-menu">
-            <div class="dropdown">
-              <button class="btn-icon" @click="toggleDropdown" title="Menú">
-                <i class="fa-solid fa-user-gear"></i>
-              </button>
-              <div class="dropdown-menu" v-if="showDropdown">
-                <button @click="toggleDropdown" class="btn-close-overlay">&times;</button>
-                <a href="javascript:void(0)" @click="logout()"><i class="fa-solid fa-right-from-bracket"></i> Cerrar
-                  sesión</a>
-              </div>
+            <div class="user-menu">
+                <div class="dropdown">
+                    <button class="btn-icon" @click="toggleDropdown" title="Menú">
+                        <i class="fa-solid fa-user-gear"></i>
+                    </button>
+                    <div class="dropdown-menu" v-if="showDropdown">
+                        <button @click="toggleDropdown" class="btn-close-overlay">&times;</button>
+                        <a href="/archivadas.html"><i class="fa-solid fa-box-archive"></i> Tareas Archivadas</a>
+                        <a href="/admin" v-if="user && user.role === 'admin'"><i class="fa-solid fa-users-cog"></i> Administración</a>
+                        <a href="javascript:void(0)" @click="logout()"><i class="fa-solid fa-right-from-bracket"></i> Cerrar sesión</a>
+                    </div>
+                </div>
+                <span v-if="user" class="user-name">{{ user.name }}</span>
             </div>
-            <span v-if="user" class="user-name">{{ user.name }}</span>
-          </div>
         </div>
-      </div>
-    </header>
+    </div>
+</header>
 
     <main class="profile-dashboard">
       <div class="profile-grid">

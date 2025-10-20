@@ -21,8 +21,18 @@ const UpdateModal = {
           <h2>¡Novedades en BiocareTask!</h2>
         </div>
         <div class="modal-body">
-          <p>Hemos implementado nuevas funciones para mejorar tu experiencia:</p>
+          <p>Hemos lanzado una gran actualización con nuevas funciones y un diseño renovado:</p>
           <ul class="update-list">
+            
+            <li>
+              <strong><i class="fa-solid fa-book-atlas"></i> Nueva Biblioteca de Fichas Técnicas:</strong>
+              <span class="update-description">Accede a una nueva sección dedicada para subir, buscar y gestionar todas las fichas técnicas de productos en formato PDF.</span>
+            </li>
+
+            <li>
+              <strong><i class="fa-solid fa-wand-magic-sparkles"></i> Rediseño de Interfaz y Navegación:</strong>
+              <span class="update-description">Hemos unificado el header y mejorado el diseño general de la aplicación para una experiencia más limpia y profesional.</span>
+            </li>
             
             <li>
               <strong><i class="fa-solid fa-clipboard-check"></i> Finalización de Tareas Mejorada:</strong>
@@ -30,16 +40,8 @@ const UpdateModal = {
             </li>
             
             <li>
-              <strong><i class="fa-solid fa-user-shield"></i> Rol de Administrador:</strong>
-              <span class="update-description">Los superusuarios ahora pueden editar, eliminar y gestionar tareas de todo el equipo.</span>
-            </li>
-            <li>
               <strong><i class="fa-solid fa-at"></i> Menciones en Comentarios:</strong>
               <span class="update-description">Etiqueta a tus compañeros usando "@Nombre" para enviarles una notificación directa.</span>
-            </li>
-            <li>
-              <strong><i class="fa-solid fa-screwdriver-wrench"></i> Corrección de Errores:</strong>
-              <span class="update-description">Hemos mejorado la estabilidad general y los permisos de la plataforma.</span>
             </li>
           </ul>
           <p>¡Esperamos que estas mejoras te sean de gran utilidad!</p>

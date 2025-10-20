@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BiocareTask - Fichas Técnicas</title>
+  
+  <link rel="stylesheet" href="/css/tablero.css" />
+  <link rel="stylesheet" href="/css/fichas.css" /> 
+  
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/assets/logo.png" type="image/png">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Header -->
+    <header class="header">
+    <div class="header-left">
+        <div class="logo">
+            <img src="/assets/logo.png" alt="Biocare Logo" />
+            <h1><span class="biocare">Biocare</span><span class="task">Task</span></h1>
+        </div>
+    </div>
+
+    <div class="main-nav-container">
+        <nav class="main-nav">
+            <a href="/tablero.html" class="nav-link" title="Tablero"><i class="fa-solid fa-table-columns"></i> <span>Tablero</span></a>
+            <a href="/fichas.html" class="nav-link active" title="Fichas Técnicas"><i class="fa-solid fa-book-atlas"></i> <span>Fichas</span></a>
+        </nav>
+    </div>
+
+    <div class="header-right">
+        <div class="user-actions">
+            <div class="user-menu">
+                <div class="dropdown">
+                    <button class="btn-icon" @click="toggleDropdown" title="Menú">
+                        <i class="fa-solid fa-user-gear"></i>
+                    </button>
+                    <div class="dropdown-menu" v-if="showDropdown">
+                        <button @click="toggleDropdown" class="btn-close-overlay">&times;</button>
+                        <a href="/perfil.html"><i class="fa-solid fa-user"></i> Mi Perfil</a>
+                        <a href="/archivadas.html"><i class="fa-solid fa-box-archive"></i> Tareas Archivadas</a>
+                        <a href="/admin" v-if="user && user.role === 'admin'"><i class="fa-solid fa-users-cog"></i> Administración</a>
+                        <a href="javascript:void(0)" @click="logout()"><i class="fa-solid fa-right-from-bracket"></i> Cerrar sesión</a>
+                    </div>
+                </div>
+                <span v-if="user" class="user-name">{{ user.name }}</span>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <!-- Contenido Principal -->
+    <main class="dashboard">
+      <div class="page-header">
+        <h2><i class="fa-solid fa-book-atlas"></i> Biblioteca de Fichas Técnicas</h2>
+        <p>Busca, consulta y gestiona la documentación técnica de los productos.</p>
+      </div>
+
+      <div class="sheet-controls">
+        <div class="search-box">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="text" v-model="searchTerm" placeholder="Buscar por producto, modelo o etiqueta...">
+        </div>
+        
+        <div class="filters">
+            <select v-model="categoryFilter">
+                <option value="">Todas las categorías</option>
+                <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
+            </select>
+        </div>
+
+        <button class="btn-create" @click="openUploadModal">
+          <i class="fa-solid fa-upload"></i> Subir Ficha
+        </button>
+      </div>
+
+      <div v-if="searchTerm || categoryFilter" class="search-info">
+        <i class="fa-solid fa-filter"></i> 
+        <span>Mostrando <strong>{{ filteredSheets.length }}</strong> resultados</span>
+        <span v-if="searchTerm">para "<strong>{{ searchTerm }}</strong>"</span>
+        <button @click="clearFilters" class="btn-clear-filters">Limpiar filtros</button>
+      </div>
+      
+      <div class="sheets-grid">
+        <div v-if="loading" class="loading-state">
+          <i class="fa-solid fa-spinner fa-spin"></i> Cargando...
+        </div>
+        
+        <div v-for="sheet in filteredSheets" :key="sheet.id" class="sheet-card" v-else>
+          <div class="sheet-card-header">
+            <div class="sheet-icon"><i class="fa-solid fa-file-pdf"></i></div>
+            <div class="sheet-title">
+              <h3>{{ sheet.product_name }}</h3>
+              <p>{{ sheet.model || 'Sin modelo' }}</p>
+            </div>
+          </div>
+          <div class="sheet-card-body">
+            <div class="sheet-info">
+              <span class="info-item"><i class="fa-solid fa-tag"></i> {{ sheet.category_name || 'Sin categoría' }}</span>
+              <span class="info-item"><i class="fa-solid fa-user"></i> {{ sheet.uploaded_by_name }}</span>
+              <span class="info-item"><i class="fa-regular fa-calendar-alt"></i> {{ formatDate(sheet.uploaded_at) }}</span>
+            </div>
+            <p v-if="sheet.tags" class="sheet-tags">
+              <strong>Etiquetas:</strong> {{ sheet.tags }}
+            </p>
+          </div>
+          <div class="sheet-card-footer">
+            <button @click="openDeleteModal(sheet)" class="btn-delete-sheet"><i class="fa-solid fa-trash-can"></i></button>
+            <button @click="downloadSheet(sheet)" class="btn-download-sheet"><i class="fa-solid fa-download"></i> Descargar PDF</button>
+          </div>
+        </div>
+
+        <div v-if="!loading && filteredSheets.length === 0" class="empty-state">
+            <i class="fa-solid fa-folder-open"></i>
+            <h3>No se encontraron fichas</h3>
+            <p>Prueba con otros filtros o sube una nueva ficha técnica.</p>
+        </div>
+      </div>
+    </main>
+
+    <!-- ==== MODALES ==== -->
+    <div class="modal" v-if="showUploadModal" @click.self="closeUploadModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fa-solid fa-upload"></i> Subir Nueva Ficha Técnica</h2>
+                <button @click="closeUploadModal" class="btn-close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Nombre del Producto *</label>
+                    <input type="text" v-model="newSheet.product_name" placeholder="Ej: Colchón Antiescaras">
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Modelo</label>
+                        <input type="text" v-model="newSheet.model" placeholder="Ej: TM-400">
+                    </div>
+                    <div class="form-group">
+                        <label>Categoría</label>
+                        <select v-model="newSheet.category_id">
+                            <option value="">Sin categoría</option>
+                            <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group create-label-group">
+                    <input type="text" v-model="newCategoryName" placeholder="O crea una nueva categoría..." @keyup.enter="createNewCategory" />
+                    <button @click="createNewCategory" class="btn-create-label">Crear</button>
+                </div>
+                <div class="form-group">
+                    <label>Etiquetas (separadas por coma)</label>
+                    <input type="text" v-model="newSheet.tags" placeholder="Ej: hospitalario, antiescaras, colchón">
+                </div>
+                <div class="form-group">
+                    <label>Archivo PDF *</label>
+                    <input type="file" id="sheet-file-input" @change="handleFileSelect" accept=".pdf" class="file-input">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button @click="closeUploadModal" class="btn-cancel">Cancelar</button>
+                <button @click="uploadSheet" class="btn-create" :disabled="isUploading">
+                    <i class="fa-solid fa-check"></i> {{ isUploading ? 'Subiendo...' : 'Guardar Ficha' }}
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" v-if="showDeleteModal">
+      <div class="modal-content" style="max-width: 450px;">
+        <div class="modal-header">
+          <h2><i class="fa-solid fa-triangle-exclamation"></i> Confirmar Eliminación</h2>
+        </div>
+        <div class="modal-body">
+          <p>¿Estás seguro de que deseas eliminar la ficha técnica para "<strong>{{ sheetToDelete.product_name }}</strong>"?</p>
+          <p style="color: var(--c-danger); font-weight: 600;">Esta acción no se puede deshacer y el archivo PDF se borrará permanentemente.</p>
+        </div>
+        <div class="modal-footer">
+          <button @click="closeDeleteModal" class="btn-cancel">Cancelar</button>
+          <button @click="confirmDelete" class="btn-delete"><i class="fa-solid fa-trash-can"></i> Sí, eliminar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/fichas.js"></script> 
+</body>
+</html>
+

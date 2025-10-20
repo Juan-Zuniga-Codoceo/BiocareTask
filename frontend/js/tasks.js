@@ -60,7 +60,7 @@ createApp({
     const mentionQuery = ref('');
     const mentionNavIndex = ref(-1);
     const showUpdateModal = ref(false);
-    const APP_VERSION = "1.3.0";
+    const APP_VERSION = "1.4.0";
     const showCompleteModal = ref(false);
     const taskToComplete = ref(null);
     const completionFile = ref(null);

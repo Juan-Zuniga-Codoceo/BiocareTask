@@ -1,0 +1,183 @@
+/* frontend/css/fichas.css */
+
+.page-header {
+    border-bottom: 1px solid var(--c-border);
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+}
+
+.page-header h2 {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.sheet-controls {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 16px;
+    margin-bottom: 16px;
+    align-items: center;
+}
+
+.search-box input, .filters select {
+    width: 100%;
+    padding: 12px 16px;
+    border-radius: var(--radius);
+    border: 1px solid var(--c-border);
+    font-size: 15px;
+}
+.search-box { position: relative; }
+.search-box i { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--c-text-light); }
+.search-box input { padding-left: 44px; }
+
+.search-info {
+    margin-bottom: 24px;
+    font-size: 14px;
+    color: var(--c-text-light);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background-color: var(--c-panel-bg);
+    padding: 8px 12px;
+    border-radius: var(--radius);
+    border: 1px solid var(--c-border);
+}
+
+.btn-clear-filters {
+    color: var(--c-primary);
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+    margin-left: auto;
+}
+
+.sheets-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 20px;
+}
+
+.sheet-card {
+    background-color: var(--c-panel-bg);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    flex-direction: column;
+    transition: var(--transition);
+}
+
+.sheet-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-md);
+    border-color: var(--c-primary);
+}
+
+.sheet-card-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px;
+    border-bottom: 1px solid var(--c-border);
+}
+
+.sheet-icon {
+    font-size: 24px;
+    color: var(--c-danger);
+    flex-shrink: 0;
+}
+
+.sheet-title h3 {
+    font-size: 17px;
+    font-weight: 600;
+    margin: 0;
+}
+
+.sheet-title p {
+    font-size: 14px;
+    color: var(--c-text-light);
+    margin: 0;
+}
+
+.sheet-card-body {
+    padding: 16px;
+    flex-grow: 1;
+}
+
+.sheet-info {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--c-text-light);
+    margin-bottom: 12px;
+}
+
+.info-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.sheet-tags {
+    font-size: 13px;
+    color: var(--c-text);
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px dashed var(--c-border);
+}
+
+.sheet-card-footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 12px 16px;
+    background-color: #F8F9FA;
+    border-top: 1px solid var(--c-border);
+    border-radius: 0 0 var(--radius) var(--radius);
+}
+
+.btn-delete-sheet, .btn-download-sheet {
+    border: none;
+    padding: 8px 12px;
+    border-radius: var(--radius);
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: var(--transition);
+}
+
+.btn-delete-sheet {
+    background-color: transparent;
+    color: var(--c-text-light);
+}
+.btn-delete-sheet:hover {
+    color: var(--c-danger);
+    background-color: #fdedec;
+}
+
+.btn-download-sheet {
+    background-color: var(--c-primary);
+    color: white;
+    flex-grow: 1;
+    justify-content: center;
+}
+.btn-download-sheet:hover {
+    background-color: #0389b8;
+}
+
+.loading-state, .empty-state {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--c-text-light);
+}
+.loading-state i, .empty-state i {
+    font-size: 40px;
+    margin-bottom: 16px;
+    display: block;
+}

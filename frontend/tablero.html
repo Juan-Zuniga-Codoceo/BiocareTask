@@ -18,26 +18,21 @@
   <div id="app">
     <div class="overlay" v-if="mostrarNotificaciones" @click="toggleNotifications"></div>
     <header class="header">
-      <div class="header-left">
+    <div class="header-left">
         <div class="logo">
-          <img src="/assets/logo.png" alt="Biocare Logo" />
-          <h1><span class="biocare">Biocare</span><span class="task">Task</span></h1>
+            <img src="/assets/logo.png" alt="Biocare Logo" />
+            <h1><span class="biocare">Biocare</span><span class="task">Task</span></h1>
         </div>
-      </div>
-      <div class="header-right">
-        <div class="main-controls">
-          <div class="filters">
-            <label for="filtro-fecha" class="filter-label">Vencimiento:</label>
-            <input type="date" id="filtro-fecha" v-model="filtroFecha" />
+    </div>
 
-            <label class="filter-checkbox">
-              <input type="checkbox" v-model="misTareas" /> Mis Tareas
-            </label>
-          </div>
-          <button class="btn-create" @click="showModal = true">
-            <i class="fa-solid fa-plus"></i> Nueva Tarea
-          </button>
-        </div>
+    <div class="main-nav-container">
+        <nav class="main-nav">
+            <a href="/tablero.html" class="nav-link active" title="Tablero"><i class="fa-solid fa-table-columns"></i> <span>Tablero</span></a>
+            <a href="/fichas.html" class="nav-link" title="Fichas Técnicas"><i class="fa-solid fa-book-atlas"></i> <span>Fichas</span></a>
+        </nav>
+    </div>
+
+    <div class="header-right">
         <div class="user-actions">
           <div class="notifications">
             <button class="btn-icon" @click="toggleNotifications" title="Notificaciones">
@@ -80,23 +75,36 @@
           </div>
           <div class="user-menu">
             <div class="dropdown">
-              <button class="btn-icon" @click="toggleDropdown" title="Mi Perfil">
+              <button class="btn-icon" @click="toggleDropdown" title="Menú">
                 <i class="fa-solid fa-user-gear"></i>
               </button>
               <div class="dropdown-menu" v-if="showDropdown">
                 <button @click="toggleDropdown" class="btn-close-overlay">&times;</button>
                 <a href="/perfil.html"><i class="fa-solid fa-user"></i> Mi Perfil</a>
                 <a href="/archivadas.html"><i class="fa-solid fa-box-archive"></i> Tareas Archivadas</a>
-                <a href="/admin" v-if="user.role === 'admin'"><i class="fa-solid fa-users-cog"></i> Administración</a>
-                <a href="javascript:void(0)" @click="logout()"><i class="fa-solid fa-right-from-bracket"></i> Cerrar
-                  sesión</a>
+                <a href="/admin" v-if="user && user.role === 'admin'"><i class="fa-solid fa-users-cog"></i> Administración</a>
+                <a href="javascript:void(0)" @click="logout()"><i class="fa-solid fa-right-from-bracket"></i> Cerrar sesión</a>
               </div>
             </div>
-            <span class="user-name">{{ user.name }}</span>
+            <span v-if="user" class="user-name">{{ user.name }}</span>
           </div>
         </div>
-      </div>
-    </header>
+    </div>
+</header>
+
+<div class="controls-bar">
+    <div class="filters">
+        <label for="filtro-fecha" class="filter-label">Vencimiento:</label>
+        <input type="date" id="filtro-fecha" v-model="filtroFecha" />
+
+        <label class="filter-checkbox">
+            <input type="checkbox" v-model="misTareas" /> Mis Tareas
+        </label>
+    </div>
+    <button class="btn-create" @click="showModal = true">
+        <i class="fa-solid fa-plus"></i> Nueva Tarea
+    </button>
+</div>
 
     <main class="dashboard">
       <div class="summary">
